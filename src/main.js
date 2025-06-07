@@ -21,19 +21,42 @@ window.changeView = function(view) {
   const statusBar = document.getElementById('status-bar');
 
   if (mainPage && settingsPage && appHeader) {
-    mainPage.style.display = view === 'main' ? 'flex' : 'none';
-    settingsPage.style.display = view === 'settings' ? 'block' : 'none';
-    appHeader.style.display = view === 'main' ? 'block' : 'none';
+    if (view === 'main') {
+      // Show main page elements
+      mainPage.style.display = 'flex';
+      settingsPage.style.display = 'none';
+      appHeader.style.display = 'flex'; // Changed from 'block' to 'flex'
 
-    if (presetSelector) {
-      presetSelector.style.display = view === 'main' ? 'block' : 'none';
-    }
+      if (presetSelector) {
+        presetSelector.style.display = 'block';
+      }
+      if (statusBar) {
+        statusBar.style.display = 'block';
+      }
 
-    if (statusBar) {
-      statusBar.style.display = view === 'settings' ? 'none' : 'block';
+      // Force layout recalculation to prevent button displacement
+      setTimeout(() => {
+        appHeader.style.display = 'flex';
+        // Trigger reflow
+        appHeader.offsetHeight;
+      }, 0);
+
+    } else if (view === 'settings') {
+      // Show settings page
+      mainPage.style.display = 'none';
+      settingsPage.style.display = 'block';
+      appHeader.style.display = 'none';
+
+      if (presetSelector) {
+        presetSelector.style.display = 'none';
+      }
+      if (statusBar) {
+        statusBar.style.display = 'none';
+      }
     }
   }
 };
+
 
 window.changeDirectory = async function(type) {
   const statusBar = document.getElementById('status-bar');

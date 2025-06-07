@@ -33,11 +33,6 @@
   --accent-color: #4da6ff;
 }
 
-/* Adjusted dark mode for mod numbers to avoid overly blue */
-.dark-mode .mod-number {
-  background: #3b82f6; /* Softer blue for dark mode */
-}
-
 * {
   box-sizing: border-box;
 }
@@ -76,11 +71,15 @@ h1 {
   gap: 1rem;
   flex-shrink: 0;
   min-height: 50px;
+  width: 100%; /* Ensure full width */
+  position: relative; /* Add positioning context */
 }
+
 
 .search-bar {
   flex: 1;
-  min-width: 500px;
+  min-width: 200px; /* Reduced from 500px */
+  max-width: 500px; /* Add max width */
   padding: 0.8em 1.2em;
   font-size: 1em;
   font-weight: 500;
@@ -103,6 +102,8 @@ h1 {
   display: flex;
   gap: 0.5rem;
   flex-shrink: 0;
+  margin-left: auto; /* Force buttons to right side */
+  position: relative; /* Maintain position */
 }
 
 .buttons button {
@@ -115,7 +116,10 @@ h1 {
   color: var(--text-color);
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap; /* Prevent text wrapping */
+  min-width: fit-content; /* Ensure proper sizing */
 }
+
 
 .buttons button:hover {
   background: var(--button-hover);
@@ -132,10 +136,10 @@ h1 {
 }
 
 .preset-controls {
-  display: flex !important;
-  align-items: center !important;
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
-  justify-content: center !important;
+  justify-content: center;
   flex-wrap: nowrap;
 }
 
@@ -185,15 +189,27 @@ h1 {
   background: var(--card-bg);
 }
 
+.mod-count {
+  font-size: 0.9em;
+  color: var(--text-color);
+  margin-bottom: 1rem;
+  font-weight: 500;
+  text-align: left;
+}
+
 .mod-list ul {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.mod-list li {
-  padding: 0.8em 1em;
-  margin: 0.3em 0;
+/* Fixed Mod Item Layout */
+.mod-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75em 1em;
+  margin: 0.4em 0;
   background: var(--button-bg);
   cursor: move;
   border-radius: 6px;
@@ -203,31 +219,104 @@ h1 {
   font-size: 0.95em;
   border: 1px solid var(--border-color);
   transition: all 0.2s;
-  display: flex;
-  align-items: center;
+  color: var(--text-color);
+  min-height: 50px;
 }
 
-.mod-list li:hover {
+.mod-item:hover {
   background: var(--button-hover);
   border-color: var(--accent-color);
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.mod-list li span {
+.mod-number {
+  background: var(--accent-color);
+  color: white;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85em;
+  font-weight: bold;
+  flex-shrink: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.mod-item:hover .mod-number {
+  background: #0056b3;
+}
+
+.dark-mode .mod-item:hover .mod-number {
+  background: #3b82f6;
+}
+
+.mod-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+  min-width: 0; /* Allows text to truncate if needed */
+}
+
+.mod-name {
+  font-weight: 500;
+  color: var(--text-color);
+  line-height: 1.3;
+  margin: 0;
+}
+
+.mod-type {
   font-size: 0.8em;
-  color: #6c757d;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.mod-type.workshop {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+.mod-type.local {
+  color: #666;
   font-style: italic;
+}
+
+.dark-mode .mod-type.local {
+  color: #999;
+}
+
+.mod-checkbox {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  margin: 0;
+  accent-color: var(--accent-color);
+  transition: transform 0.2s;
+}
+
+.mod-checkbox:hover {
+  transform: scale(1.1);
+}
+
+.mod-checkbox:focus {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
 }
 
 .sortable-ghost {
   opacity: 0.4;
   background: #c8ebfb !important;
-  transform: rotate(2deg);
+  transform: rotate(1deg);
 }
 
 .sidebar {
   flex: 1;
+  max-width: 250px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1rem;
@@ -287,23 +376,6 @@ h1 {
   border-right: none;
 }
 
-.split-btn-arrow {
-  flex: 0 0 auto;
-  width: 40px;
-  padding: 0.8em 0.5em;
-  font-size: 1em;
-  border: 1px solid var(--border-color);
-  border-radius: 0 6px 6px 0;
-  background: var(--button-bg);
-  color: var(--text-color);
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-left: 1px solid var(--accent-color);
-}
-
 .split-btn-steam {
   flex: 0 0 40px;
   padding: 0.8em 0.5em;
@@ -321,7 +393,6 @@ h1 {
 }
 
 .split-btn-main:hover,
-.split-btn-arrow:hover,
 .split-btn-steam:hover {
   background: var(--button-hover);
   border-color: var(--accent-color);
@@ -533,15 +604,37 @@ input:checked + .slider:before {
   z-index: 100;
 }
 
-.container > * {
-  flex-shrink: 0;
+/* Status bar phrase animations */
+.hamis-phrase {
+  color: #ff6b6b !important;
+  font-weight: bold;
+  text-shadow: 0 0 5px rgba(255, 107, 107, 0.3);
+  animation: hamis-glow 2s ease-in-out infinite alternate;
 }
 
-.main-content {
-  flex: 1;
-  min-height: 0;
+@keyframes hamis-glow {
+  from { text-shadow: 0 0 5px rgba(255, 107, 107, 0.3); }
+  to { text-shadow: 0 0 10px rgba(255, 107, 107, 0.6); }
 }
 
+.ready-phrase {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+.excitement-phrase {
+  color: #4ecdc4 !important;
+  font-weight: bold;
+  animation: bounce 0.5s ease-in-out;
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-3px); }
+  60% { transform: translateY(-2px); }
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
   .container {
     padding: 0.5rem;
@@ -572,6 +665,10 @@ input:checked + .slider:before {
     flex: none;
   }
 
+  .sidebar {
+    max-width: none;
+  }
+
   .settings-page {
     padding: 1rem;
   }
@@ -596,220 +693,14 @@ input:checked + .slider:before {
     padding: 0.3em 0.5em;
   }
 
-  .split-btn-steam img {
-    width: 12px !important;
-    height: 12px !important;
-  }
-
-  .split-btn-steam {
-    flex: 0 0 40px;
-    width: 40px !important;
-    padding: 0.8em 0.3em;
-    font-size: 1em;
-    border: 1px solid var(--border-color);
-    border-radius: 0 6px 6px 0;
-    background: var(--button-bg);
-    color: var(--text-color);
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-left: 1px solid var(--accent-color);
-  }
-
   .mod-item {
-    display: flex !important;
-    align-items: flex-start;
-    gap: 0.5rem;
     padding: 0.6em 0.8em;
-    margin: 0.2em 0;
-    background: var(--button-bg);
-    cursor: move;
-    border-radius: 6px;
-    user-select: none;
-    touch-action: none;
-    position: relative;
-    font-size: 0.95em;
-    border: 1px solid var(--border-color);
-    transition: all 0.2s;
-    color: var(--text-color);
-    min-height: 40px;
-  }
-
-  .mod-item:hover {
-    background: var(--button-hover);
-    border-color: var(--accent-color);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  .mod-item:hover .mod-number {
-    background: #0056b3;
-  }
-
-  .dark-mode .mod-item:hover .mod-number {
-    background: #3b82f6; /* Consistent with base dark mode color */
-  }
-
-  .mod-checkbox {
-    order: 4;
-    flex-shrink: 0;
-    width: 18px !important;
-    height: 18px !important;
-    cursor: pointer;
-    margin: 0;
-    transform: none;
-    accent-color: var(--accent-color);
-  }
-
-  .mod-checkbox:hover {
-    transform: scale(1.3);
-  }
-
-  .mod-checkbox:focus {
-    outline: 2px solid var(--accent-color);
-    outline-offset: 2px;
+    gap: 0.8rem;
   }
 
   .mod-number {
-    order: 1;
-    background: var(--accent-color);
-    color: white;
-    border-radius: 3px;
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 24px;
+    height: 24px;
     font-size: 0.8em;
-    font-weight: bold;
-    flex-shrink: 0;
-    margin: 0 0.5em 0 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  }
-
-  .mod-info {
-    order: 3;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    text-align: left;
-    margin: 0;
-  }
-
-  .mod-name {
-    font-weight: 400;
-    color: var(--text-color);
-    line-height: 1.2;
-  }
-
-  .mod-type {
-    font-size: 0.8em;
-    color: #6c757d;
-    font-style: italic;
-    line-height: 1.1;
-  }
-
-  .dark-mode .mod-type.workshop {
-    color: var(--accent-color); /* Blue for workshop IDs in dark mode */
-  }
-
-  .dark-mode .mod-type.local {
-    color: #a0a0a0; /* Gray for local mods in dark mode */
-  }
-
-  .preset-timer {
-    text-align: center;
-    font-size: 0.8em;
-    color: #6c757d;
-    margin-top: 0.5rem;
-    font-style: italic;
-  }
-
-  .modal {
-    position: fixed;
-    z-index: 2000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .modal-content {
-    background-color: var(--card-bg);
-    padding: 2rem;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    max-width: 400px;
-    text-align: center;
-  }
-
-  .modal-content h3 {
-    margin-top: 0;
-    color: var(--text-color);
-  }
-
-  .modal-content p {
-    color: var(--text-color);
-    margin: 1rem 0;
-  }
-
-  .modal-buttons {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-  }
-
-  .modal-buttons button {
-    padding: 0.8em 1.5em;
-    font-size: 1em;
-    font-weight: 500;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    background: var(--button-bg);
-    color: var(--text-color);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .modal-buttons button:hover {
-    background: var(--button-hover);
-    border-color: var(--accent-color);
-  }
-
-  /* Hamis phrase styling */
-  .hamis-phrase {
-    color: #ff6b6b !important;
-    font-weight: bold;
-    text-shadow: 0 0 5px rgba(255, 107, 107, 0.3);
-    animation: hamis-glow 2s ease-in-out infinite alternate;
-  }
-
-  @keyframes hamis-glow {
-    from { text-shadow: 0 0 5px rgba(255, 107, 107, 0.3); }
-    to { text-shadow: 0 0 10px rgba(255, 107, 107, 0.6); }
-  }
-
-  .ready-phrase {
-    color: var(--accent-color);
-    font-weight: 500;
-  }
-
-  .excitement-phrase {
-    color: #4ecdc4 !important;
-    font-weight: bold;
-    animation: bounce 0.5s ease-in-out;
-  }
-
-  @keyframes bounce {
-    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-    40% { transform: translateY(-3px); }
-    60% { transform: translateY(-2px); }
   }
 }
