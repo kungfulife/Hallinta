@@ -1,3 +1,5 @@
+let isDarkMode = false;
+
 window.changeView = function(view) {
   const mainPage = document.getElementById('main-page');
   const settingsPage = document.getElementById('settings-page');
@@ -14,7 +16,6 @@ window.changeView = function(view) {
       presetSelector.style.display = view === 'main' ? 'block' : 'none';
     }
 
-    // Hide status bar during settings view
     if (statusBar) {
       statusBar.style.display = view === 'settings' ? 'none' : 'block';
     }
@@ -91,25 +92,14 @@ window.saveAndClose = async function() {
     const noitaDir = document.getElementById('noita-dir').value;
     const entangledDir = document.getElementById('entangled-dir').value;
 
-    if (window.__TAURI__ && window.__TAURI__.fs && window.__TAURI__.path && window.__TAURI__.core) {
-      const config = { noitaDir, entangledDir };
-
-      try {
-        // Get executable directory
-        const exeDir = await window.__TAURI__.core.invoke('get_exe_dir');
-        const configPath = await window.__TAURI__.path.join(exeDir, 'Halinta.config');
-
-        // Write config file next to executable
-        await window.__TAURI__.fs.writeTextFile(configPath, JSON.stringify(config, null, 2));
-        statusBar.textContent = `Configuration saved successfully`;
-      } catch (saveError) {
-        console.error('Save error:', saveError);
-        statusBar.textContent = `Error saving configuration: ${saveError.message}`;
-      }
-    } else {
-      console.log('Mock: Saved config', { noitaDir, entangledDir });
-      statusBar.textContent = `Mock: Configuration saved`;
-    }
+    // Save config using localStorage for now (mock implementation)
+    const config = {
+      noitaDir,
+      entangledDir,
+      darkMode: isDarkMode
+    };
+    localStorage.setItem('halinta-config', JSON.stringify(config));
+    statusBar.textContent = `Configuration saved successfully`;
 
     changeView('main');
   } catch (error) {
@@ -119,32 +109,55 @@ window.saveAndClose = async function() {
   }
 };
 
-// Load configuration on app start
 window.loadConfig = async function() {
   try {
-    if (window.__TAURI__ && window.__TAURI__.fs && window.__TAURI__.path) {
-      const exeDir = await window.__TAURI__.core.invoke('get_exe_dir');
-      const configPath = await window.__TAURI__.path.join(exeDir, 'Halinta.config');
+    const configStr = localStorage.getItem('halinta-config');
+    if (configStr) {
+      const config = JSON.parse(configStr);
 
-      try {
-        const configContent = await window.__TAURI__.fs.readTextFile(configPath);
-        const config = JSON.parse(configContent);
-
-        if (config.noitaDir) {
-          document.getElementById('noita-dir').value = config.noitaDir;
-        }
-        if (config.entangledDir) {
-          document.getElementById('entangled-dir').value = config.entangledDir;
-        }
-
-        console.log('Configuration loaded successfully');
-      } catch (readError) {
-        console.log('No existing configuration found, using defaults');
+      if (config.noitaDir) {
+        document.getElementById('noita-dir').value = config.noitaDir;
       }
+      if (config.entangledDir) {
+        document.getElementById('entangled-dir').value = config.entangledDir;
+      }
+      if (config.darkMode !== undefined) {
+        isDarkMode = config.darkMode;
+        document.getElementById('dark-mode-checkbox').checked = isDarkMode;
+        applyDarkMode();
+      }
+
+      console.log('Configuration loaded successfully');
     }
   } catch (error) {
     console.error('Error loading configuration:', error);
   }
+};
+
+// Dark Mode Functions
+window.toggleDarkMode = function() {
+  const checkbox = document.getElementById('dark-mode-checkbox');
+  isDarkMode = checkbox.checked;
+  applyDarkMode();
+};
+
+function applyDarkMode() {
+  if (isDarkMode) {
+    document.body.classList.add('dark-mode');
+  } else {
+    document.body.classList.remove('dark-mode');
+  }
+}
+
+// Split Button Functions
+window.importRegular = function() {
+  const statusBar = document.getElementById('status-bar');
+  statusBar.textContent = 'Regular import clicked';
+};
+
+window.importSteam = function() {
+  const statusBar = document.getElementById('status-bar');
+  statusBar.textContent = 'Steam import clicked';
 };
 
 // Preset Management Functions
@@ -199,7 +212,6 @@ window.deleteCurrentPreset = function() {
     return;
   }
 
-  // Use window.confirm instead of Tauri dialog for simple confirmations
   if (window.confirm(`Delete preset "${selectedPreset}"?`)) {
     const index = currentPresets.indexOf(selectedPreset);
     if (index > -1) {
@@ -232,10 +244,7 @@ window.renameCurrentPreset = function() {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Load configuration first
   loadConfig();
-
-  // Initialize presets
   loadPresets();
 
   const list = document.getElementById('mod-list');
