@@ -6,13 +6,14 @@
   <title>Halinta</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script src="phraseManager.js"></script>
   <script src="main.js" defer></script>
 </head>
 <body>
 <div class="container">
   <h1>Halinta</h1>
   <div class="header" id="app-header">
-    <input type="text" class="search-bar" placeholder="Filter Mods by name...">
+    <input type="text" class="search-bar" placeholder="Filter Mods by name..." oninput="filterMods()">
     <div class="buttons">
       <button onclick="changeView('settings')">Settings</button>
     </div>
@@ -28,33 +29,34 @@
 
   <div class="main-content" id="main-page">
     <div class="mod-list">
+      <div class="mod-count" id="mod-count">Total Mods: 0</div>
       <ul id="mod-list">
-        <li>Example Mod <span>(Local Mod)</span></li>
-        <li>Example Mod ID: 125893737 <span>(Workshop ID: 125893737)</span></li>
-        <li>Example Mod ID: 2358374523 <span>(Workshop ID: 2358374523)</span></li>
+        <!-- Mods will be dynamically loaded here -->
       </ul>
     </div>
 
     <div class="sidebar">
       <div class="split-button">
         <button class="split-btn-main" onclick="importRegular()">Import</button>
-        <button class="split-btn-arrow" onclick="importSteam()">
+        <button class="split-btn-steam" onclick="importSteam()">
           <img src="assets/steam-icon.png" alt="Steam" width="16" height="16">
         </button>
       </div>
-      <button>Export</button>
+      <button onclick="exportModList()">Export</button>
       <button class="download-missing disabled" disabled>Download Missing</button>
 
       <hr class="sidebar-separator">
 
-      <button>Restore Backup</button>
-      <button>Backup Monitor</button>
+      <button onclick="restoreBackup()">Restore Backup</button>
+      <button onclick="startBackupMonitor()">
+        <span id="backup-status">Start Backup</span>
+      </button>
     </div>
   </div>
 
   <div class="settings-page" id="settings-page">
-    <h2>Noita Directory</h2>
-    <input type="text" id="noita-dir" placeholder="Enter Noita directory">
+    <h2>Noita Saved Data Directory</h2>
+    <input type="text" id="noita-dir" placeholder="Enter Noita save directory (save00 folder)">
     <div class="button-group">
       <button onclick="changeDirectory('noita')">Change</button>
       <button onclick="openDirectory('noita')">Open</button>
@@ -87,10 +89,11 @@
   </div>
 
   <div id="context-menu" class="context-menu">
-    <button>Disable</button>
-    <button>Reorder</button>
-    <button>Delete</button>
-    <button>Workshop</button>
+    <button onclick="toggleModEnabled()">Enable/Disable</button>
+    <button onclick="reorderMod()">Reorder</button>
+    <button onclick="deleteMod()">Delete</button>
+    <button onclick="openWorkshop()">Open Workshop Link</button>
+    <button onclick="copyWorkshopLink()">Copy Workshop Link</button>
   </div>
 
   <div class="status-bar" id="status-bar">Ready - Loaded from Noita XML file</div>
