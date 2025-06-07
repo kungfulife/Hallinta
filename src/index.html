@@ -1,39 +1,62 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="stylesheet" href="styles.css" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tauri App</title>
-    <script type="module" src="/main.js" defer></script>
-  </head>
-
-  <body>
-    <main class="container">
-      <h1>Welcome to Tauri</h1>
-
-      <div class="row">
-        <a href="https://tauri.app" target="_blank">
-          <img src="/assets/tauri.svg" class="logo tauri" alt="Tauri logo" />
-        </a>
-        <a
-          href="https://developer.mozilla.org/en-US/docs/Web/JavaScript"
-          target="_blank"
-        >
-          <img
-            src="/assets/javascript.svg"
-            class="logo vanilla"
-            alt="JavaScript logo"
-          />
-        </a>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Halinta</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script src="main.js" defer></script>
+</head>
+<body>
+<div class="container">
+  <h1>Halinta: A Multi-purpose mod manager for Noita</h1>
+  <div class="row">
+    <div class="header">
+      <div class="buttons">
+        <input type="text" class="search-bar" placeholder="Filter Mods by name...">
+        <button onclick="changeView('main')">Preset</button>
+        <button onclick="changeView('default')">Default</button>
+        <button onclick="changeView('settings')">Settings</button>
       </div>
-      <p>Click on the Tauri logo to learn more about the framework</p>
+    </div>
+  </div>
 
-      <form class="row" id="greet-form">
-        <input id="greet-input" placeholder="Enter a name..." />
-        <button type="submit">Greet</button>
-      </form>
-      <p id="greet-msg"></p>
-    </main>
-  </body>
+  <div class="main-content">
+    <div class="mod-list" id="main-page">
+      <ul id="mod-list">
+        <li>Example Mod <span>(Local Mod)</span></li>
+        <li>Example Mod ID: 125893737 <span>(Workshop ID: 125893737)</span></li>
+        <li>Example Mod ID: 2358374523 <span>(Workshop ID: 2358374523)</span></li>
+      </ul>
+    </div>
+
+    <div class="sidebar">
+      <button>Import</button>
+      <button>Export</button>
+      <button>Backup Monitor</button>
+      <button>Restore Backup</button>
+      <button>Download Missing</button>
+    </div>
+  </div>
+
+  <div class="settings-page" id="settings-page">
+    <h2>Noita Directory</h2>
+    <input type="text" value="C:\Users\user\AppData\LocalLow\Noita\Noita\save00\mod_config.xml" readonly>
+    <button>Open Folder</button>
+    <h2>Entangled Worlds Directory</h2>
+    <input type="text" value="C:\Users\user\Desktop\noita-proxy-win" readonly>
+    <button>Open Folder</button>
+    <button>Reset to defaults</button>
+    <button onclick="changeView('main')">Save & Close</button>
+  </div>
+
+  <div id="context-menu" class="context-menu">
+    <button>Disable</button>
+    <button>Reorder</button>
+    <button>Delete</button>
+    <button>Workshop</button>
+  </div>
+</div>
+</body>
 </html>

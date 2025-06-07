@@ -1,18 +1,31 @@
-const { invoke } = window.__TAURI__.core;
-
-let greetInputEl;
-let greetMsgEl;
-
-async function greet() {
-  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-  greetMsgEl.textContent = await invoke("greet", { name: greetInputEl.value });
-}
-
-window.addEventListener("DOMContentLoaded", () => {
-  greetInputEl = document.querySelector("#greet-input");
-  greetMsgEl = document.querySelector("#greet-msg");
-  document.querySelector("#greet-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    greet();
+document.addEventListener('DOMContentLoaded', () => {
+  const list = document.getElementById('mod-list');
+  new Sortable(list, {
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    forceFallback: true,
+    onEnd: (evt) => {
+      console.log(`Moved item from ${evt.oldIndex} to ${evt.newIndex}`);
+      const items = Array.from(list.children).map(item => item.textContent);
+      console.log('New order:', items);
+    },
+    onMove: () => true,
   });
+
+  let currentView = 'main';
+  window.changeView = function(view) {
+    document.getElementById('main-page').style.display = view === 'main' ? 'block' : 'none';
+    document.getElementById('settings-page').style.display = view === 'settings' ? 'block' : 'none';
+    currentView = view;
+  };
+
+  const contextMenu = document.getElementById('context-menu');
+  list.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    contextMenu.style.display = 'block';
+    contextMenu.style.left = e.pageX + 'px';
+    contextMenu.style.top = e.pageY + 'px';
+  });
+
+  document.addEventListener('click', () => contextMenu.style.display = 'none');
 });
