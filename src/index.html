@@ -14,7 +14,6 @@
   <div class="header" id="app-header">
     <input type="text" class="search-bar" placeholder="Filter Mods by name...">
     <div class="buttons">
-      <button onclick="changeView('main')">Preset</button>
       <button onclick="changeView('settings')">Settings</button>
     </div>
   </div>
@@ -37,11 +36,19 @@
     </div>
 
     <div class="sidebar">
-      <button class="import-btn">Import <img src="assets/steam-icon.png" alt="Steam" width="24" height="24"></button>
+      <div class="split-button">
+        <button class="split-btn-main" onclick="importRegular()">Import</button>
+        <button class="split-btn-arrow" onclick="importSteam()">
+          <img src="assets/steam-icon.png" alt="Steam" width="16" height="16">
+        </button>
+      </div>
       <button>Export</button>
-      <button>Backup Monitor</button>
+      <button class="download-missing disabled" disabled>Download Missing</button>
+
+      <hr class="sidebar-separator">
+
       <button>Restore Backup</button>
-      <button class="download-missing">Download Missing</button>
+      <button>Backup Monitor</button>
     </div>
   </div>
 
@@ -58,6 +65,18 @@
     <div class="button-group">
       <button onclick="changeDirectory('entangled')">Change</button>
       <button onclick="openDirectory('entangled')">Open</button>
+    </div>
+
+    <h2>Appearance</h2>
+    <div class="dark-mode-toggle">
+      <label class="toggle-switch">
+        <input type="checkbox" id="dark-mode-checkbox" onchange="toggleDarkMode()">
+        <span class="slider">
+          <span class="toggle-text">🌙</span>
+          <span class="toggle-text">☀️</span>
+        </span>
+      </label>
+      <span class="toggle-label">Dark Mode</span>
     </div>
 
     <div class="button-group">
