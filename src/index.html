@@ -5,25 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Halinta</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script type="text/javascript" src="./tauri.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script src="main.js" defer></script>
 </head>
 <body>
 <div class="container">
-  <h1>Halinta: A Multi-purpose mod manager for Noita</h1>
-  <div class="row">
-    <div class="header">
-      <div class="buttons">
-        <input type="text" class="search-bar" placeholder="Filter Mods by name...">
-        <button onclick="changeView('main')">Preset</button>
-        <button onclick="changeView('default')">Default</button>
-        <button onclick="changeView('settings')">Settings</button>
-      </div>
+  <h1>Halinta</h1>
+  <div class="header" id="app-header">
+    <div class="buttons">
+      <input type="text" class="search-bar" placeholder="Filter Mods by name...">
+      <button onclick="changeView('main')">Preset</button>
+      <button onclick="changeView('default')">Default</button>
+      <button onclick="changeView('settings')">Settings</button>
     </div>
   </div>
 
-  <div class="main-content">
-    <div class="mod-list" id="main-page">
+  <div class="main-content" id="main-page">
+    <div class="mod-list">
       <ul id="mod-list">
         <li>Example Mod <span>(Local Mod)</span></li>
         <li>Example Mod ID: 125893737 <span>(Workshop ID: 125893737)</span></li>
@@ -32,23 +31,26 @@
     </div>
 
     <div class="sidebar">
-      <button>Import</button>
+      <button class="import-btn">Import <img src="assets/steam-icon.png" alt="Steam" width="32" height="32"></button>
       <button>Export</button>
       <button>Backup Monitor</button>
       <button>Restore Backup</button>
-      <button>Download Missing</button>
+      <button class="download-missing">Download Missing</button>
     </div>
+    <div class="status-bar" id="status-bar">Ready - Loaded from Noita XML file</div>
   </div>
 
   <div class="settings-page" id="settings-page">
     <h2>Noita Directory</h2>
-    <input type="text" value="C:\Users\user\AppData\LocalLow\Noita\Noita\save00\mod_config.xml" readonly>
-    <button>Open Folder</button>
+    <input type="text" id="noita-dir" placeholder="Enter Noita directory">
+    <button onclick="changeDirectory('noita')">Change</button>
+    <button onclick="openDirectory('noita')">Open</button>
     <h2>Entangled Worlds Directory</h2>
-    <input type="text" value="C:\Users\user\Desktop\noita-proxy-win" readonly>
-    <button>Open Folder</button>
-    <button>Reset to defaults</button>
-    <button onclick="changeView('main')">Save & Close</button>
+    <input type="text" id="entangled-dir" placeholder="Enter Entangled Worlds directory">
+    <button onclick="changeDirectory('entangled')">Change</button>
+    <button onclick="openDirectory('entangled')">Open</button>
+    <button onclick="resetToDefaults()">Reset to defaults</button>
+    <button id="save-close-btn" onclick="saveAndClose()">Save & Close</button>
   </div>
 
   <div id="context-menu" class="context-menu">
