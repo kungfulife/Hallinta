@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Halinta</title>
+  <title>Hallinta</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script src="phraseManager.js"></script>
@@ -11,7 +11,7 @@
 </head>
 <body>
 <div class="container">
-  <h1>Halinta</h1>
+  <h1>Hallinta</h1>
   <div class="header" id="app-header">
     <input type="text" class="search-bar" placeholder="Filter Mods by name..." oninput="filterMods()">
     <div class="buttons">
@@ -38,18 +38,19 @@
     <div class="sidebar">
       <div class="split-button">
         <button class="split-btn-main" onclick="importRegular()">Import</button>
-        <button class="split-btn-steam" onclick="importSteam()">
-          <img src="assets/steam-icon.png" alt="Steam" width="16" height="16">
-        </button>
+<!--        <button class="split-btn-steam disabled" onclick="importSteam()">-->
+<!--          <img src="assets/steam-icon.png" alt="Steam" width="16" height="16">-->
+<!--        </button>-->
       </div>
       <button onclick="exportModList()">Export</button>
-      <button class="download-missing disabled" disabled>Download Missing</button>
+<!--      <button class="download-missing disabled">Download Missing</button>-->
 
       <hr class="sidebar-separator">
 
       <button onclick="restoreBackup()">Restore Backup</button>
-      <button onclick="startBackupMonitor()">
-        <span id="backup-status">Start Backup</span>
+      <button onclick="createBackup()">Create Backup</button>
+      <button onclick="backupMonitor()">
+        <span id="backup-monitor-status">Back up Monitor</span>
       </button>
     </div>
   </div>

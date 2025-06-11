@@ -1,12 +1,7 @@
 let isDarkMode = false;
 let currentMods = [];
-let selectedModIndex = -1;
-let lastChangeTime = null;
-let timerInterval = null;
-let fileWatcher = null;
 let isAppFocused = true;
 let lastKnownModOrder = [];
-let isBackupRunning = false;
 let phraseManager;
 
 // Preset Management
@@ -83,26 +78,8 @@ window.changeDirectory = async function(type) {
   }
 };
 
-window.openDirectory = async function(type) {
-  const statusBar = document.getElementById('status-bar');
-  try {
-    if (window.__TAURI__ && window.__TAURI__.shell) {
-      const dir = document.getElementById(type + '-dir').value;
-      if (dir) {
-        await window.__TAURI__.shell.open(dir);
-        statusBar.textContent = `Opened ${type} directory: ${dir}`;
-      } else {
-        statusBar.textContent = `No directory set for ${type}`;
-      }
-    } else {
-      console.log(`Mock: Open directory for ${type}`);
-      statusBar.textContent = `Mock: Opened ${type} directory`;
-    }
-  } catch (error) {
-    console.error('Directory open error:', error);
-    statusBar.textContent = `Error opening directory: ${error.message}`;
-  }
-};
+// TODO
+window.openDirectory = async function(type) {};
 
 window.resetToDefaults = async function() {
   const statusBar = document.getElementById('status-bar');
@@ -159,9 +136,6 @@ window.saveAndClose = async function() {
         console.error('Save error:', error);
         statusBar.textContent = `Error saving configuration: ${error.message}`;
       }
-    } else {
-      console.log('Mock: Saved config');
-      statusBar.textContent = `Mock: Configuration saved`;
     }
 
     changeView('main');
@@ -181,31 +155,11 @@ async function loadModConfigFromDirectory(directory) {
       parseModConfig(xmlContent, true);
       statusBar.textContent = `Loaded ${currentMods.length} mods from mod_config.xml`;
       updateModCount();
-    } else {
-      loadMockModData();
     }
   } catch (error) {
     console.error('Error loading mod config:', error);
     statusBar.textContent = `Error loading mod_config.xml: ${error.message}`;
-    loadMockModData();
   }
-}
-
-function loadMockModData() {
-  currentMods = [
-    { name: 'quant.ew', enabled: false, workshopId: '0', settingsFoldOpen: true, index: 0 },
-    { name: 'bruh', enabled: false, workshopId: '2362171854', settingsFoldOpen: false, index: 1 },
-    { name: 'advanced_map', enabled: false, workshopId: '2620256258', settingsFoldOpen: false, index: 2 },
-    { name: 'more-stuff', enabled: false, workshopId: '2910427839', settingsFoldOpen: false, index: 3 },
-    { name: 'boss_reworks', enabled: false, workshopId: '3235530450', settingsFoldOpen: false, index: 4 },
-    { name: 'Apotheosis', enabled: false, workshopId: '3032128572', settingsFoldOpen: true, index: 5 }
-  ];
-
-  lastKnownModOrder = [...currentMods];
-  currentPresets[selectedPreset] = [...currentMods];
-  renderModList();
-  updateModCount();
-  document.getElementById('status-bar').textContent = `Loaded ${currentMods.length} mods (mock data)`;
 }
 
 function parseModConfig(xmlContent, isInitialLoad = false) {
@@ -235,7 +189,6 @@ function parseModConfig(xmlContent, isInitialLoad = false) {
   } catch (error) {
     console.error('Error parsing XML:', error);
     document.getElementById('status-bar').textContent = `Error parsing XML: ${error.message}`;
-    loadMockModData();
   }
 }
 
@@ -321,10 +274,6 @@ window.toggleModAtIndex = function(index) {
 async function saveModConfigToFile() {
   try {
     const noitaDir = document.getElementById('noita-dir').value;
-    if (!noitaDir || !window.__TAURI__) {
-      console.log('Mock: Saving mod config');
-      return;
-    }
 
     const xmlContent = generateModConfigXML();
     await window.__TAURI__.core.invoke('write_mod_config', {
@@ -432,10 +381,8 @@ window.exportModList = async function() {
       URL.revokeObjectURL(url);
 
       document.getElementById('status-bar').textContent = `Exported ${selectedPreset} mod list`;
-    } else {
-      console.log('Mock: Export mod list');
-      document.getElementById('status-bar').textContent = 'Mock: Exported mod list';
     }
+
   } catch (error) {
     console.error('Export error:', error);
     document.getElementById('status-bar').textContent = `Error exporting: ${error.message}`;
@@ -443,45 +390,23 @@ window.exportModList = async function() {
 };
 
 // Backup Functions
-window.startBackupMonitor = async function() {
-  const button = document.getElementById('backup-status');
 
-  if (!isBackupRunning) {
-    try {
-      if (window.__TAURI__ && window.__TAURI__.core) {
-        await window.__TAURI__.core.invoke('create_backup_folder');
-        isBackupRunning = true;
-        button.textContent = 'Pause Backup';
-        document.getElementById('status-bar').textContent = 'Backup monitoring started';
-      } else {
-        console.log('Mock: Start backup monitoring');
-        isBackupRunning = true;
-        button.textContent = 'Pause Backup';
-        document.getElementById('status-bar').textContent = 'Mock: Backup monitoring started';
-      }
-    } catch (error) {
-      console.error('Backup error:', error);
-      document.getElementById('status-bar').textContent = `Error starting backup: ${error.message}`;
-    }
-  } else {
-    isBackupRunning = false;
-    button.textContent = 'Start Backup';
-    document.getElementById('status-bar').textContent = 'Backup monitoring paused';
-  }
-};
+// TODO
+window.backupMonitor = async function() {};
 
-window.restoreBackup = function() {
-  document.getElementById('status-bar').textContent = 'Restore backup functionality coming soon';
-};
+// TODO
+window.restoreBackup = function() {};
+
+// TODO
+window.createBackup = function() {};
 
 // Split Button Functions
-window.importRegular = function() {
-  document.getElementById('status-bar').textContent = 'Regular import clicked';
-};
 
-window.importSteam = function() {
-  document.getElementById('status-bar').textContent = 'Steam import clicked';
-};
+// TODO
+window.importRegular = function() {};
+
+// TODO
+window.importSteam = function() {};
 
 // Dark Mode
 window.toggleDarkMode = function() {
@@ -615,8 +540,6 @@ window.loadConfig = async function() {
 
         if (settings.noita_dir) {
           await loadModConfigFromDirectory(settings.noita_dir);
-        } else {
-          loadMockModData();
         }
 
         console.log('Configuration loaded successfully');
@@ -648,15 +571,11 @@ window.loadConfig = async function() {
           document.getElementById('status-bar').textContent = 'Created default configuration';
         } catch (saveError) {
           console.error('Error creating defaults:', saveError);
-          loadMockModData();
         }
       }
-    } else {
-      loadMockModData();
     }
   } catch (error) {
     console.error('Error loading configuration:', error);
-    loadMockModData();
   }
 };
 

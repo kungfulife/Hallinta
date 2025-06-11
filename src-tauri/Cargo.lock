@@ -1432,7 +1432,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "halinta"
+name = "hallinta"
 version = "0.1.0"
 dependencies = [
  "chrono",

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "halinta",
+  "productName": "hallinta",
   "version": "0.1.0",
-  "identifier": "com.halinta.app",
+  "identifier": "com.hallinta.app",
   "build": {
     "frontendDist": "../src"
   },
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Halinta - Noita Mod Manager",
+        "title": "Hallinta - Noita Mod Manager",
         "width": 1000,
         "height": 700,
         "minWidth": 800,
