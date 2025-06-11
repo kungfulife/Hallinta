@@ -71,15 +71,15 @@ h1 {
   gap: 1rem;
   flex-shrink: 0;
   min-height: 50px;
-  width: 100%; /* Ensure full width */
-  position: relative; /* Add positioning context */
+  width: 100%;
+  position: relative;
 }
 
 
 .search-bar {
   flex: 1;
-  min-width: 200px; /* Reduced from 500px */
-  max-width: 500px; /* Add max width */
+  min-width: 200px;
+  max-width: 500px;
   padding: 0.8em 1.2em;
   font-size: 1em;
   font-weight: 500;
@@ -102,8 +102,8 @@ h1 {
   display: flex;
   gap: 0.5rem;
   flex-shrink: 0;
-  margin-left: auto; /* Force buttons to right side */
-  position: relative; /* Maintain position */
+  margin-left: auto;
+  position: relative;
 }
 
 .buttons button {
@@ -116,8 +116,8 @@ h1 {
   color: var(--text-color);
   cursor: pointer;
   transition: all 0.2s;
-  white-space: nowrap; /* Prevent text wrapping */
-  min-width: fit-content; /* Ensure proper sizing */
+  white-space: nowrap;
+  min-width: fit-content;
 }
 
 
@@ -203,7 +203,6 @@ h1 {
   margin: 0;
 }
 
-/* Fixed Mod Item Layout */
 .mod-item {
   display: flex;
   align-items: center;
@@ -259,7 +258,7 @@ h1 {
   flex-direction: column;
   gap: 0.2rem;
   text-align: left;
-  min-width: 0; /* Allows text to truncate if needed */
+  min-width: 0;
 }
 
 .mod-name {
@@ -604,7 +603,6 @@ input:checked + .slider:before {
   z-index: 100;
 }
 
-/* Status bar phrase animations */
 .hamis-phrase {
   color: #ff6b6b !important;
   font-weight: bold;
@@ -634,7 +632,6 @@ input:checked + .slider:before {
   60% { transform: translateY(-2px); }
 }
 
-/* Responsive Design */
 @media (max-width: 768px) {
   .container {
     padding: 0.5rem;

@@ -1,4 +1,4 @@
 // src/main.rs
 fn main() {
-    halinta_lib::run();
+    hallinta_lib::run();
 }
