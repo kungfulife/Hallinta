@@ -33,17 +33,42 @@ window.openWorkshop = () => uiManager.openWorkshop();
 window.copyWorkshopLink = () => uiManager.copyWorkshopLink();
 
 document.addEventListener('DOMContentLoaded', async () => {
+    const isDev = window.__TAURI__ && await window.__TAURI__.core.invoke('is_dev_build');
 
     // Light Dev Tool Restriction
-    const isDev = window.__TAURI__ && await window.__TAURI__.core.invoke('is_dev_build');
-    if (!isDev) {
-        document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey && e.key === 'r') || e.key === 'F12' || e.key === 'F5') {
-                e.preventDefault();
-            }
-        });
-        document.addEventListener('contextmenu', event => event.preventDefault());
-    }
+    document.addEventListener('keydown', (e) => {
+        if (isDev) return;
+        if ((e.ctrlKey && e.key === 'r') || e.key === 'F5') {
+            e.preventDefault();
+        }
+    });
+    document.addEventListener('contextmenu', event => {
+        if (isDev) return;
+        const isOnModItem = !!event.target.closest('.mod-item');
+        if (!isOnModItem) {
+            event.preventDefault(); // block all other right-clicks
+        }
+    });
+
+    // 2) Show your custom menu on .mod-item
+    const modList = document.getElementById('mod-list');
+    modList.addEventListener('contextmenu', event => {
+        const item = event.target.closest('.mod-item');
+        if (!item) return;
+
+        event.preventDefault();                    // suppress browser menu
+        state.contextMenuTarget = Number(item.dataset.index);
+
+        const menu = document.getElementById('mod-context-menu');
+        menu.style.top  = `${event.clientY}px`;
+        menu.style.left = `${event.clientX}px`;
+        menu.style.display = 'block';
+    });
+
+    // 3) Hide it on any click
+    document.addEventListener('click', () => {
+        document.getElementById('mod-context-menu').style.display = 'none';
+    });
 
     // Hard-coded keybinds
     document.addEventListener('keydown', (e) => {

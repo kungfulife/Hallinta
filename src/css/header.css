@@ -68,14 +68,13 @@
     transform: translateY(-1px);
 }
 
-/* Cancel state styling  */
+/* ---- Cancel state styling (light mode) ---- */
 .header-combined-button.cancel-state {
-    background: white;
+    background: #ffffff;
     border: 1px solid var(--accent-color);
     color: var(--text-color);
     box-shadow: 0 0 8px rgba(0, 122, 204, 0.3);
 }
-
 .header-combined-button.cancel-state:hover {
     background: #f8f9fa;
     border-color: var(--accent-color);
@@ -83,15 +82,15 @@
     transform: translateY(-1px);
 }
 
-/* Dark mode adjustments for cancel state */
+/* ---- Dark-mode overrides for Cancel state ---- */
 .dark-mode .header-combined-button.cancel-state {
-    background: #ffffff;
-    color: #1a1a1a;
+    background: var(--button-bg);
     border: 1px solid var(--accent-color);
+    color: var(--text-color);
     box-shadow: 0 0 8px rgba(77, 166, 255, 0.4);
 }
-
 .dark-mode .header-combined-button.cancel-state:hover {
-    background: #f0f0f0;
+    background: var(--button-hover);
     box-shadow: 0 0 12px rgba(77, 166, 255, 0.6);
+    transform: translateY(-1px);
 }
