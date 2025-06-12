@@ -1,0 +1,32 @@
+/* Main Layout Structure */
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    justify-content: flex-start;
+    margin: 0;
+    padding: 1rem;
+    text-align: center;
+}
+
+h1 {
+    color: var(--text-color);
+    font-size: 2.2em;
+    font-weight: bold;
+    margin: 0.5em 0;
+    pointer-events: none; /* Makes it non-interactive with mouse */
+    user-select: none; /* Prevents text selection */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+/* Main Content Layout */
+.main-content {
+    display: flex;
+    flex: 1;
+    gap: 1rem;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+}

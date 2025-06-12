@@ -1,9 +1,9 @@
-import { state } from './state.js';
-import { ModManager } from './modManager.js';
-import { PresetManager } from './presetManager.js';
-import { SettingsManager } from './settingsManager.js';
-import { UIManager } from './uiManager.js';
-import { PhraseManager } from './phraseManager.js';
+import { state } from './js/state.js';
+import { ModManager } from './js/modManager.js';
+import { PresetManager } from './js/presetManager.js';
+import { SettingsManager } from './js/settingsManager.js';
+import { UIManager } from './js/uiManager.js';
+import { PhraseManager } from './js/phraseManager.js';
 
 const uiManager = new UIManager(null);
 const modManager = new ModManager(uiManager);

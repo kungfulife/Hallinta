@@ -1,0 +1,146 @@
+/* Settings Page Layout */
+.settings-page {
+    display: none;
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 2rem 2rem 2rem;
+    text-align: left;
+}
+
+/* Settings Header */
+.settings-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+    position: relative;
+    height: 50px;
+    align-items: center;
+}
+
+.close-button-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.settings-close-btn {
+    background: var(--button-bg) !important;
+    border: 2px solid var(--border-color) !important;
+    border-radius: 6px !important;
+    color: var(--text-color) !important;
+    cursor: pointer;
+    font-size: 1em !important;
+    font-weight: 500 !important;
+    height: 50px !important;
+    min-width: 120px !important;
+    padding: 0.8em 1.5em !important;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.settings-close-btn:hover {
+    background: var(--button-hover) !important;
+    border-color: var(--accent-color) !important;
+}
+
+.esc-hint {
+    color: var(--text-color);
+    font-size: 0.7em;
+    font-style: italic;
+    opacity: 0.6;
+    white-space: nowrap;
+    transition: opacity 0.2s ease;
+    margin: 0;
+}
+
+.settings-close-btn:hover .esc-hint {
+    opacity: 0.8;
+}
+
+.dark-mode .esc-hint {
+    color: var(--text-color);
+    opacity: 0.5;
+}
+
+.dark-mode .settings-close-btn:hover .esc-hint {
+    opacity: 0.7;
+}
+
+/* Settings Form Elements */
+.settings-page h2 {
+    color: var(--text-color);
+    font-size: 1.4em;
+    font-weight: 600;
+    margin: 1.5em 0 0.8em;
+}
+
+.settings-page h2:first-child {
+    margin-top: 0;
+}
+
+.settings-page input {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-color);
+    font-size: 1em;
+    margin: 0.5em 0 1.2em;
+    max-width: 500px;
+    padding: 0.8em;
+    width: 100%;
+}
+
+.settings-page input:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+    outline: none;
+}
+
+.settings-page .button-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.settings-page button {
+    background: var(--button-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 500;
+    padding: 0.8em 1.5em;
+    transition: all 0.2s;
+}
+
+.settings-page button:hover {
+    background: var(--button-hover);
+    border-color: var(--accent-color);
+}
+
+/* Save & Close Button */
+#save-close-btn {
+    background: var(--accent-color) !important;
+    border-color: var(--accent-color) !important;
+    bottom: 2rem;
+    box-shadow: 0 4px 12px rgba(0, 122, 204, 0.3);
+    color: white !important;
+    font-size: 1.1em;
+    font-weight: 600;
+    left: 50%;
+    padding: 1em 2em;
+    position: fixed;
+    transform: translateX(-50%);
+    z-index: 1000;
+}
+
+#save-close-btn:hover {
+    background: #0056b3 !important;
+    border-color: #0056b3 !important;
+}
