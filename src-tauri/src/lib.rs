@@ -21,10 +21,9 @@ fn is_dev_build() -> bool {
     cfg!(debug_assertions)
 }
 
-
 #[tauri::command]
 fn read_mod_config(directory: String) -> Result<String, String> {
-    let config_path = std::path::PathBuf::from(directory).join("mod_config.xml");
+    let config_path = PathBuf::from(directory).join("mod_config.xml");
 
     if !config_path.exists() {
         return Err("mod_config.xml not found in directory".to_string());
@@ -36,7 +35,7 @@ fn read_mod_config(directory: String) -> Result<String, String> {
 
 #[tauri::command]
 fn write_mod_config(directory: String, content: String) -> Result<(), String> {
-    let config_path = std::path::PathBuf::from(directory).join("mod_config.xml");
+    let config_path = PathBuf::from(directory).join("mod_config.xml");
 
     std::fs::write(config_path, content)
         .map_err(|e| format!("Failed to write mod_config.xml: {}", e))
@@ -56,17 +55,19 @@ fn get_exe_dir() -> Result<String, String> {
     }
 }
 
-
-// TODO Fix else and correct this function when called to ensure it can relay an error if getting local_low/anything fails. If it relays an empty directory all functions that use this should notice it. Requires a overhaul
 #[tauri::command]
-fn get_noita_save_path() -> String {
-    if let Some(home_dir) = dirs::home_dir() {
-        let local_low = home_dir.join("AppData").join("LocalLow");
-        let noita_path = local_low.join("Nolla_Games_Noita").join("save00");
-        noita_path.to_string_lossy().into_owned()
-    } else {
-        "".to_string()
-    }
+fn get_noita_save_path() -> Result<String, String> {
+    dirs::home_dir()
+        .ok_or_else(|| "Failed to get home directory".to_string())
+        .map(|home_dir| {
+            home_dir
+                .join("AppData")
+                .join("LocalLow")
+                .join("Nolla_Games_Noita")
+                .join("save00")
+                .to_string_lossy()
+                .into_owned()
+        })
 }
 
 #[tauri::command]
@@ -89,11 +90,13 @@ fn load_settings() -> Result<AppSettings, String> {
     let settings_path = PathBuf::from(exe_dir).join("settings.json");
 
     if !settings_path.exists() {
-        return Ok(AppSettings {
-            noita_dir: get_noita_save_path(),
+        let default_settings = AppSettings {
+            noita_dir: get_noita_save_path()?,
             entangled_dir: String::new(),
             dark_mode: false,
-        });
+        };
+        save_settings(default_settings.clone())?;
+        return Ok(default_settings);
     }
 
     let content = std::fs::read_to_string(settings_path)
@@ -127,6 +130,7 @@ fn load_presets() -> Result<std::collections::HashMap<String, Vec<ModPreset>>, S
     if !presets_path.exists() {
         let mut default_presets = std::collections::HashMap::new();
         default_presets.insert("Default".to_string(), Vec::new());
+        save_presets(default_presets.clone())?;
         return Ok(default_presets);
     }
 
