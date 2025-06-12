@@ -10,20 +10,25 @@ export class UIManager {
         const mainPage = document.getElementById('main-page');
         const settingsPage = document.getElementById('settings-page');
         const appHeader = document.getElementById('app-header');
+        const settingsCloseBtn = document.getElementById('settings-close-btn');
+
         if (mainPage && settingsPage && appHeader) {
             if (view === 'main') {
                 mainPage.style.display = 'flex';
                 settingsPage.style.display = 'none';
                 appHeader.classList.remove('hidden');
                 this.statusBar.style.display = 'block';
+                if (settingsCloseBtn) settingsCloseBtn.style.display = 'none';
             } else if (view === 'settings') {
                 mainPage.style.display = 'none';
                 settingsPage.style.display = 'block';
                 appHeader.classList.add('hidden');
                 this.statusBar.style.display = 'none';
+                if (settingsCloseBtn) settingsCloseBtn.style.display = 'block';
             }
         }
     }
+
 
     renderModList() {
         const modList = document.getElementById('mod-list');
