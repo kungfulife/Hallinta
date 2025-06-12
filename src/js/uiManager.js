@@ -9,22 +9,55 @@ export class UIManager {
     changeView(view) {
         const mainPage = document.getElementById('main-page');
         const settingsPage = document.getElementById('settings-page');
-        const appHeader = document.getElementById('app-header');
-        const settingsCloseBtn = document.getElementById('settings-close-btn');
+        const presetControls = document.getElementById('preset-controls');
+        const settingsButton = document.getElementById('header-settings-button');
+        const cancelButton = document.getElementById('header-cancel-button');
+        const searchBar = document.getElementById('search-bar');
 
-        if (mainPage && settingsPage && appHeader) {
+        // Helper function to show an element with fade-in animation
+        const showElement = (element) => {
+            if (element) {
+                element.classList.remove('hidden', 'fade-out');
+                element.classList.add('fade-in');
+            }
+        };
+
+        // Helper function to hide an element with fade-out animation
+        const hideElement = (element) => {
+            if (element) {
+                element.classList.remove('fade-in');
+                element.classList.add('fade-out');
+                // Apply .hidden after animation ends
+                const onAnimationEnd = () => {
+                    element.classList.add('hidden');
+                    element.classList.remove('fade-out');
+                    element.removeEventListener('animationend', onAnimationEnd);
+                };
+                element.addEventListener('animationend', onAnimationEnd);
+            }
+        };
+
+        if (mainPage && settingsPage) {
             if (view === 'main') {
                 mainPage.style.display = 'flex';
                 settingsPage.style.display = 'none';
-                appHeader.classList.remove('hidden');
+
+                showElement(presetControls);
+                showElement(settingsButton);
+                hideElement(cancelButton);
+                showElement(searchBar);
+
                 this.statusBar.style.display = 'block';
-                if (settingsCloseBtn) settingsCloseBtn.style.display = 'none';
             } else if (view === 'settings') {
                 mainPage.style.display = 'none';
                 settingsPage.style.display = 'block';
-                appHeader.classList.add('hidden');
+
+                hideElement(presetControls);
+                hideElement(settingsButton);
+                showElement(cancelButton);
+                hideElement(searchBar);
+
                 this.statusBar.style.display = 'none';
-                if (settingsCloseBtn) settingsCloseBtn.style.display = 'block';
             }
         }
     }

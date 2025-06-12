@@ -8,13 +8,7 @@
     margin-bottom: 1em;
     min-height: 50px;
     position: relative;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
     width: 100%;
-}
-
-.header.hidden {
-    opacity: 0;
-    visibility: hidden;
 }
 
 /* Search Bar */
@@ -29,7 +23,7 @@
     font-weight: 500;
     min-width: 250px;
     padding: 0.8em 1.2em;
-    transition: border-color 0.25s, box-shadow 0.25s;
+    transition: border-color 0.25s, box-shadow 0.25s, opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
 }
 
 .search-bar:focus {
@@ -40,7 +34,9 @@
 
 /* Header Buttons */
 .header-buttons {
+    margin-left: auto;
     display: flex;
+    align-items: center;
     flex-shrink: 0;
     gap: 0.5rem;
 }
@@ -55,7 +51,7 @@
     font-weight: 500;
     min-width: fit-content;
     padding: 0.8em 1.5em;
-    transition: all 0.2s;
+    transition: background 0.2s, border-color 0.2s, opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
     white-space: nowrap;
 }
 
