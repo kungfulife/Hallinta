@@ -12,9 +12,9 @@
       {
         "title": "Hallinta - Noita Mod Manager",
         "width": 1000,
-        "height": 700,
-        "minWidth": 800,
-        "minHeight": 600,
+        "height": 800,
+        "minWidth": 1000,
+        "minHeight": 800,
         "resizable": true
       }
     ],

@@ -1,5 +1,4 @@
-// phraseManager.js
-class PhraseManager {
+export class PhraseManager {
     constructor() {
         this.hamisPhrases = [
             "Hamis sees you 👁️👁️",
@@ -119,6 +118,3 @@ class PhraseManager {
         }, 3000);
     }
 }
-
-// Export for use in other files
-window.PhraseManager = PhraseManager;
