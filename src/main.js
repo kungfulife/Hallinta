@@ -588,6 +588,8 @@ async function setupFileWatcher(filePath) {
     console.log('File watcher setup for:', filePath);
 }
 
+
+// Initial major Code injection after DOM
 document.addEventListener('DOMContentLoaded', () => {
     phraseManager = new PhraseManager();
 
@@ -598,6 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
         phraseManager.startRandomPhrases();
     }, 2000);
 
+    // Adds the list saving code for the mod-list
     const list = document.getElementById('mod-list');
     if (list) {
         new Sortable(list, {
