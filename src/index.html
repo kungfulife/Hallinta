@@ -4,17 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hallinta - Noita Mod Manager</title>
-    <link rel="stylesheet" href="styles.css">
+
+    <!-- CSS Files in Order of Dependency -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/header.css">
+    <link rel="stylesheet" href="css/presets.css">
+    <link rel="stylesheet" href="css/mod-list.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/settings.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/status-bar.css">
+    <link rel="stylesheet" href="css/animations.css">
+    <link rel="stylesheet" href="css/responsive.css">
+
+    <!-- External Dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    <script type="module" src="phraseManager.js"></script>
-    <script type="module" src="state.js"></script>
-    <script type="module" src="modManager.js"></script>
-    <script type="module" src="presetManager.js"></script>
-    <script type="module" src="settingsManager.js"></script>
-    <script type="module" src="uiManager.js"></script>
+
+    <!-- Application Scripts -->
+    <script type="module" src="js/phraseManager.js"></script>
+    <script type="module" src="js/state.js"></script>
+    <script type="module" src="js/modManager.js"></script>
+    <script type="module" src="js/presetManager.js"></script>
+    <script type="module" src="js/settingsManager.js"></script>
+    <script type="module" src="js/uiManager.js"></script>
     <script type="module" src="main.js"></script>
 </head>
 <body>
+<!-- Rest of HTML content remains the same -->
 <div class="container">
     <!-- Header Section -->
     <h1>Hallinta</h1>
@@ -38,6 +55,7 @@
                 <!-- Mods will be dynamically loaded here -->
             </ul>
         </div>
+
         <div class="sidebar">
             <div class="split-button">
                 <button class="split-btn-main" onclick="importRegular()">Import</button>
@@ -57,11 +75,12 @@
         <!-- Move the close button to header area when settings are active -->
         <div class="settings-header">
             <div class="close-button-container">
-                <button id="settings-close-btn" class="settings-close-btn" onclick="cancelSettings()">Close</button>
-                <span class="esc-hint">or press ESC</span>
+                <button id="settings-close-btn" class="settings-close-btn" onclick="cancelSettings()">
+                    Close
+                    <span class="esc-hint">or press ESC</span>
+                </button>
             </div>
         </div>
-
 
         <h2>Noita Saved Data Directory</h2>
         <input type="text" id="noita-dir" placeholder="Enter Noita save directory (save00 folder)">

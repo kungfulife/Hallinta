@@ -1,0 +1,54 @@
+/* Status Bar */
+.status-bar {
+    background-color: var(--border-color);
+    border-top: 1px solid var(--border-color);
+    bottom: 0;
+    color: var(--text-color);
+    font-size: 0.85em;
+    left: 0;
+    padding: 0.5em 1em;
+    position: absolute;
+    right: 0;
+    text-align: left;
+    z-index: 100;
+}
+
+/* Status Bar Phrase Animations */
+.hamis-phrase {
+    animation: hamis-glow 2s ease-in-out infinite alternate;
+    color: #ff6b6b !important;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(255, 107, 107, 0.3);
+}
+
+@keyframes hamis-glow {
+    from {
+        text-shadow: 0 0 5px rgba(255, 107, 107, 0.3);
+    }
+    to {
+        text-shadow: 0 0 10px rgba(255, 107, 107, 0.6);
+    }
+}
+
+.ready-phrase {
+    color: var(--accent-color);
+    font-weight: 500;
+}
+
+.excitement-phrase {
+    animation: bounce 0.5s ease-in-out;
+    color: #4ecdc4 !important;
+    font-weight: bold;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-3px);
+    }
+    60% {
+        transform: translateY(-2px);
+    }
+}
