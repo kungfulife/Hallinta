@@ -27,17 +27,50 @@ window.exportModList = () => modManager.exportModList();
 window.restoreBackup = () => modManager.restoreBackup();
 window.createBackup = () => modManager.createBackup();
 window.backupMonitor = () => modManager.backupMonitor();
-window.toggleModEnabled = () => uiManager.toggleModEnabled();
+window.toggleMod = () => uiManager.toggleMod();
 window.reorderMod = () => uiManager.reorderMod();
 window.deleteMod = () => uiManager.deleteMod();
 window.openWorkshop = () => uiManager.openWorkshop();
 window.copyWorkshopLink = () => uiManager.copyWorkshopLink();
 
-async function setupFileWatcher(filePath) {
-    console.log('File watcher setup for:', filePath);
-}
+document.addEventListener('DOMContentLoaded', async () => {
 
-document.addEventListener('DOMContentLoaded', () => {
+    // Light Dev Tool Restriction
+    const isDev = window.__TAURI__ && await window.__TAURI__.core.invoke('is_dev_build');
+    if (!isDev) {
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey && e.key === 'r') || e.key === 'F12') {
+                e.preventDefault();
+            }
+        });
+        document.addEventListener('contextmenu', event => event.preventDefault());
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const modal = document.querySelector('.custom-modal');
+            const settingsPage = document.getElementById('settings-page');
+            if (modal) {
+                modal.remove();
+            } else if (settingsPage.style.display === 'block') {
+                uiManager.changeView('main');
+            }
+        }
+    });
+    const container = document.querySelector('.container');
+    if (container && window.__TAURI__?.window?.WebviewWindow) {
+        container.addEventListener('mousedown', (e) => {
+            console.log('Mousedown event triggered on container', e.target);
+            const target = e.target;
+            const isInteractive = target.closest('button') || target.closest('input') || target.closest('select') || target.closest('.mod-item') || target.closest('.context-menu');
+            if (!isInteractive) {
+                console.log('Attempting to start dragging');
+                window.__TAURI__.window.WebviewWindow.getCurrent().startDragging();
+            } else {
+                console.log('Dragging blocked due to interactive element', target);
+            }
+        });
+    }
     settingsManager.loadConfig();
     presetManager.loadPresets();
     setTimeout(() => {
@@ -59,26 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
             onMove: () => true,
         });
     }
-    const contextMenu = document.getElementById('context-menu');
-    if (list && contextMenu) {
-        list.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            const modItem = e.target.closest('.mod-item');
-            if (modItem) {
-                state.contextMenuTarget = parseInt(modItem.getAttribute('data-index'));
-                contextMenu.style.display = 'block';
-                contextMenu.style.left = e.pageX + 'px';
-                contextMenu.style.top = e.pageY + 'px';
-            }
-        });
-    }
-    if (contextMenu) {
-        document.addEventListener('click', () => {
-            contextMenu.style.display = 'none';
-        });
-    }
 });
-
 window.addEventListener('focus', () => {
     state.isAppFocused = true;
 });
@@ -92,3 +106,7 @@ window.addEventListener('beforeunload', () => {
         state.phraseManager.stopRandomPhrases();
     }
 });
+
+window.cancelSettings = () => {
+    uiManager.changeView('main');
+};

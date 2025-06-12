@@ -54,6 +54,7 @@
 
     <!-- Settings Page Section -->
     <div class="settings-page" id="settings-page">
+        <button id="esc-settings-btn" class="esc-settings-btn" onclick="cancelSettings()">✖</button>
         <h2>Noita Saved Data Directory</h2>
         <input type="text" id="noita-dir" placeholder="Enter Noita save directory (save00 folder)">
         <div class="button-group">
@@ -89,7 +90,7 @@
 
     <!-- Context Menu -->
     <div id="context-menu" class="context-menu">
-        <button onclick="toggleModEnabled()">Enable/Disable</button>
+        <button onclick="toggleMod()">Toggle</button>
         <button onclick="reorderMod()">Reorder</button>
         <button onclick="deleteMod()">Delete</button>
         <button onclick="openWorkshop()">Open Workshop Link</button>

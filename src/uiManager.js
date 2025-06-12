@@ -148,7 +148,7 @@ export class UIManager {
         });
     }
 
-    toggleModEnabled() {
+    toggleMod() {
         if (state.contextMenuTarget !== null) {
             this.modManager.toggleMod(state.contextMenuTarget);
             this.renderModList();
