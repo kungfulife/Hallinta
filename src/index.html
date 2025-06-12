@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hallinta</title>
+    <title>Hallinta - Noita Mod Manager</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script src="phraseManager.js"></script>
@@ -11,21 +11,21 @@
 </head>
 <body>
 <div class="container">
+    <!-- Header Section -->
     <h1>Hallinta</h1>
     <div class="header" id="app-header">
         <input type="text" class="search-bar" placeholder="Filter Mods by name..." oninput="filterMods()">
-
         <div class="preset-controls">
             <select id="preset-dropdown" onchange="onPresetChange()"></select>
             <button onclick="renameCurrentPreset()" title="Rename Preset">✏️</button>
             <button onclick="deleteCurrentPreset()" title="Delete Preset">🗑️</button>
         </div>
-
         <div class="header-buttons">
             <button onclick="changeView('settings')">Settings</button>
         </div>
     </div>
 
+    <!-- Main Content Section -->
     <div class="main-content" id="main-page">
         <div class="mod-list">
             <div class="mod-count" id="mod-count">Total Mods: 0</div>
@@ -33,19 +33,12 @@
                 <!-- Mods will be dynamically loaded here -->
             </ul>
         </div>
-
         <div class="sidebar">
             <div class="split-button">
                 <button class="split-btn-main" onclick="importRegular()">Import</button>
-                <!--        <button class="split-btn-steam disabled" onclick="importSteam()">-->
-                <!--          <img src="assets/steam-icon.png" alt="Steam" width="16" height="16">-->
-                <!--        </button>-->
             </div>
             <button onclick="exportModList()">Export</button>
-            <!--      <button class="download-missing disabled">Download Missing</button>-->
-
             <hr class="sidebar-separator">
-
             <button onclick="restoreBackup()">Restore Backup</button>
             <button onclick="createBackup()">Create Backup</button>
             <button onclick="backupMonitor()">
@@ -54,6 +47,7 @@
         </div>
     </div>
 
+    <!-- Settings Page Section -->
     <div class="settings-page" id="settings-page">
         <h2>Noita Saved Data Directory</h2>
         <input type="text" id="noita-dir" placeholder="Enter Noita save directory (save00 folder)">
@@ -74,9 +68,9 @@
             <label class="toggle-switch">
                 <input type="checkbox" id="dark-mode-checkbox" onchange="toggleDarkMode()">
                 <span class="slider">
-          <span class="toggle-text">🌙</span>
-          <span class="toggle-text">☀️</span>
-        </span>
+                        <span class="toggle-text">🌙</span>
+                        <span class="toggle-text">☀️</span>
+                    </span>
             </label>
             <span class="toggle-label">Dark Mode</span>
         </div>
@@ -88,6 +82,7 @@
         <button id="save-close-btn" onclick="saveAndClose()">Save & Close</button>
     </div>
 
+    <!-- Context Menu -->
     <div id="context-menu" class="context-menu">
         <button onclick="toggleModEnabled()">Enable/Disable</button>
         <button onclick="reorderMod()">Reorder</button>
@@ -96,6 +91,7 @@
         <button onclick="copyWorkshopLink()">Copy Workshop Link</button>
     </div>
 
+    <!-- Status Bar -->
     <div class="status-bar" id="status-bar">Ready - Loaded from Noita XML file</div>
 </div>
 </body>

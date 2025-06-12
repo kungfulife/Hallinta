@@ -12,46 +12,22 @@ window.changeView = function (view) {
     const mainPage = document.getElementById('main-page');
     const settingsPage = document.getElementById('settings-page');
     const appHeader = document.getElementById('app-header');
-    const presetSelector = document.getElementById('preset-selector');
     const statusBar = document.getElementById('status-bar');
 
-    if (mainPage && settingsPage && appHeader) {
+    if (mainPage && settingsPage && appHeader && statusBar) {
         if (view === 'main') {
-            // Show main page elements
             mainPage.style.display = 'flex';
             settingsPage.style.display = 'none';
-            appHeader.style.display = 'flex'; // Changed from 'block' to 'flex'
-
-            if (presetSelector) {
-                presetSelector.style.display = 'block';
-            }
-            if (statusBar) {
-                statusBar.style.display = 'block';
-            }
-
-            // Force layout recalculation to prevent button displacement
-            setTimeout(() => {
-                appHeader.style.display = 'flex';
-                // Trigger reflow
-                appHeader.offsetHeight;
-            }, 0);
-
+            appHeader.classList.remove('hidden');
+            statusBar.style.display = 'block';
         } else if (view === 'settings') {
-            // Show settings page
             mainPage.style.display = 'none';
             settingsPage.style.display = 'block';
-            appHeader.style.display = 'none';
-
-            if (presetSelector) {
-                presetSelector.style.display = 'none';
-            }
-            if (statusBar) {
-                statusBar.style.display = 'none';
-            }
+            appHeader.classList.add('hidden');
+            statusBar.style.display = 'none';
         }
     }
 };
-
 
 window.changeDirectory = async function (type) {
     const statusBar = document.getElementById('status-bar');
@@ -89,9 +65,8 @@ window.resetToDefaults = async function () {
         if (!window.__TAURI__ && !window.__TAURI__.core) {
             console.error('Tauri is not initialized');
             statusBar.textContent = `Error resetting defaults: Tauri is not initialized`;
-            return
+            return;
         }
-
 
         const defaultNoitaDir = await window.__TAURI__.core.invoke('get_noita_save_path');
         document.getElementById('noita-dir').value = defaultNoitaDir;
@@ -103,8 +78,6 @@ window.resetToDefaults = async function () {
         console.error('Reset defaults error:', invokeError);
         statusBar.textContent = `Error resetting defaults: ${invokeError.message}`;
     }
-
-
 };
 
 window.saveAndClose = async function () {
@@ -318,12 +291,66 @@ function generateModConfigXML() {
     return xml;
 }
 
+// Helper Functions for Custom Modals
+function showConfirmModal(message, onConfirm, onCancel) {
+    const modal = document.createElement('div');
+    modal.className = 'custom-modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <p>${message}</p>
+            <div class="modal-buttons">
+                <button id="modal-confirm">Yes</button>
+                <button id="modal-cancel">Cancel</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('modal-confirm').addEventListener('click', () => {
+        onConfirm();
+        document.body.removeChild(modal);
+    });
+
+    document.getElementById('modal-cancel').addEventListener('click', () => {
+        onCancel();
+        document.body.removeChild(modal);
+    });
+}
+
+function showInputModal(message, defaultValue, onConfirm, onCancel) {
+    const modal = document.createElement('div');
+    modal.className = 'custom-modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <p>${message}</p>
+            <input type="number" id="modal-input" value="${defaultValue}" min="1" max="${currentMods.length}">
+            <div class="modal-buttons">
+                <button id="modal-confirm">OK</button>
+                <button id="modal-cancel">Cancel</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('modal-confirm').addEventListener('click', () => {
+        const input = document.getElementById('modal-input').value;
+        onConfirm(input);
+        document.body.removeChild(modal);
+    });
+
+    document.getElementById('modal-cancel').addEventListener('click', () => {
+        onCancel();
+        document.body.removeChild(modal);
+    });
+}
+
 // Context Menu Functions
 let contextMenuTarget = null;
 
 window.toggleModEnabled = function () {
     if (contextMenuTarget !== null) {
         toggleModAtIndex(contextMenuTarget);
+        renderModList(); // Update UI to reflect the toggle
         document.getElementById('context-menu').style.display = 'none';
     }
 };
@@ -331,18 +358,54 @@ window.toggleModEnabled = function () {
 window.deleteMod = function () {
     if (contextMenuTarget !== null) {
         const modName = currentMods[contextMenuTarget].name;
-        currentMods.splice(contextMenuTarget, 1);
-        renderModList();
-        updateModCount();
-        saveModConfigToFile();
-        document.getElementById('status-bar').textContent = `Deleted mod: ${modName}`;
-        document.getElementById('context-menu').style.display = 'none';
+        showConfirmModal(
+            `Are you sure you want to delete the mod "${modName}"?`,
+            () => {
+                currentMods.splice(contextMenuTarget, 1);
+                renderModList();
+                updateModCount();
+                saveModConfigToFile();
+                document.getElementById('status-bar').textContent = `Deleted mod: ${modName}`;
+                document.getElementById('context-menu').style.display = 'none';
+            },
+            () => {
+                document.getElementById('status-bar').textContent = `Deletion of ${modName} canceled`;
+                document.getElementById('context-menu').style.display = 'none';
+            }
+        );
     }
 };
 
 window.reorderMod = function () {
-    document.getElementById('status-bar').textContent = 'Drag and drop to reorder mods';
-    document.getElementById('context-menu').style.display = 'none';
+    if (contextMenuTarget !== null) {
+        const modName = currentMods[contextMenuTarget].name;
+        showInputModal(
+            `Enter new position for "${modName}" (1-${currentMods.length}):`,
+            contextMenuTarget + 1,
+            (input) => {
+                const newIndex = parseInt(input) - 1;
+                if (isNaN(newIndex) || newIndex < 0 || newIndex >= currentMods.length) {
+                    document.getElementById('status-bar').textContent = `Invalid position for ${modName}`;
+                    document.getElementById('context-menu').style.display = 'none';
+                    return;
+                }
+                const movedMod = currentMods.splice(contextMenuTarget, 1)[0];
+                currentMods.splice(newIndex, 0, movedMod);
+                currentMods.forEach((mod, index) => {
+                    mod.index = index;
+                });
+                renderModList();
+                updateModCount();
+                saveModConfigToFile();
+                document.getElementById('status-bar').textContent = `Moved ${modName} to position ${newIndex + 1}`;
+                document.getElementById('context-menu').style.display = 'none';
+            },
+            () => {
+                document.getElementById('status-bar').textContent = `Reordering of ${modName} canceled`;
+                document.getElementById('context-menu').style.display = 'none';
+            }
+        );
+    }
 };
 
 window.openWorkshop = async function () {
@@ -390,7 +453,6 @@ window.exportModList = async function () {
 };
 
 // Backup Functions
-
 // TODO
 window.backupMonitor = async function () {
 };
@@ -404,7 +466,6 @@ window.createBackup = function () {
 };
 
 // Split Button Functions
-
 // TODO
 window.importRegular = function () {
 };
@@ -588,7 +649,6 @@ async function setupFileWatcher(filePath) {
     console.log('File watcher setup for:', filePath);
 }
 
-
 // Initial major Code injection after DOM
 document.addEventListener('DOMContentLoaded', () => {
     phraseManager = new PhraseManager();
@@ -622,7 +682,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const statusBar = document.getElementById('status-bar');
                 if (statusBar) {
-                    statusBar.textContent = `Mod reordered: ${evt.oldIndex + 1} â†’ ${evt.newIndex + 1}`;
+                    statusBar.textContent = `Mod reordered: ${evt.oldIndex + 1} → ${evt.newIndex + 1}`;
                 }
             },
             onMove: () => true,
