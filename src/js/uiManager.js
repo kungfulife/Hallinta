@@ -10,58 +10,67 @@ export class UIManager {
         const mainPage = document.getElementById('main-page');
         const settingsPage = document.getElementById('settings-page');
         const presetControls = document.getElementById('preset-controls');
-        const settingsButton = document.getElementById('header-settings-button');
-        const cancelButton = document.getElementById('header-cancel-button');
+        const combinedButton = document.getElementById('header-combined-button');
         const searchBar = document.getElementById('search-bar');
+        const TRANSITION_DURATION_MS = 200;
 
-        // Helper function to show an element with fade-in animation
-        const showElement = (element) => {
-            if (element) {
-                element.classList.remove('hidden', 'fade-out');
-                element.classList.add('fade-in');
-            }
-        };
+        // Helper to clean up animation classes
+        function cleanupAnimation(el) {
+            el.classList.remove('fade-in-fast', 'fade-out-fast');
+        }
 
-        // Helper function to hide an element with fade-out animation
-        const hideElement = (element) => {
-            if (element) {
-                element.classList.remove('fade-in');
-                element.classList.add('fade-out');
-                // Apply .hidden after animation ends
-                const onAnimationEnd = () => {
-                    element.classList.add('hidden');
-                    element.classList.remove('fade-out');
-                    element.removeEventListener('animationend', onAnimationEnd);
-                };
-                element.addEventListener('animationend', onAnimationEnd);
-            }
-        };
+        if (view === 'main') {
+            // Remove fade-out, add fade-in
+            cleanupAnimation(presetControls);
+            cleanupAnimation(searchBar);
 
-        if (mainPage && settingsPage) {
-            if (view === 'main') {
-                mainPage.style.display = 'flex';
-                settingsPage.style.display = 'none';
+            // Ensure they're visible before animating in
+            presetControls.style.display = 'flex';
+            searchBar.style.display = 'flex';
 
-                showElement(presetControls);
-                showElement(settingsButton);
-                hideElement(cancelButton);
-                showElement(searchBar);
+            // Trigger reflow for animation
+            void presetControls.offsetWidth;
+            void searchBar.offsetWidth;
 
-                this.statusBar.style.display = 'block';
-            } else if (view === 'settings') {
-                mainPage.style.display = 'none';
-                settingsPage.style.display = 'block';
+            presetControls.classList.add('fade-in-fast');
+            searchBar.classList.add('fade-in-fast');
 
-                hideElement(presetControls);
-                hideElement(settingsButton);
-                showElement(cancelButton);
-                hideElement(searchBar);
+            // Hide settings, show main
+            mainPage.style.display = 'flex';
+            settingsPage.style.display = 'none';
 
-                this.statusBar.style.display = 'none';
-            }
+            // Update button
+            combinedButton.textContent = 'Settings';
+            combinedButton.className = 'header-combined-button settings-state';
+
+            this.statusBar.style.display = 'block';
+        } else if (view === 'settings') {
+            // Remove fade-in, add fade-out
+            cleanupAnimation(presetControls);
+            cleanupAnimation(searchBar);
+
+            presetControls.classList.add('fade-out-fast');
+            searchBar.classList.add('fade-out-fast');
+
+            // Hide after fade-out
+            setTimeout(() => {
+                presetControls.style.display = 'none';
+                searchBar.style.display = 'none';
+                cleanupAnimation(presetControls);
+                cleanupAnimation(searchBar);
+            }, TRANSITION_DURATION_MS);
+
+            // Hide main, show settings
+            mainPage.style.display = 'none';
+            settingsPage.style.display = 'block';
+
+            // Update button
+            combinedButton.textContent = 'Cancel';
+            combinedButton.className = 'header-combined-button cancel-state';
+
+            this.statusBar.style.display = 'none';
         }
     }
-
 
     renderModList() {
         const modList = document.getElementById('mod-list');

@@ -12,7 +12,6 @@ const presetManager = new PresetManager(uiManager);
 const settingsManager = new SettingsManager(modManager, uiManager);
 state.phraseManager = new PhraseManager();
 
-window.changeView = (view) => uiManager.changeView(view);
 window.changeDirectory = (type) => settingsManager.changeDirectory(type);
 window.openDirectory = (type) => settingsManager.openDirectory(type);
 window.resetToDefaults = () => settingsManager.resetToDefaults();
@@ -39,7 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isDev = window.__TAURI__ && await window.__TAURI__.core.invoke('is_dev_build');
     if (!isDev) {
         document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey && e.key === 'r') || e.key === 'F12') {
+            if ((e.ctrlKey && e.key === 'r') || e.key === 'F12' || e.key === 'F5') {
                 e.preventDefault();
             }
         });
@@ -98,4 +97,15 @@ window.addEventListener('beforeunload', () => {
 
 window.cancelSettings = () => {
     uiManager.changeView('main');
+};
+
+window.toggleSettingsView = () => {
+    const button = document.getElementById('header-combined-button');
+    const isInSettings = button.textContent === 'Cancel';
+
+    if (isInSettings) {
+        uiManager.changeView('main');
+    } else {
+        uiManager.changeView('settings');
+    }
 };

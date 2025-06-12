@@ -1,4 +1,5 @@
 /* Global Animations and Keyframes */
+
 @keyframes glow {
     from {
         box-shadow: 0 0 5px rgba(0, 122, 204, 0.3);
@@ -8,24 +9,12 @@
     }
 }
 
-/* Transition Classes */
+/* Fade In/Out (Default speed) */
 .fade-in {
-    animation: fadeIn 0.3s ease-in-out;
+    animation: fadeIn 0.3s ease-in-out forwards;
 }
-
 .fade-out {
-    animation: fadeOut 0.3s ease-in-out;
-}
-
-@keyframes fadeOut {
-    from {
-        opacity: 1;
-        transform: translateY(0);
-    }
-    to {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
+    animation: fadeOut 0.3s ease-in-out forwards;
 }
 
 @keyframes fadeIn {
@@ -39,8 +28,51 @@
     }
 }
 
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+}
+
+/* Fade In/Out (Fast) */
+.fade-in-fast {
+    display: flex;
+    animation: fadeInFast 0.2s ease-out forwards;
+}
+.fade-out-fast {
+    animation: fadeOutFast 0.2s ease-in forwards;
+}
+
+@keyframes fadeInFast {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeOutFast {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+}
+
+/* Slide In (from left) */
 .slide-in {
-    animation: slideIn 0.3s ease-out;
+    animation: slideIn 0.3s ease-out forwards;
 }
 
 @keyframes slideIn {
@@ -52,9 +84,9 @@
     }
 }
 
-/* Ensure hidden elements are not displayed */
+/* Utility: Hide elements */
 .hidden {
-    display: none;
+    display: none !important;
 }
 
 /* Base transition for smooth class toggling */
