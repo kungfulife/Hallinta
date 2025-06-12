@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.addEventListener('contextmenu', event => event.preventDefault());
     }
 
+    // Hard-coded keybinds
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             const modal = document.querySelector('.custom-modal');
@@ -57,20 +58,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     });
-    const container = document.querySelector('.container');
-    if (container && window.__TAURI__?.window?.WebviewWindow) {
-        container.addEventListener('mousedown', (e) => {
-            console.log('Mousedown event triggered on container', e.target);
-            const target = e.target;
-            const isInteractive = target.closest('button') || target.closest('input') || target.closest('select') || target.closest('.mod-item') || target.closest('.context-menu');
-            if (!isInteractive) {
-                console.log('Attempting to start dragging');
-                window.__TAURI__.window.WebviewWindow.getCurrent().startDragging();
-            } else {
-                console.log('Dragging blocked due to interactive element', target);
-            }
-        });
-    }
+
+    // App Loading
     settingsManager.loadConfig();
     presetManager.loadPresets();
     setTimeout(() => {
