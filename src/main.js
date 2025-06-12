@@ -647,3 +647,82 @@ window.addEventListener('beforeunload', () => {
     phraseManager.stopRandomPhrases();
   }
 });
+
+function renderModList() {
+  const modList = document.getElementById('mod-list');
+  modList.innerHTML = '';
+
+  currentMods.forEach((mod, index) => {
+    const li = document.createElement('li');
+    li.className = 'mod-item';
+    li.setAttribute('data-index', index);
+
+    // Make the entire item clickable
+    li.addEventListener('click', (e) => {
+      // Prevent toggle when right-clicking for context menu
+      if (e.button !== 2) {
+        e.stopPropagation();
+        toggleModAtIndex(index);
+        renderModList(); // Re-render to update visual state
+      }
+    });
+
+    // Add enabled/disabled class for visual styling
+    if (mod.enabled) {
+      li.classList.add('mod-enabled');
+    } else {
+      li.classList.add('mod-disabled');
+    }
+
+    const numberDiv = document.createElement('div');
+    numberDiv.className = 'mod-number';
+    numberDiv.textContent = index + 1;
+
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'mod-info';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'mod-name';
+    nameSpan.textContent = mod.name;
+
+    const typeSpan = document.createElement('span');
+    typeSpan.className = 'mod-type';
+    typeSpan.textContent = mod.workshopId !== "0" ? `Workshop ID: ${mod.workshopId}` : "Local Mod";
+
+    if (mod.workshopId !== "0") {
+      typeSpan.classList.add('workshop');
+    } else {
+      typeSpan.classList.add('local');
+    }
+
+    infoDiv.appendChild(nameSpan);
+    infoDiv.appendChild(typeSpan);
+
+    // Create visual-only checkbox
+    const checkboxContainer = document.createElement('div');
+    checkboxContainer.className = 'checkbox-container';
+
+    const checkbox = document.createElement('div');
+    checkbox.className = mod.enabled ? 'visual-checkbox checked' : 'visual-checkbox';
+    checkbox.innerHTML = mod.enabled ? '✓' : '';
+
+    checkboxContainer.appendChild(checkbox);
+
+    li.appendChild(numberDiv);
+    li.appendChild(infoDiv);
+    li.appendChild(checkboxContainer);
+
+    modList.appendChild(li);
+  });
+}
+
+// Update the toggle function to work with the new structure
+window.toggleModAtIndex = function(index) {
+  currentMods[index].enabled = !currentMods[index].enabled;
+  updateModCount();
+  saveModConfigToFile();
+
+  const statusBar = document.getElementById('status-bar');
+  statusBar.className = 'status-bar';
+  statusBar.textContent = `${currentMods[index].name} ${currentMods[index].enabled ? 'enabled' : 'disabled'}`;
+}

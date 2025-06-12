@@ -14,16 +14,15 @@
   <h1>Hallinta</h1>
   <div class="header" id="app-header">
     <input type="text" class="search-bar" placeholder="Filter Mods by name..." oninput="filterMods()">
-    <div class="buttons">
-      <button onclick="changeView('settings')">Settings</button>
-    </div>
-  </div>
 
-  <div class="preset-selector" id="preset-selector">
     <div class="preset-controls">
       <select id="preset-dropdown" onchange="onPresetChange()"></select>
       <button onclick="renameCurrentPreset()" title="Rename Preset">✏️</button>
       <button onclick="deleteCurrentPreset()" title="Delete Preset">🗑️</button>
+    </div>
+
+    <div class="header-buttons">
+      <button onclick="changeView('settings')">Settings</button>
     </div>
   </div>
 
