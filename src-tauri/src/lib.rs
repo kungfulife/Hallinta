@@ -17,6 +17,12 @@ pub struct ModPreset {
 }
 
 #[tauri::command]
+fn is_dev_build() -> bool {
+    cfg!(debug_assertions)
+}
+
+
+#[tauri::command]
 fn read_mod_config(directory: String) -> Result<String, String> {
     let config_path = std::path::PathBuf::from(directory).join("mod_config.xml");
 
@@ -187,7 +193,8 @@ pub fn run() {
             save_presets,
             load_presets,
             read_mod_config,
-            write_mod_config
+            write_mod_config,
+            is_dev_build
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
