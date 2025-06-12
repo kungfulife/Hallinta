@@ -8,7 +8,6 @@ pub struct AppSettings {
     pub dark_mode: bool,
 }
 
-
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ModPreset {
     pub name: String,
@@ -37,7 +36,6 @@ fn write_mod_config(directory: String, content: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to write mod_config.xml: {}", e))
 }
 
-
 #[tauri::command]
 fn get_exe_dir() -> Result<String, String> {
     match std::env::current_exe() {
@@ -48,10 +46,12 @@ fn get_exe_dir() -> Result<String, String> {
                 Err("Could not get parent directory".to_string())
             }
         }
-        Err(e) => Err(format!("Could not get executable path: {}", e))
+        Err(e) => Err(format!("Could not get executable path: {}", e)),
     }
 }
 
+
+// TODO Fix else and correct this function when called to ensure it can relay an error if getting local_low/anything fails. If it relays an empty directory all functions that use this should notice it. Requires a overhaul
 #[tauri::command]
 fn get_noita_save_path() -> String {
     if let Some(home_dir) = dirs::home_dir() {
@@ -59,7 +59,7 @@ fn get_noita_save_path() -> String {
         let noita_path = local_low.join("Nolla_Games_Noita").join("save00");
         noita_path.to_string_lossy().into_owned()
     } else {
-        "C:\\Users\\facky\\AppData\\LocalLow\\Nolla_Games_Noita\\save00".to_string()
+        "".to_string()
     }
 }
 
@@ -93,8 +93,8 @@ fn load_settings() -> Result<AppSettings, String> {
     let content = std::fs::read_to_string(settings_path)
         .map_err(|e| format!("Failed to read settings file: {}", e))?;
 
-    let settings: AppSettings = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse settings: {}", e))?;
+    let settings: AppSettings =
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse settings: {}", e))?;
 
     Ok(settings)
 }
@@ -127,21 +127,10 @@ fn load_presets() -> Result<std::collections::HashMap<String, Vec<ModPreset>>, S
     let content = std::fs::read_to_string(presets_path)
         .map_err(|e| format!("Failed to read presets file: {}", e))?;
 
-    let presets: std::collections::HashMap<String, Vec<ModPreset>> = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse presets: {}", e))?;
+    let presets: std::collections::HashMap<String, Vec<ModPreset>> =
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse presets: {}", e))?;
 
     Ok(presets)
-}
-
-#[tauri::command]
-fn create_backup_folder() -> Result<String, String> {
-    let exe_dir = get_exe_dir()?;
-    let backup_path = PathBuf::from(exe_dir).join("backups");
-
-    std::fs::create_dir_all(&backup_path)
-        .map_err(|e| format!("Failed to create backup folder: {}", e))?;
-
-    Ok(backup_path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -150,7 +139,10 @@ fn open_workshop_item(workshop_id: String) -> Result<(), String> {
         return Err("No workshop ID provided".to_string());
     }
 
-    let url = format!("https://steamcommunity.com/sharedfiles/filedetails/?id={}", workshop_id);
+    let url = format!(
+        "https://steamcommunity.com/sharedfiles/filedetails/?id={}",
+        workshop_id
+    );
 
     #[cfg(target_os = "windows")]
     {
@@ -179,21 +171,6 @@ fn open_workshop_item(workshop_id: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-fn export_mod_list(mods: Vec<ModPreset>, preset_name: String) -> Result<String, String> {
-    let export_data = serde_json::json!({
-        "preset_name": preset_name,
-        "mods": mods,
-        "exported_at": chrono::Utc::now().to_rfc3339(),
-        "app_version": "1.0.0"
-    });
-
-    let json_content = serde_json::to_string_pretty(&export_data)
-        .map_err(|e| format!("Failed to serialize mod list: {}", e))?;
-
-    Ok(json_content)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -209,12 +186,9 @@ pub fn run() {
             load_settings,
             save_presets,
             load_presets,
-            create_backup_folder,
-            export_mod_list,
             read_mod_config,
             write_mod_config
         ])
-
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
