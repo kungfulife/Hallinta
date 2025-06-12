@@ -54,7 +54,15 @@
 
     <!-- Settings Page Section -->
     <div class="settings-page" id="settings-page">
-        <button id="esc-settings-btn" class="esc-settings-btn" onclick="cancelSettings()">✖</button>
+        <!-- Move the close button to header area when settings are active -->
+        <div class="settings-header">
+            <div class="close-button-container">
+                <button id="settings-close-btn" class="settings-close-btn" onclick="cancelSettings()">Close</button>
+                <span class="esc-hint">or press ESC</span>
+            </div>
+        </div>
+
+
         <h2>Noita Saved Data Directory</h2>
         <input type="text" id="noita-dir" placeholder="Enter Noita save directory (save00 folder)">
         <div class="button-group">
