@@ -132,25 +132,31 @@ export class SettingsManager {
     async resetToDefaults() {
         const statusBar = document.getElementById('status-bar');
         try {
-            if (!window.__TAURI__ || !window.__TAURI__.core) {
-                console.error('Tauri is not initialized');
-                statusBar.textContent = `Error resetting defaults: Tauri is not initialized`;
-                return;
+            if (!window.__TAURI__?.core) {
+                throw new Error('Tauri is not initialized');
             }
+
+            // 2) Invoke the exact command names you use in loadConfig
             const defaultNoitaDir = await window.__TAURI__.core.invoke('get_noita_save_path');
-            document.getElementById('noita-dir').value = defaultNoitaDir;
-            document.getElementById('entangled-dir').value = '';
-            this.settings.noita_dir = defaultNoitaDir;
-            this.settings.entangled_dir = '';
-            this.settings.dark_mode = false;
+
+            // 3) Apply them
+            document.getElementById('noita-dir').value      = defaultNoitaDir;
+            this.settings.noitadir      = defaultNoitaDir;
+
+            // 4) Reset dark mode and UI
             state.isDarkMode = false;
             document.getElementById('dark-mode-checkbox').checked = false;
             this.uiManager.applyDarkMode();
+
+            // 5) Reload mods
             await this.modManager.loadModConfigFromDirectory(defaultNoitaDir);
+
             statusBar.textContent = 'Successfully reset to defaults';
         } catch (error) {
-            console.error('Reset defaults error:', error);
+            console.error('Error resetting defaults:', error);
             statusBar.textContent = `Error resetting defaults: ${error.message}`;
         }
     }
+
+
 }

@@ -43,7 +43,7 @@ export class UIManager {
             combinedButton.textContent = 'Settings';
             combinedButton.className = 'header-combined-button settings-state';
 
-            this.statusBar.style.display = 'block';
+            // this.statusBar.style.display = 'block';
         } else if (view === 'settings') {
             // Remove fade-in, add fade-out
             cleanupAnimation(presetControls);
@@ -68,7 +68,7 @@ export class UIManager {
             combinedButton.textContent = 'Cancel';
             combinedButton.className = 'header-combined-button cancel-state';
 
-            this.statusBar.style.display = 'none';
+            // this.statusBar.style.display = 'none';
         }
     }
 
@@ -154,7 +154,7 @@ export class UIManager {
             <div class="modal-content">
                 <p>${message}</p>
                 <div class="modal-buttons">
-                    <button id="modal-confirm">Yes</button>
+                    <button id="modal-confirm">Confirm</button>
                     <button id="modal-cancel">Cancel</button>
                 </div>
             </div>

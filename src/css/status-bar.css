@@ -1,5 +1,6 @@
 /* Status Bar */
 .status-bar {
+    user-select: none;
     background-color: var(--border-color);
     border-top: 1px solid var(--border-color);
     bottom: 0;
