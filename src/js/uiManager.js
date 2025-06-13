@@ -14,45 +14,38 @@ export class UIManager {
         const searchBar = document.getElementById('search-bar');
         const TRANSITION_DURATION_MS = 200;
 
-        // Helper to clean up animation classes
         function cleanupAnimation(el) {
             el.classList.remove('fade-in-fast', 'fade-out-fast');
         }
 
         if (view === 'main') {
-            // Remove fade-out, add fade-in
             cleanupAnimation(presetControls);
             cleanupAnimation(searchBar);
 
-            // Ensure they're visible before animating in
             presetControls.style.display = 'flex';
             searchBar.style.display = 'flex';
 
-            // Trigger reflow for animation
             void presetControls.offsetWidth;
             void searchBar.offsetWidth;
 
             presetControls.classList.add('fade-in-fast');
             searchBar.classList.add('fade-in-fast');
 
-            // Hide settings, show main
             mainPage.style.display = 'flex';
             settingsPage.style.display = 'none';
 
-            // Update button
             combinedButton.textContent = 'Settings';
             combinedButton.className = 'header-combined-button settings-state';
 
             // this.statusBar.style.display = 'block';
+
         } else if (view === 'settings') {
-            // Remove fade-in, add fade-out
             cleanupAnimation(presetControls);
             cleanupAnimation(searchBar);
 
             presetControls.classList.add('fade-out-fast');
             searchBar.classList.add('fade-out-fast');
 
-            // Hide after fade-out
             setTimeout(() => {
                 presetControls.style.display = 'none';
                 searchBar.style.display = 'none';
@@ -60,11 +53,9 @@ export class UIManager {
                 cleanupAnimation(searchBar);
             }, TRANSITION_DURATION_MS);
 
-            // Hide main, show settings
             mainPage.style.display = 'none';
             settingsPage.style.display = 'block';
 
-            // Update button
             combinedButton.textContent = 'Cancel';
             combinedButton.className = 'header-combined-button cancel-state';
 
@@ -75,10 +66,12 @@ export class UIManager {
     renderModList() {
         const modList = document.getElementById('mod-list');
         modList.innerHTML = '';
+
         state.currentMods.forEach((mod, index) => {
             const li = document.createElement('li');
             li.className = 'mod-item';
             li.setAttribute('data-index', index);
+
             li.addEventListener('click', (e) => {
                 if (e.button !== 2) {
                     e.stopPropagation();
@@ -86,38 +79,50 @@ export class UIManager {
                     this.renderModList();
                 }
             });
+
             if (mod.enabled) {
                 li.classList.add('mod-enabled');
             } else {
                 li.classList.add('mod-disabled');
             }
+
             const numberDiv = document.createElement('div');
             numberDiv.className = 'mod-number';
             numberDiv.textContent = index + 1;
+
             const infoDiv = document.createElement('div');
             infoDiv.className = 'mod-info';
+
             const nameSpan = document.createElement('span');
             nameSpan.className = 'mod-name';
             nameSpan.textContent = mod.name;
+
             const typeSpan = document.createElement('span');
             typeSpan.className = 'mod-type';
-            typeSpan.textContent = mod.workshopId !== "0" ? `Workshop ID: ${mod.workshopId}` : "Local Mod";
-            if (mod.workshopId !== "0") {
+            typeSpan.textContent = mod.workshopId !== '0' ? `Workshop ID: ${mod.workshopId}` : 'Local Mod';
+
+            if (mod.workshopId !== '0') {
                 typeSpan.classList.add('workshop');
             } else {
                 typeSpan.classList.add('local');
             }
+
             infoDiv.appendChild(nameSpan);
             infoDiv.appendChild(typeSpan);
+
             const checkboxContainer = document.createElement('div');
             checkboxContainer.className = 'checkbox-container';
+
             const checkbox = document.createElement('div');
             checkbox.className = mod.enabled ? 'visual-checkbox checked' : 'visual-checkbox';
             checkbox.innerHTML = mod.enabled ? '✓' : '';
+
             checkboxContainer.appendChild(checkbox);
+
             li.appendChild(numberDiv);
             li.appendChild(infoDiv);
             li.appendChild(checkboxContainer);
+
             modList.appendChild(li);
         });
     }
@@ -131,6 +136,7 @@ export class UIManager {
     filterMods() {
         const searchTerm = document.querySelector('.search-bar').value.toLowerCase();
         const modItems = document.querySelectorAll('.mod-item');
+
         modItems.forEach(item => {
             const modName = item.querySelector('.mod-name').textContent.toLowerCase();
             item.style.display = modName.includes(searchTerm) ? 'flex' : 'none';
@@ -159,11 +165,14 @@ export class UIManager {
                 </div>
             </div>
         `;
+
         document.body.appendChild(modal);
+
         document.getElementById('modal-confirm').addEventListener('click', () => {
             onConfirm();
             document.body.removeChild(modal);
         });
+
         document.getElementById('modal-cancel').addEventListener('click', () => {
             onCancel();
             document.body.removeChild(modal);
@@ -183,12 +192,15 @@ export class UIManager {
                 </div>
             </div>
         `;
+
         document.body.appendChild(modal);
+
         document.getElementById('modal-confirm').addEventListener('click', () => {
             const input = document.getElementById('modal-input').value;
             onConfirm(input);
             document.body.removeChild(modal);
         });
+
         document.getElementById('modal-cancel').addEventListener('click', () => {
             onCancel();
             document.body.removeChild(modal);
@@ -199,7 +211,7 @@ export class UIManager {
         if (state.contextMenuTarget !== null) {
             this.modManager.toggleMod(state.contextMenuTarget);
             this.renderModList();
-            document.getElementById('context-menu').style.display = 'none';
+            document.getElementById('mod-context-menu').style.display = 'none';
         }
     }
 
@@ -211,11 +223,11 @@ export class UIManager {
                 () => {
                     this.modManager.deleteMod(state.contextMenuTarget);
                     this.statusBar.textContent = `Deleted mod: ${modName}`;
-                    document.getElementById('context-menu').style.display = 'none';
+                    document.getElementById('mod-context-menu').style.display = 'none';
                 },
                 () => {
-                    this.statusBar.textContent = `Deletion of ${modName} canceled`;
-                    document.getElementById('context-menu').style.display = 'none';
+                    this.statusBar.textContent = `Deletion of "${modName}" canceled`;
+                    document.getElementById('mod-context-menu').style.display = 'none';
                 }
             );
         }
@@ -230,16 +242,16 @@ export class UIManager {
                 (input) => {
                     const newIndex = parseInt(input) - 1;
                     if (isNaN(newIndex) || newIndex < 0 || newIndex >= state.currentMods.length) {
-                        this.statusBar.textContent = `Invalid position for ${modName}`;
+                        this.statusBar.textContent = `Invalid position for "${modName}"`;
                     } else {
                         this.modManager.reorderMod(state.contextMenuTarget, newIndex);
-                        this.statusBar.textContent = `Moved ${modName} to position ${newIndex + 1}`;
+                        this.statusBar.textContent = `Moved "${modName}" to position ${newIndex + 1}`;
                     }
-                    document.getElementById('context-menu').style.display = 'none';
+                    document.getElementById('mod-context-menu').style.display = 'none';
                 },
                 () => {
-                    this.statusBar.textContent = `Reordering of ${modName} canceled`;
-                    document.getElementById('context-menu').style.display = 'none';
+                    this.statusBar.textContent = `Reordering of "${modName}" canceled`;
+                    document.getElementById('mod-context-menu').style.display = 'none';
                 }
             );
         }
@@ -250,7 +262,7 @@ export class UIManager {
             const mod = state.currentMods[state.contextMenuTarget];
             if (mod.workshopId !== '0' && window.__TAURI__) {
                 try {
-                    await window.__TAURI__.core.invoke('open_workshop_item', {workshopId: mod.workshopId});
+                    await window.__TAURI__.core.invoke('open_workshop_item', { workshopId: mod.workshopId });
                     this.statusBar.textContent = `Opened workshop page for ${mod.name}`;
                 } catch (error) {
                     console.error('Error opening workshop:', error);
@@ -261,7 +273,7 @@ export class UIManager {
             } else {
                 this.statusBar.textContent = 'No workshop ID available for this mod';
             }
-            document.getElementById('context-menu').style.display = 'none';
+            document.getElementById('mod-context-menu').style.display = 'none';
         }
     }
 
@@ -280,7 +292,7 @@ export class UIManager {
             } else {
                 this.statusBar.textContent = 'No workshop ID available for this mod';
             }
-            document.getElementById('context-menu').style.display = 'none';
+            document.getElementById('mod-context-menu').style.display = 'none';
         }
     }
 }

@@ -31,21 +31,21 @@
     <script type="module" src="main.js"></script>
 </head>
 <body>
-<!-- Rest of HTML content remains the same -->
 <div class="container">
     <!-- Header Section -->
     <h1>Hallinta</h1>
     <div id="app-header" class="header">
         <input id="search-bar" type="text" class="search-bar" placeholder="Filter Mods by name..." oninput="filterMods()">
+
         <div id="preset-controls" class="preset-controls">
             <select id="preset-dropdown" onchange="onPresetChange()"></select>
             <button onclick="renameCurrentPreset()" title="Rename Preset">✏️</button>
             <button onclick="deleteCurrentPreset()" title="Delete Preset">🗑️</button>
         </div>
+
         <div class="header-buttons">
             <button id="header-combined-button" class="header-combined-button settings-state" onclick="toggleSettingsView()">Settings</button>
         </div>
-
     </div>
 
     <!-- Main Content Section -->
@@ -62,7 +62,9 @@
                 <button class="split-btn-main" onclick="importRegular()">Import</button>
             </div>
             <button onclick="exportModList()">Export</button>
+
             <hr class="sidebar-separator">
+
             <button onclick="restoreBackup()">Restore Backup</button>
             <button onclick="createBackup()">Create Backup</button>
             <button onclick="backupMonitor()">
@@ -87,6 +89,11 @@
             <button onclick="openDirectory('entangled')">Open</button>
         </div>
 
+        <h2>Application Settings</h2>
+        <div class="button-group">
+            <button onclick="openAppSettingsFolder()">Open Settings Folder</button>
+        </div>
+
         <h2>Appearance</h2>
         <div class="dark-mode-toggle">
             <label class="toggle-switch">
@@ -97,6 +104,11 @@
                     </span>
             </label>
             <span class="toggle-label">Dark Mode</span>
+        </div>
+
+        <h2>Application Info</h2>
+        <div class="app-info">
+            <p>Version: <span id="app-version">Loading...</span></p>
         </div>
 
         <div class="button-group">
@@ -115,8 +127,24 @@
         <button onclick="copyWorkshopLink()">Copy Workshop Link</button>
     </div>
 
+    <!-- Log Window Modal -->
+    <div id="log-modal" class="custom-modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px; max-height: 600px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3>Application Logs</h3>
+                <div>
+                    <button onclick="refreshLogs()">Refresh</button>
+                    <button onclick="clearLogs()">Clear</button>
+                    <button onclick="saveLogs()">Save</button>
+                    <button onclick="closeLogs()">Close</button>
+                </div>
+            </div>
+            <div id="log-content" style="height: 400px; overflow-y: auto; border: 1px solid var(--border-color); padding: 1rem; background: var(--card-bg); font-family: monospace; font-size: 0.9em; white-space: pre-wrap;"></div>
+        </div>
+    </div>
+
     <!-- Status Bar -->
-    <div class="status-bar" id="status-bar">Ready - Loaded from Noita XML file</div>
+    <button class="status-bar" id="status-bar" onclick="openLogs()">Ready - Loaded from Noita XML file</button>
 </div>
 </body>
 </html>
