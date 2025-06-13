@@ -6,23 +6,10 @@
   "permissions": [
     "core:default",
     "shell:allow-open",
-    "fs:default",
-    "fs:allow-write-text-file",
-    "fs:allow-read-text-file",
-    "fs:allow-create",
-    "fs:allow-mkdir",
-    "fs:allow-exists",
-    "fs:allow-watch",
-    "fs:allow-write-file",
-    "fs:allow-read-file",
-    "fs:create-app-specific-dirs",
-    "fs:read-app-specific-dirs-recursive",
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-confirm",
     "dialog:allow-ask",
-    "dialog:allow-message",
-    "fs:scope-exe-recursive",
-    "fs:scope-home-recursive"
+    "dialog:allow-message"
   ]
 }
