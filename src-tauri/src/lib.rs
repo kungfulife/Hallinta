@@ -16,6 +16,17 @@ pub struct ModPreset {
     pub settings_fold_open: bool,
 }
 
+fn get_data_dir() -> Result<PathBuf, String> {
+    let local_app_data = std::env::var("LOCALAPPDATA")
+        .map_err(|_| "Could not get LOCALAPPDATA environment variable".to_string())?;
+    let data_dir = PathBuf::from(local_app_data).join("Hallinta");
+    if !data_dir.exists() {
+        std::fs::create_dir_all(&data_dir)
+            .map_err(|e| format!("Failed to create data directory: {}", e))?;
+    }
+    Ok(data_dir)
+}
+
 #[tauri::command]
 fn is_dev_build() -> bool {
     cfg!(debug_assertions)
@@ -72,8 +83,8 @@ fn get_noita_save_path() -> Result<String, String> {
 
 #[tauri::command]
 fn save_settings(settings: AppSettings) -> Result<(), String> {
-    let exe_dir = get_exe_dir()?;
-    let settings_path = PathBuf::from(exe_dir).join("settings.json");
+    let data_dir = get_data_dir()?;
+    let settings_path = data_dir.join("settings.json");
 
     let json_content = serde_json::to_string_pretty(&settings)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
@@ -86,8 +97,8 @@ fn save_settings(settings: AppSettings) -> Result<(), String> {
 
 #[tauri::command]
 fn load_settings() -> Result<AppSettings, String> {
-    let exe_dir = get_exe_dir()?;
-    let settings_path = PathBuf::from(exe_dir).join("settings.json");
+    let data_dir = get_data_dir()?;
+    let settings_path = data_dir.join("settings.json");
 
     if !settings_path.exists() {
         let default_settings = AppSettings {
@@ -110,8 +121,8 @@ fn load_settings() -> Result<AppSettings, String> {
 
 #[tauri::command]
 fn save_presets(presets: std::collections::HashMap<String, Vec<ModPreset>>) -> Result<(), String> {
-    let exe_dir = get_exe_dir()?;
-    let presets_path = PathBuf::from(exe_dir).join("presets.json");
+    let data_dir = get_data_dir()?;
+    let presets_path = data_dir.join("presets.json");
 
     let json_content = serde_json::to_string_pretty(&presets)
         .map_err(|e| format!("Failed to serialize presets: {}", e))?;
@@ -124,8 +135,8 @@ fn save_presets(presets: std::collections::HashMap<String, Vec<ModPreset>>) -> R
 
 #[tauri::command]
 fn load_presets() -> Result<std::collections::HashMap<String, Vec<ModPreset>>, String> {
-    let exe_dir = get_exe_dir()?;
-    let presets_path = PathBuf::from(exe_dir).join("presets.json");
+    let data_dir = get_data_dir()?;
+    let presets_path = data_dir.join("presets.json");
 
     if !presets_path.exists() {
         let mut default_presets = std::collections::HashMap::new();
