@@ -1,18 +1,43 @@
-/* Status Bar */
+/* Status bar as button */
 .status-bar {
-    user-select: none;
     background-color: var(--border-color);
-    border-top: 1px solid var(--border-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px 4px 0 0;
     bottom: 0;
     color: var(--text-color);
+    cursor: pointer;
     font-size: 0.85em;
     left: 0;
     padding: 0.5em 1em;
     position: absolute;
     right: 0;
     text-align: left;
+    transition: all 0.2s;
+    user-select: none;
     z-index: 100;
 }
+
+.status-bar:hover {
+    background-color: var(--button-hover);
+    border-color: var(--accent-color);
+}
+
+
+/* Status Bar */
+/*.status-bar {*/
+/*    user-select: none;*/
+/*    background-color: var(--border-color);*/
+/*    border-top: 1px solid var(--border-color);*/
+/*    bottom: 0;*/
+/*    color: var(--text-color);*/
+/*    font-size: 0.85em;*/
+/*    left: 0;*/
+/*    padding: 0.5em 1em;*/
+/*    position: absolute;*/
+/*    right: 0;*/
+/*    text-align: left;*/
+/*    z-index: 100;*/
+/*}*/
 
 /* Status Bar Phrase Animations */
 .hamis-phrase {
