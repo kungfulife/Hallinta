@@ -42,7 +42,7 @@ window.openLogs = () => {
         modal.style.display = 'flex';
         refreshLogs();
     } else {
-        console.error('Log modal not found');
+        uiManager.showError('Log modal not found');
     }
 };
 
@@ -59,7 +59,7 @@ window.refreshLogs = async () => {
         const logContent = document.getElementById('log-content');
 
         if (!logContent) {
-            console.error('Log content element not found');
+            uiManager.showError('Log content element not found');
             return;
         }
 
@@ -75,7 +75,7 @@ window.refreshLogs = async () => {
         logContent.textContent = logText;
         logContent.scrollTop = logContent.scrollHeight;
     } catch (error) {
-        console.error('Error refreshing logs:', error);
+        uiManager.showError(`Error refreshing logs: ${error}`);
         const logContent = document.getElementById('log-content');
         if (logContent) {
             logContent.textContent = 'Error loading logs.';
@@ -91,23 +91,18 @@ window.clearLogs = async () => {
             logContent.textContent = 'Logs cleared.';
         }
     } catch (error) {
-        console.error('Error clearing logs:', error);
+        uiManager.showError(`Error clearing logs: ${error}`);
     }
 };
 
 window.saveLogs = async () => {
     try {
-        await window.__TAURI__.core.invoke('save_logs_to_file');
         const statusBar = document.getElementById('status-bar');
         if (statusBar) {
-            statusBar.textContent = 'Logs saved to file';
+            statusBar.textContent = 'Logs are automatically saved to daily log file';
         }
     } catch (error) {
-        console.error('Error saving logs:', error);
-        const statusBar = document.getElementById('status-bar');
-        if (statusBar) {
-            statusBar.textContent = 'Error saving logs';
-        }
+        uiManager.showError(`Error updating log status: ${error}`);
     }
 };
 
@@ -229,45 +224,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Auto-save logs periodically
-    setInterval(async () => {
-        try {
-            const settings = await window.__TAURI__.core.invoke('load_settings');
-            if (settings && settings.log_settings && settings.log_settings.auto_save) {
-                await window.__TAURI__.core.invoke('save_logs_to_file');
-            }
-        } catch (error) {
-            console.error('Error in auto-save logs:', error);
+    // App focus tracking for file watching
+    window.addEventListener('focus', () => {
+        state.isAppFocused = true;
+    });
+
+    window.addEventListener('blur', () => {
+        state.isAppFocused = false;
+    });
+
+    window.addEventListener('beforeunload', () => {
+        if (state.phraseManager) {
+            state.phraseManager.stopRandomPhrases();
         }
-    }, 300000); // Every 5 minutes
+    });
+
+    window.cancelSettings = () => uiManager.changeView('main');
+
+    window.toggleSettingsView = () => {
+        const button = document.getElementById('header-combined-button');
+        if (!button) return;
+
+        const isInSettings = button.textContent === 'Cancel';
+
+        if (isInSettings) {
+            uiManager.changeView('main');
+        } else {
+            uiManager.changeView('settings');
+        }
+    };
 });
-
-// App focus tracking for file watching
-window.addEventListener('focus', () => {
-    state.isAppFocused = true;
-});
-
-window.addEventListener('blur', () => {
-    state.isAppFocused = false;
-});
-
-window.addEventListener('beforeunload', () => {
-    if (state.phraseManager) {
-        state.phraseManager.stopRandomPhrases();
-    }
-});
-
-window.cancelSettings = () => uiManager.changeView('main');
-
-window.toggleSettingsView = () => {
-    const button = document.getElementById('header-combined-button');
-    if (!button) return;
-
-    const isInSettings = button.textContent === 'Cancel';
-
-    if (isInSettings) {
-        uiManager.changeView('main');
-    } else {
-        uiManager.changeView('settings');
-    }
-};
