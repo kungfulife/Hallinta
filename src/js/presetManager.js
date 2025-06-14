@@ -42,6 +42,8 @@ export class PresetManager {
                 this.logAction('INFO', `Created new preset: ${newName}`);
             } else {
                 selector.value = state.selectedPreset;
+                this.uiManager.showError('Invalid preset name or preset already exists');
+                this.logAction('ERROR', 'Invalid preset name or preset already exists');
             }
         } else {
             state.selectedPreset = selector.value;
@@ -59,6 +61,7 @@ export class PresetManager {
 
         if (state.selectedPreset === 'Default') {
             statusBar.textContent = 'Cannot delete the Default preset';
+            this.logAction('WARN', 'Attempted to delete Default preset');
             return;
         }
 
@@ -81,6 +84,7 @@ export class PresetManager {
 
         if (state.selectedPreset === 'Default') {
             statusBar.textContent = 'Cannot rename the Default preset';
+            this.logAction('WARN', 'Attempted to rename Default preset');
             return;
         }
 
@@ -94,6 +98,9 @@ export class PresetManager {
             await this.saveSelectedPreset();
             statusBar.textContent = `Renamed preset to: ${newName}`;
             this.logAction('INFO', `Renamed preset from ${oldName} to ${newName}`);
+        } else {
+            this.uiManager.showError('Invalid preset name or preset already exists');
+            this.logAction('ERROR', 'Invalid preset name or preset already exists');
         }
     }
 
@@ -105,7 +112,7 @@ export class PresetManager {
                 await window.__TAURI__.core.invoke('save_settings', { settings });
             }
         } catch (error) {
-            console.error('Error saving selected preset:', error);
+            this.uiManager.showError(`Failed to save selected preset: ${error.message}`);
             this.logAction('ERROR', `Failed to save selected preset: ${error.message}`);
         }
     }
@@ -116,7 +123,12 @@ export class PresetManager {
                 level,
                 message,
                 module: 'PresetManager'
-            }).catch(console.error);
+            }).catch(error => {
+                this.uiManager.showError(`Failed to log action: ${error.message}`);
+            });
+            if (level === 'ERROR') {
+                this.uiManager.showError(message);
+            }
         }
     }
 }

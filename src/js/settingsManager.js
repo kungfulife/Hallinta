@@ -23,7 +23,8 @@ export class SettingsManager {
         const statusBar = document.getElementById('status-bar');
 
         if (!window.__TAURI__?.core) {
-            statusBar.textContent = 'Tauri is not initialized';
+            this.uiManager.showError('Tauri is not initialized');
+            this.logAction('ERROR', 'Tauri is not initialized');
             return;
         }
 
@@ -34,7 +35,8 @@ export class SettingsManager {
                 settings = await window.__TAURI__.core.invoke('load_settings');
                 presets = await window.__TAURI__.core.invoke('load_presets');
             } catch (error) {
-                console.error('Error loading config, using defaults:', error);
+                this.uiManager.showError(`Error loading config, using defaults: ${error.message}`);
+                this.logAction('ERROR', `Error loading config: ${error.message}`);
 
                 // Create proper default settings structure
                 settings = {
@@ -55,7 +57,8 @@ export class SettingsManager {
                 try {
                     settings.noita_dir = await window.__TAURI__.core.invoke('get_noita_save_path');
                 } catch (pathError) {
-                    console.error('Could not get default Noita path:', pathError);
+                    this.uiManager.showError(`Could not get default Noita path: ${pathError.message}`);
+                    this.logAction('ERROR', `Could not get default Noita path: ${pathError.message}`);
                     settings.noita_dir = '';
                 }
 
@@ -76,20 +79,25 @@ export class SettingsManager {
                 await this.modManager.loadModConfigFromDirectory(settings.noita_dir);
             } else {
                 statusBar.textContent = 'Noita save directory not set. Please set it in settings.';
+                this.logAction('WARN', 'Noita save directory not set');
             }
 
             this.logAction('INFO', 'Configuration loaded successfully');
 
         } catch (error) {
-            console.error('Critical error in loadConfig:', error);
-            statusBar.textContent = `Error loading configuration: ${error.message}`;
+            this.uiManager.showError(`Critical error in loadConfig: ${error.message}`);
             this.logAction('ERROR', `Critical error in loadConfig: ${error.message}`);
         }
     }
 
     async saveDefaults(settings, presets) {
-        await window.__TAURI__.core.invoke('save_settings', { settings });
-        await window.__TAURI__.core.invoke('save_presets', { presets });
+        try {
+            await window.__TAURI__.core.invoke('save_settings', { settings });
+            await window.__TAURI__.core.invoke('save_presets', { presets });
+        } catch (error) {
+            this.uiManager.showError(`Error saving default settings: ${error.message}`);
+            this.logAction('ERROR', `Error saving default settings: ${error.message}`);
+        }
     }
 
     applyConfig(settings, presets) {
@@ -154,8 +162,7 @@ export class SettingsManager {
                     statusBar.textContent = 'Configuration saved successfully';
                     this.logAction('INFO', 'Configuration saved successfully');
                 } catch (error) {
-                    console.error('Save error:', error);
-                    statusBar.textContent = `Error saving configuration: ${error.message}`;
+                    this.uiManager.showError(`Error saving configuration: ${error.message}`);
                     this.logAction('ERROR', `Error saving configuration: ${error.message}`);
                 }
             }
@@ -163,8 +170,7 @@ export class SettingsManager {
             this.uiManager.changeView('main');
 
         } catch (error) {
-            console.error('Save and close error:', error);
-            statusBar.textContent = `Critical error during save: ${error.message}`;
+            this.uiManager.showError(`Critical error during save: ${error.message}`);
             this.logAction('ERROR', `Critical error during save: ${error.message}`);
             this.uiManager.changeView('main');
         }
@@ -198,9 +204,7 @@ export class SettingsManager {
                 }
             }
         } catch (error) {
-            console.error('Directory selection error:', error);
-            statusBar.className = 'status-bar';
-            statusBar.textContent = `Error selecting directory: ${error.message}`;
+            this.uiManager.showError(`Error selecting directory: ${error.message}`);
             this.logAction('ERROR', `Error selecting directory: ${error.message}`);
         }
     }
@@ -210,7 +214,8 @@ export class SettingsManager {
         const directory = dirElement ? dirElement.value : '';
 
         if (!directory) {
-            document.getElementById('status-bar').textContent = `No ${type} directory set`;
+            this.uiManager.showError(`No ${type} directory set`);
+            this.logAction('ERROR', `No ${type} directory set`);
             return;
         }
 
@@ -219,8 +224,7 @@ export class SettingsManager {
             document.getElementById('status-bar').textContent = `Opened ${type} directory`;
             this.logAction('INFO', `Opened ${type} directory: ${directory}`);
         } catch (error) {
-            console.error('Error opening directory:', error);
-            document.getElementById('status-bar').textContent = `Error opening directory: ${error.message}`;
+            this.uiManager.showError(`Error opening directory: ${error.message}`);
             this.logAction('ERROR', `Error opening directory: ${error.message}`);
         }
     }
@@ -232,8 +236,7 @@ export class SettingsManager {
             document.getElementById('status-bar').textContent = 'Opened application settings folder';
             this.logAction('INFO', `Opened application settings folder: ${settingsDir}`);
         } catch (error) {
-            console.error('Error opening app settings folder:', error);
-            document.getElementById('status-bar').textContent = `Error opening settings folder: ${error.message}`;
+            this.uiManager.showError(`Error opening app settings folder: ${error.message}`);
             this.logAction('ERROR', `Error opening app settings folder: ${error.message}`);
         }
     }
@@ -250,7 +253,8 @@ export class SettingsManager {
             try {
                 defaultNoitaDir = await window.__TAURI__.core.invoke('get_noita_save_path');
             } catch (error) {
-                console.error('Failed to get Noita save path:', error);
+                this.uiManager.showError(`Failed to get Noita save path: ${error.message}`);
+                this.logAction('ERROR', `Failed to get Noita save path: ${error.message}`);
                 statusBar.textContent = 'Unable to find Noita save directory. Please set it manually.';
                 return;
             }
@@ -261,6 +265,8 @@ export class SettingsManager {
                 .catch(() => false);
 
             if (!pathExists) {
+                this.uiManager.showError('Invalid Noita save directory');
+                this.logAction('ERROR', 'Invalid Noita save directory');
                 statusBar.textContent = 'Invalid Noita save directory. Please set a valid directory.';
                 return;
             }
@@ -307,8 +313,7 @@ export class SettingsManager {
             this.logAction('INFO', 'Successfully reset to defaults');
 
         } catch (error) {
-            console.error('Error resetting defaults:', error);
-            statusBar.textContent = `Error resetting defaults: ${error.message}`;
+            this.uiManager.showError(`Error resetting defaults: ${error.message}`);
             this.logAction('ERROR', `Error resetting defaults: ${error.message}`);
         }
     }
@@ -319,7 +324,12 @@ export class SettingsManager {
                 level,
                 message,
                 module: 'SettingsManager'
-            }).catch(console.error);
+            }).catch(error => {
+                this.uiManager.showError(`Failed to log action: ${error.message}`);
+            });
+            if (level === 'ERROR') {
+                this.uiManager.showError(message);
+            }
         }
     }
 }

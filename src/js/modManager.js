@@ -21,7 +21,6 @@ export class ModManager {
                 this.logAction('INFO', `Loaded ${state.currentMods.length} mods from ${directory}`);
             }
         } catch (error) {
-            console.error('Error loading mod config:', error);
             this.uiManager.showError(`Failed to load mod_config.xml: ${error.message}`);
             this.logAction('ERROR', `Failed to load mod config: ${error.message}`);
         }
@@ -52,12 +51,13 @@ export class ModManager {
                         await this.handleExternalFileChange(directory);
                     }
                 } catch (error) {
-                    console.error('Error checking file modification:', error);
+                    this.uiManager.showError(`Error checking file modification: ${error.message}`);
+                    this.logAction('ERROR', `Error checking file modification: ${error.message}`);
                 }
             }, 2000); // Check every 2 seconds
 
         } catch (error) {
-            console.error('Error starting file watcher:', error);
+            this.uiManager.showError(`Failed to start file watcher: ${error.message}`);
             this.logAction('ERROR', `Failed to start file watcher: ${error.message}`);
         }
     }
@@ -76,7 +76,8 @@ export class ModManager {
                 const configPath = `${directory}/mod_config.xml`;
                 state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', { filePath: configPath });
             } catch (error) {
-                console.error('Error updating last modified time:', error);
+                this.uiManager.showError(`Error updating last modified time: ${error.message}`);
+                this.logAction('ERROR', `Error updating last modified time: ${error.message}`);
             }
         }
     }
@@ -109,8 +110,7 @@ export class ModManager {
             this.uiManager.updateModCount();
 
         } catch (error) {
-            console.error('Error parsing XML:', error);
-            document.getElementById('status-bar').textContent = `Error parsing XML: ${error.message}`;
+            this.uiManager.showError(`Error parsing XML: ${error.message}`);
             this.logAction('ERROR', `Failed to parse XML: ${error.message}`);
         }
     }
@@ -139,15 +139,13 @@ export class ModManager {
                 const configPath = `${noitaDir}/mod_config.xml`;
                 state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', { filePath: configPath });
             } catch (error) {
-                console.warn('Could not update last modified time:', error);
-                // Don't throw error, just log warning
+                this.logAction('WARN', `Could not update last modified time: ${error.message}`);
             }
 
             this.logAction('INFO', 'Saved mod configuration to file');
 
         } catch (error) {
-            console.error('Error saving mod config:', error);
-            document.getElementById('status-bar').textContent = `Error saving mod_config.xml: ${error.message}`;
+            this.uiManager.showError(`Error saving mod_config.xml: ${error.message}`);
             this.logAction('ERROR', `Failed to save mod config: ${error.message}`);
         }
     }
@@ -228,7 +226,12 @@ export class ModManager {
                 level,
                 message,
                 module: 'ModManager'
-            }).catch(console.error);
+            }).catch(error => {
+                this.uiManager.showError(`Failed to log action: ${error.message}`);
+            });
+            if (level === 'ERROR') {
+                this.uiManager.showError(message);
+            }
         }
     }
 

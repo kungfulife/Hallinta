@@ -261,13 +261,13 @@ export class UIManager {
                     await window.__TAURI__.core.invoke('open_workshop_item', { workshopId: mod.workshopId });
                     this.statusBar.textContent = `Opened workshop page for ${mod.name}`;
                 } catch (error) {
-                    console.error('Error opening workshop:', error);
+                    this.showError(`Error opening workshop: ${error.message}`);
                     const url = `https://steamcommunity.com/sharedfiles/filedetails/?id=${mod.workshopId}`;
                     window.open(url, '_blank');
                     this.statusBar.textContent = `Opened workshop page for ${mod.name}`;
                 }
             } else {
-                this.statusBar.textContent = 'No workshop ID available for this mod';
+                this.showError('No workshop ID available for this mod');
             }
             document.getElementById('mod-context-menu').style.display = 'none';
         }
@@ -282,11 +282,10 @@ export class UIManager {
                     await navigator.clipboard.writeText(url);
                     this.statusBar.textContent = `Copied workshop link for ${mod.name}`;
                 } catch (error) {
-                    console.error('Error copying to clipboard:', error);
-                    this.statusBar.textContent = 'Failed to copy workshop link';
+                    this.showError(`Error copying to clipboard: ${error.message}`);
                 }
             } else {
-                this.statusBar.textContent = 'No workshop ID available for this mod';
+                this.showError('No workshop ID available for this mod');
             }
             document.getElementById('mod-context-menu').style.display = 'none';
         }

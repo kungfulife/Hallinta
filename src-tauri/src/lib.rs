@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::time::SystemTime;
 use std::path::Path;
 use tokio::fs as tokio_fs;
 use serde_json;
-use chrono::Utc;
+use chrono::{Local, Utc, DateTime};
 use std::sync::Mutex;
 use std::collections::VecDeque;
 
@@ -265,20 +266,45 @@ async fn cleanup_old_backups(backup_dir: &Path, keep_count: usize) -> Result<(),
 
 #[tauri::command]
 fn add_log_entry(level: String, message: String, module: String) -> Result<(), String> {
+    let timestamp = Utc::now().to_rfc3339();
     let entry = LogEntry {
-        timestamp: Utc::now().to_rfc3339(),
-        level,
-        message,
-        module,
+        timestamp: timestamp.clone(),
+        level: level.clone(),
+        message: message.clone(),
+        module: module.clone(),
     };
 
+    // Add to in-memory buffer
     let mut buffer = LOG_BUFFER.lock().map_err(|e| format!("Failed to lock log buffer: {}", e))?;
-
     if buffer.len() >= MAX_BUFFER_SIZE {
         buffer.pop_front();
     }
-
     buffer.push_back(entry);
+
+    // Append to daily log file
+    let data_dir = get_data_dir()?;
+    let logs_dir = data_dir.join("logs");
+    if !logs_dir.exists() {
+        fs::create_dir_all(&logs_dir)
+            .map_err(|e| format!("Failed to create logs directory: {}", e))?;
+    }
+
+    // Parse timestamp to get local date
+    let log_time: DateTime<Utc> = timestamp.parse()
+        .map_err(|e| format!("Failed to parse timestamp: {}", e))?;
+    let local_date = log_time.with_timezone(&Local).date_naive();
+    let log_file = logs_dir.join(format!("hallinta_{}.log", local_date.format("%Y%m%d")));
+
+    // Append to file
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_file)
+        .map_err(|e| format!("Failed to open log file: {}", e))?;
+
+    let log_line = format!("[{}] [{}] [{}] {}\n", timestamp, level, module, message);
+    file.write_all(log_line.as_bytes())
+        .map_err(|e| format!("Failed to write to log file: {}", e))?;
 
     Ok(())
 }
@@ -287,44 +313,6 @@ fn add_log_entry(level: String, message: String, module: String) -> Result<(), S
 fn get_log_entries() -> Result<Vec<LogEntry>, String> {
     let buffer = LOG_BUFFER.lock().map_err(|e| format!("Failed to lock log buffer: {}", e))?;
     Ok(buffer.iter().cloned().collect())
-}
-
-#[tauri::command]
-async fn save_logs_to_file() -> Result<(), String> {
-    let data_dir = get_data_dir()?;
-    let logs_dir = data_dir.join("logs");
-
-    if !logs_dir.exists() {
-        tokio_fs::create_dir_all(&logs_dir)
-            .await
-            .map_err(|e| format!("Failed to create logs directory: {}", e))?;
-    }
-
-    // Clone the log entries to avoid holding the mutex across await
-    let log_entries = {
-        let buffer = LOG_BUFFER.lock().map_err(|e| format!("Failed to lock log buffer: {}", e))?;
-
-        if buffer.is_empty() {
-            return Ok(());
-        }
-
-        buffer.iter().cloned().collect::<Vec<_>>()
-    }; // Mutex guard is dropped here
-
-    let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-    let log_file = logs_dir.join(format!("hallinta_{}.log", timestamp));
-
-    let mut log_content = String::new();
-    for entry in log_entries.iter() {
-        log_content.push_str(&format!("[{}] [{}] [{}] {}\n",
-                                      entry.timestamp, entry.level, entry.module, entry.message));
-    }
-
-    tokio_fs::write(&log_file, log_content)
-        .await
-        .map_err(|e| format!("Failed to write log file: {}", e))?;
-
-    Ok(())
 }
 
 #[tauri::command]
@@ -481,7 +469,6 @@ pub fn run() {
             create_settings_backup,
             add_log_entry,
             get_log_entries,
-            save_logs_to_file,
             clear_log_buffer
         ])
         .run(tauri::generate_context!())
