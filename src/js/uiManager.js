@@ -218,11 +218,11 @@ export class UIManager {
                 `Are you sure you want to delete the mod "${modName}"?`,
                 () => {
                     this.modManager.deleteMod(state.contextMenuTarget);
-                    this.statusBar.textContent = `Deleted mod: ${modName}`;
+                    this.logAction('INFO', `Deleted mod: ${modName}`);
                     document.getElementById('mod-context-menu').style.display = 'none';
                 },
                 () => {
-                    this.statusBar.textContent = `Deletion of "${modName}" canceled`;
+                    this.logAction('INFO', `Deletion of "${modName}" canceled`);
                     document.getElementById('mod-context-menu').style.display = 'none';
                 }
             );
@@ -238,15 +238,15 @@ export class UIManager {
                 (input) => {
                     const newIndex = parseInt(input) - 1;
                     if (isNaN(newIndex) || newIndex < 0 || newIndex >= state.currentMods.length) {
-                        this.statusBar.textContent = `Invalid position for "${modName}"`;
+                        this.logAction('ERROR', `Invalid position for "${modName}"`);
                     } else {
                         this.modManager.reorderMod(state.contextMenuTarget, newIndex);
-                        this.statusBar.textContent = `Moved "${modName}" to position ${newIndex + 1}`;
+                        this.logAction('INFO', `Moved "${modName}" to position ${newIndex + 1}`);
                     }
                     document.getElementById('mod-context-menu').style.display = 'none';
                 },
                 () => {
-                    this.statusBar.textContent = `Reordering of "${modName}" canceled`;
+                    this.logAction('INFO', `Reordering of "${modName}" canceled`);
                     document.getElementById('mod-context-menu').style.display = 'none';
                 }
             );
@@ -259,15 +259,13 @@ export class UIManager {
             if (mod.workshopId !== '0' && window.__TAURI__) {
                 try {
                     await window.__TAURI__.core.invoke('open_workshop_item', { workshopId: mod.workshopId });
-                    this.statusBar.textContent = `Opened workshop page for ${mod.name}`;
+                    this.logAction('INFO', `Opened workshop page for ${mod.name}`);
                 } catch (error) {
-                    this.showError(`Error opening workshop: ${error.message}`);
+                    this.logAction('ERROR', `Error opening workshop: ${error.message}`);
                     const url = `https://steamcommunity.com/sharedfiles/filedetails/?id=${mod.workshopId}`;
                     window.open(url, '_blank');
-                    this.statusBar.textContent = `Opened workshop page for ${mod.name}`;
+                    this.logAction('INFO', `Opened workshop page for ${mod.name}`);
                 }
-            } else {
-                this.showError('No workshop ID available for this mod');
             }
             document.getElementById('mod-context-menu').style.display = 'none';
         }
@@ -276,26 +274,40 @@ export class UIManager {
     async copyWorkshopLink() {
         if (state.contextMenuTarget !== null) {
             const mod = state.currentMods[state.contextMenuTarget];
-            if (mod.workshopId !== '0') {
-                const url = `https://steamcommunity.com/sharedfiles/filedetails/?id=${mod.workshopId}`;
-                try {
-                    await navigator.clipboard.writeText(url);
-                    this.statusBar.textContent = `Copied workshop link for ${mod.name}`;
-                } catch (error) {
-                    this.showError(`Error copying to clipboard: ${error.message}`);
-                }
-            } else {
-                this.showError('No workshop ID available for this mod');
+            const url = `https://steamcommunity.com/sharedfiles/filedetails/?id=${mod.workshopId}`;
+            try {
+                await navigator.clipboard.writeText(url);
+                this.logAction('INFO', `Copied workshop link for ${mod.name}`);
+            } catch (error) {
+                this.logAction('ERROR', `Error copying to clipboard: ${error.message}`);
             }
             document.getElementById('mod-context-menu').style.display = 'none';
         }
     }
 
+    logAction(level, message, module = 'UIManager') {
+        const statusBar = document.getElementById('status-bar');
+        if (statusBar) {
+            if (level === 'ERROR') {
+                statusBar.textContent = `Error: ${message}`;
+                statusBar.classList.add('error');
+                setTimeout(() => {
+                    statusBar.classList.remove('error');
+                }, 5000);
+            } else {
+                statusBar.textContent = message;
+                statusBar.className = 'status-bar';
+            }
+        }
+        if (window.__TAURI__ && window.__TAURI__.core) {
+            window.__TAURI__.core.invoke('add_log_entry', { level, message, module })
+                .catch(error => {
+                    console.error(`Failed to log action: ${error.message}`);
+                });
+        }
+    }
+
     showError(message) {
-        this.statusBar.textContent = `Error: ${message}`;
-        this.statusBar.classList.add('error');
-        setTimeout(() => {
-            this.statusBar.classList.remove('error');
-        }, 5000); // Clear error styling after 5 seconds
+        this.logAction('ERROR', message);
     }
 }

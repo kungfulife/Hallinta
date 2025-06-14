@@ -29,8 +29,6 @@ export class PresetManager {
 
     async onPresetChange() {
         const selector = document.getElementById('preset-dropdown');
-        const statusBar = document.getElementById('status-bar');
-
         if (selector.value === 'createnew') {
             const newName = prompt('Enter name for new preset:', `Preset ${Object.keys(state.currentPresets).length + 1}`);
             if (newName && !state.currentPresets[newName]) {
@@ -38,12 +36,10 @@ export class PresetManager {
                 state.selectedPreset = newName;
                 this.loadPresets();
                 await this.saveSelectedPreset();
-                statusBar.textContent = `Created new preset: ${newName}`;
-                this.logAction('INFO', `Created new preset: ${newName}`);
+                this.uiManager.logAction('INFO', `Created new preset: ${newName}`);
             } else {
                 selector.value = state.selectedPreset;
-                this.uiManager.showError('Invalid preset name or preset already exists');
-                this.logAction('ERROR', 'Invalid preset name or preset already exists');
+                this.uiManager.logAction('ERROR', 'Invalid preset name or preset already exists');
             }
         } else {
             state.selectedPreset = selector.value;
@@ -51,17 +47,13 @@ export class PresetManager {
             this.uiManager.renderModList();
             this.uiManager.updateModCount();
             await this.saveSelectedPreset();
-            statusBar.textContent = `Switched to preset: ${state.selectedPreset}`;
-            this.logAction('INFO', `Switched to preset: ${state.selectedPreset}`);
+            this.uiManager.logAction('INFO', `Switched to preset: ${state.selectedPreset}`);
         }
     }
 
     async deleteCurrentPreset() {
-        const statusBar = document.getElementById('status-bar');
-
         if (state.selectedPreset === 'Default') {
-            statusBar.textContent = 'Cannot delete the Default preset';
-            this.logAction('WARN', 'Attempted to delete Default preset');
+            this.uiManager.logAction('WARN', 'Cannot delete the Default preset');
             return;
         }
 
@@ -74,17 +66,13 @@ export class PresetManager {
             this.uiManager.updateModCount();
             this.loadPresets();
             await this.saveSelectedPreset();
-            statusBar.textContent = `Deleted preset: ${deletedPreset}`;
-            this.logAction('INFO', `Deleted preset: ${deletedPreset}`);
+            this.uiManager.logAction('INFO', `Deleted preset: ${deletedPreset}`);
         }
     }
 
     async renameCurrentPreset() {
-        const statusBar = document.getElementById('status-bar');
-
         if (state.selectedPreset === 'Default') {
-            statusBar.textContent = 'Cannot rename the Default preset';
-            this.logAction('WARN', 'Attempted to rename Default preset');
+            this.uiManager.logAction('WARN', 'Cannot rename the Default preset');
             return;
         }
 
@@ -96,11 +84,9 @@ export class PresetManager {
             state.selectedPreset = newName;
             this.loadPresets();
             await this.saveSelectedPreset();
-            statusBar.textContent = `Renamed preset to: ${newName}`;
-            this.logAction('INFO', `Renamed preset from ${oldName} to ${newName}`);
+            this.uiManager.logAction('INFO', `Renamed preset from ${oldName} to ${newName}`);
         } else {
-            this.uiManager.showError('Invalid preset name or preset already exists');
-            this.logAction('ERROR', 'Invalid preset name or preset already exists');
+            this.uiManager.logAction('ERROR', 'Invalid preset name or preset already exists');
         }
     }
 
@@ -112,23 +98,11 @@ export class PresetManager {
                 await window.__TAURI__.core.invoke('save_settings', { settings });
             }
         } catch (error) {
-            this.uiManager.showError(`Failed to save selected preset: ${error.message}`);
-            this.logAction('ERROR', `Failed to save selected preset: ${error.message}`);
+            this.uiManager.logAction('ERROR', `Failed to save selected preset: ${error.message}`);
         }
     }
 
     logAction(level, message) {
-        if (window.__TAURI__ && window.__TAURI__.core) {
-            window.__TAURI__.core.invoke('add_log_entry', {
-                level,
-                message,
-                module: 'PresetManager'
-            }).catch(error => {
-                this.uiManager.showError(`Failed to log action: ${error.message}`);
-            });
-            if (level === 'ERROR') {
-                this.uiManager.showError(message);
-            }
-        }
+        this.uiManager.logAction(level, message, 'PresetManager');
     }
 }

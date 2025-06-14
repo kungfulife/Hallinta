@@ -46,8 +46,8 @@ pub struct LogEntry {
 
 // Logging state
 static LOG_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
+static LOG_FILE_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
 static MAX_BUFFER_SIZE: usize = 1000;
-
 fn get_data_dir() -> Result<PathBuf, String> {
     let local_app_data = std::env::var("LOCALAPPDATA")
         .map_err(|_| "Could not get LOCALAPPDATA environment variable.".to_string())?;
@@ -69,7 +69,7 @@ fn is_dev_build() -> bool {
 
 #[tauri::command]
 fn get_version() -> String {
-    "0.3.0".to_string()
+    "0.3.1".to_string()
 }
 
 #[tauri::command]
@@ -268,43 +268,22 @@ async fn cleanup_old_backups(backup_dir: &Path, keep_count: usize) -> Result<(),
 fn add_log_entry(level: String, message: String, module: String) -> Result<(), String> {
     let timestamp = Utc::now().to_rfc3339();
     let entry = LogEntry {
-        timestamp: timestamp.clone(),
+        timestamp,
         level: level.clone(),
         message: message.clone(),
-        module: module.clone(),
+        module,
     };
 
-    // Add to in-memory buffer
+    // Add to display buffer
     let mut buffer = LOG_BUFFER.lock().map_err(|e| format!("Failed to lock log buffer: {}", e))?;
     if buffer.len() >= MAX_BUFFER_SIZE {
         buffer.pop_front();
     }
-    buffer.push_back(entry);
+    buffer.push_back(entry.clone());
 
-    // Append to daily log file
-    let data_dir = get_data_dir()?;
-    let logs_dir = data_dir.join("logs");
-    if !logs_dir.exists() {
-        fs::create_dir_all(&logs_dir)
-            .map_err(|e| format!("Failed to create logs directory: {}", e))?;
-    }
-
-    // Parse timestamp to get local date
-    let log_time: DateTime<Utc> = timestamp.parse()
-        .map_err(|e| format!("Failed to parse timestamp: {}", e))?;
-    let local_date = log_time.with_timezone(&Local).date_naive();
-    let log_file = logs_dir.join(format!("hallinta_{}.log", local_date.format("%Y%m%d")));
-
-    // Append to file
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_file)
-        .map_err(|e| format!("Failed to open log file: {}", e))?;
-
-    let log_line = format!("[{}] [{}] [{}] {}\n", timestamp, level, module, message);
-    file.write_all(log_line.as_bytes())
-        .map_err(|e| format!("Failed to write to log file: {}", e))?;
+    // Add to file buffer
+    let mut file_buffer = LOG_FILE_BUFFER.lock().map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
+    file_buffer.push_back(entry);
 
     Ok(())
 }
@@ -318,7 +297,56 @@ fn get_log_entries() -> Result<Vec<LogEntry>, String> {
 #[tauri::command]
 fn clear_log_buffer() -> Result<(), String> {
     let mut buffer = LOG_BUFFER.lock().map_err(|e| format!("Failed to lock log buffer: {}", e))?;
+    let mut file_buffer = LOG_FILE_BUFFER.lock().map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
     buffer.clear();
+    file_buffer.clear();
+    Ok(())
+}
+
+#[tauri::command]
+async fn flush_log_buffer() -> Result<(), String> {
+    let data_dir = get_data_dir()?;
+    let logs_dir = data_dir.join("logs");
+    if !logs_dir.exists() {
+        tokio_fs::create_dir_all(&logs_dir)
+            .await
+            .map_err(|e| format!("Failed to create logs directory: {}", e))?;
+    }
+
+    // Get logs from file buffer
+    let logs = {
+        let mut file_buffer = LOG_FILE_BUFFER.lock().map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
+        if file_buffer.is_empty() {
+            return Ok(());
+        }
+        file_buffer.drain(..).collect::<VecDeque<_>>()
+    };
+
+    // Group logs by local date
+    let mut logs_by_date: std::collections::HashMap<String, Vec<LogEntry>> = std::collections::HashMap::new();
+    for entry in logs {
+        let log_time: DateTime<Utc> = entry.timestamp.parse()
+            .map_err(|e| format!("Failed to parse timestamp: {}", e))?;
+        let local_date = log_time.with_timezone(&Local).date_naive().format("%Y%m%d").to_string();
+        logs_by_date.entry(local_date).or_insert(Vec::new()).push(entry);
+    }
+
+    // Write to each daily log file
+    for (date, entries) in logs_by_date {
+        let log_file = logs_dir.join(format!("hallinta_{}.log", date));
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_file)
+            .map_err(|e| format!("Failed to open log file {}: {}", log_file.display(), e))?;
+
+        for entry in entries {
+            let log_line = format!("[{}] [{}] [{}] {}\n", entry.timestamp, entry.level, entry.module, entry.message);
+            file.write_all(log_line.as_bytes())
+                .map_err(|e| format!("Failed to write to log file {}: {}", log_file.display(), e))?;
+        }
+    }
+
     Ok(())
 }
 
@@ -469,7 +497,8 @@ pub fn run() {
             create_settings_backup,
             add_log_entry,
             get_log_entries,
-            clear_log_buffer
+            clear_log_buffer,
+            flush_log_buffer
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

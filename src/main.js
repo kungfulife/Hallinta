@@ -59,7 +59,7 @@ window.refreshLogs = async () => {
         const logContent = document.getElementById('log-content');
 
         if (!logContent) {
-            uiManager.showError('Log content element not found');
+            uiManager.logAction('ERROR', 'Log content element not found');
             return;
         }
 
@@ -75,7 +75,7 @@ window.refreshLogs = async () => {
         logContent.textContent = logText;
         logContent.scrollTop = logContent.scrollHeight;
     } catch (error) {
-        uiManager.showError(`Error refreshing logs: ${error}`);
+        uiManager.logAction('ERROR', `Error refreshing logs: ${error}`);
         const logContent = document.getElementById('log-content');
         if (logContent) {
             logContent.textContent = 'Error loading logs.';
@@ -89,20 +89,19 @@ window.clearLogs = async () => {
         const logContent = document.getElementById('log-content');
         if (logContent) {
             logContent.textContent = 'Logs cleared.';
+            uiManager.logAction('INFO', 'Logs cleared');
         }
     } catch (error) {
-        uiManager.showError(`Error clearing logs: ${error}`);
+        uiManager.logAction('ERROR', `Error clearing logs: ${error}`);
     }
 };
 
 window.saveLogs = async () => {
     try {
-        const statusBar = document.getElementById('status-bar');
-        if (statusBar) {
-            statusBar.textContent = 'Logs are automatically saved to daily log file';
-        }
+        await window.__TAURI__.core.invoke('flush_log_buffer');
+        uiManager.logAction('INFO', 'Logs flushed to daily log file');
     } catch (error) {
-        uiManager.showError(`Error updating log status: ${error}`);
+        uiManager.logAction('ERROR', `Error flushing logs: ${error}`);
     }
 };
 
@@ -125,8 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Show your custom menu on .mod-item.
-    // Does dynamically stay within the window bounds if need be for the future.
+    // Show custom menu on .mod-item
     const modList = document.getElementById('mod-list');
     if (modList) {
         modList.addEventListener('contextmenu', (event) => {
@@ -136,8 +134,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             event.preventDefault();
             state.contextMenuTarget = Number(item.dataset.index);
 
+            const mod = state.currentMods[state.contextMenuTarget];
             const menu = document.getElementById('mod-context-menu');
             if (menu) {
+                // Toggle visibility of workshop-related buttons based on workshopId
+                const copyWorkshopLinkItem = menu.querySelector('#copy-workshop-link');
+                const openWorkshopLinkItem = menu.querySelector('#open-workshop-link');
+                const isWorkshopMod = mod.workshopId !== '0';
+                if (copyWorkshopLinkItem) {
+                    copyWorkshopLinkItem.style.display = isWorkshopMod ? 'block' : 'none';
+                }
+                if (openWorkshopLinkItem) {
+                    openWorkshopLinkItem.style.display = isWorkshopMod ? 'block' : 'none';
+                }
+
                 let top = event.clientY;
                 let left = event.clientX;
 
@@ -163,7 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Hide it on any click
+    // Hide menu on any click
     document.addEventListener('click', () => {
         const menu = document.getElementById('mod-context-menu');
         if (menu) {
@@ -210,12 +220,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             },
             onEnd: (evt) => {
                 modManager.reorderMod(evt.oldIndex, evt.newIndex);
-                const statusBar = document.getElementById('status-bar');
-                if (statusBar) {
-                    statusBar.textContent = `Mod reordered: ${evt.oldIndex + 1} → ${evt.newIndex + 1}`;
-                }
-
-                // Finish reordering after a short delay to allow UI updates
                 setTimeout(() => {
                     modManager.finishReordering();
                 }, 100);
@@ -224,33 +228,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // App focus tracking for file watching
-    window.addEventListener('focus', () => {
-        state.isAppFocused = true;
-    });
-
-    window.addEventListener('blur', () => {
-        state.isAppFocused = false;
-    });
-
-    window.addEventListener('beforeunload', () => {
-        if (state.phraseManager) {
-            state.phraseManager.stopRandomPhrases();
+    // Debounced log flushing
+    setInterval(async () => {
+        try {
+            await window.__TAURI__.core.invoke('flush_log_buffer');
+        } catch (error) {
+            uiManager.logAction('ERROR', `Failed to flush log buffer: ${error}`);
         }
-    });
-
-    window.cancelSettings = () => uiManager.changeView('main');
-
-    window.toggleSettingsView = () => {
-        const button = document.getElementById('header-combined-button');
-        if (!button) return;
-
-        const isInSettings = button.textContent === 'Cancel';
-
-        if (isInSettings) {
-            uiManager.changeView('main');
-        } else {
-            uiManager.changeView('settings');
-        }
-    };
+    }, 5000); // Every 5 seconds
 });
+
+window.cancelSettings = () => uiManager.changeView('main');
+
+window.toggleSettingsView = () => {
+    const button = document.getElementById('header-combined-button');
+    if (!button) return;
+
+    const isInSettings = button.textContent === 'Cancel';
+
+    if (isInSettings) {
+        uiManager.changeView('main');
+    } else {
+        uiManager.changeView('settings');
+    }
+};
