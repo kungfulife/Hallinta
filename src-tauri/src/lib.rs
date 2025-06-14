@@ -44,7 +44,6 @@ pub struct LogEntry {
     pub module: String,
 }
 
-// Logging state
 static LOG_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
 static LOG_FILE_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
 static MAX_BUFFER_SIZE: usize = 1000;
@@ -233,6 +232,31 @@ async fn create_settings_backup(settings: AppSettings) -> Result<(), String> {
     Ok(())
 }
 
+async fn create_presets_backup(presets: std::collections::HashMap<String, Vec<ModPreset>>) -> Result<(), String> {
+    let data_dir = get_data_dir()?;
+    let backup_dir = data_dir.join("backups");
+
+    if !backup_dir.exists() {
+        tokio_fs::create_dir_all(&backup_dir)
+            .await
+            .map_err(|e| format!("Failed to create backup directory: {}", e))?;
+    }
+
+    let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
+    let backup_file = backup_dir.join(format!("presets_backup_{}.json", timestamp));
+
+    let json_content = serde_json::to_string_pretty(&presets)
+        .map_err(|e| format!("Failed to serialize presets: {}", e))?;
+
+    tokio_fs::write(&backup_file, json_content)
+        .await
+        .map_err(|e| format!("Failed to write presets backup file: {}", e))?;
+
+    cleanup_old_backups(&backup_dir, 10).await?;
+
+    Ok(())
+}
+
 async fn cleanup_old_backups(backup_dir: &Path, keep_count: usize) -> Result<(), String> {
     let mut entries = tokio_fs::read_dir(backup_dir)
         .await
@@ -247,7 +271,7 @@ async fn cleanup_old_backups(backup_dir: &Path, keep_count: usize) -> Result<(),
         let path = entry.path();
         if path.is_file() && path.file_name()
             .and_then(|n| n.to_str())
-            .map_or(false, |n| n.starts_with("settings_backup_")) {
+            .map_or(false, |n| n.starts_with("settings_backup_") || n.starts_with("presets_backup_")) {
 
             let metadata = entry.metadata()
                 .await
@@ -280,14 +304,12 @@ fn add_log_entry(level: String, message: String, module: String) -> Result<(), S
         module,
     };
 
-    // Add to display buffer
     let mut buffer = LOG_BUFFER.lock().map_err(|e| format!("Failed to lock log buffer: {}", e))?;
     if buffer.len() >= MAX_BUFFER_SIZE {
         buffer.pop_front();
     }
     buffer.push_back(entry.clone());
 
-    // Add to file buffer
     let mut file_buffer = LOG_FILE_BUFFER.lock().map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
     file_buffer.push_back(entry);
 
@@ -319,16 +341,14 @@ async fn flush_log_buffer() -> Result<(), String> {
             .map_err(|e| format!("Failed to create logs directory: {}", e))?;
     }
 
-    // Get logs from file buffer
     let logs = {
         let mut file_buffer = LOG_FILE_BUFFER.lock().map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
         if file_buffer.is_empty() {
             return Ok(());
         }
-        file_buffer.drain(..).collect::<VecDeque<_>>()
+        file_buffer.drain(..).collect::<Vec<_>>()
     };
 
-    // Group logs by local date
     let mut logs_by_date: std::collections::HashMap<String, Vec<LogEntry>> = std::collections::HashMap::new();
     for entry in logs {
         let log_time: DateTime<Utc> = entry.timestamp.parse()
@@ -337,7 +357,6 @@ async fn flush_log_buffer() -> Result<(), String> {
         logs_by_date.entry(local_date).or_insert(Vec::new()).push(entry);
     }
 
-    // Write to each daily log file
     for (date, entries) in logs_by_date {
         let log_file = logs_dir.join(format!("hallinta_{}.log", date));
         let mut file = OpenOptions::new()
@@ -400,7 +419,19 @@ async fn load_settings() -> Result<AppSettings, String> {
         .map_err(|e| format!("Failed to parse settings: {}", e))?;
 
     if settings.version != get_version() {
-        let _ = create_settings_backup(settings.clone()).await;
+        create_settings_backup(settings.clone()).await?;
+
+        let presets_path = data_dir.join("presets.json");
+        if presets_path.exists() {
+            let presets_content = fs::read_to_string(&presets_path)
+                .map_err(|e| format!("Failed to read presets file: {}", e))?;
+            let presets: std::collections::HashMap<String, Vec<ModPreset>> = serde_json::from_str(&presets_content)
+                .map_err(|e| format!("Failed to parse presets: {}", e))?;
+            create_presets_backup(presets).await?;
+        }
+
+        add_log_entry("INFO".to_string(), "Version update detected, backed up settings and presets".to_string(), "SettingsManager".to_string())?;
+
         settings.version = get_version();
         save_settings(settings.clone())?;
     }

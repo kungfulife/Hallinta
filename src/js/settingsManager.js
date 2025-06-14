@@ -9,7 +9,7 @@ export class SettingsManager {
             entangled_dir: '',
             dark_mode: false,
             selected_preset: 'Default',
-            version: '', // Version will be set by backend
+            version: '',
             log_settings: {
                 max_log_files: 50,
                 max_log_size_mb: 10,
@@ -17,6 +17,8 @@ export class SettingsManager {
                 auto_save: true
             }
         };
+        this.previousSettings = null;
+        this.previousIsDarkMode = false;
     }
 
     async loadConfig() {
@@ -101,7 +103,6 @@ export class SettingsManager {
     applyConfig(settings, presets) {
         this.settings = settings;
 
-        // Apply presets
         state.currentPresets = Object.keys(presets).reduce((acc, presetName) => {
             acc[presetName] = presets[presetName].map(mod => ({
                 name: mod.name,
@@ -113,10 +114,14 @@ export class SettingsManager {
             return acc;
         }, {});
 
-        // Set selected preset
         state.selectedPreset = settings.selected_preset || 'Default';
+        if (!state.currentPresets[state.selectedPreset]) {
+            state.selectedPreset = 'Default';
+            if (!state.currentPresets['Default']) {
+                state.currentPresets['Default'] = [];
+            }
+        }
 
-        // Apply other settings
         state.isDarkMode = settings.dark_mode;
 
         const noitaDirElement = document.getElementById('noita-dir');
@@ -268,6 +273,25 @@ export class SettingsManager {
         } catch (error) {
             this.uiManager.showError(`Error resetting defaults: ${error.message}`);
             this.uiManager.logAction('ERROR', `Error resetting defaults: ${error.message}`);
+        }
+    }
+
+    storeCurrentSettings() {
+        this.previousSettings = { ...this.settings };
+        this.previousIsDarkMode = state.isDarkMode;
+    }
+
+    restorePreviousSettings() {
+        if (this.previousSettings) {
+            this.settings = { ...this.previousSettings };
+            state.isDarkMode = this.previousIsDarkMode;
+            const noitaDirElement = document.getElementById('noita-dir');
+            const entangledDirElement = document.getElementById('entangled-dir');
+            const darkModeElement = document.getElementById('dark-mode-checkbox');
+            if (noitaDirElement) noitaDirElement.value = this.settings.noita_dir;
+            if (entangledDirElement) entangledDirElement.value = this.settings.entangled_dir;
+            if (darkModeElement) darkModeElement.checked = state.isDarkMode;
+            this.uiManager.applyDarkMode();
         }
     }
 

@@ -6,7 +6,6 @@ export class UIManager {
         this.statusBar = document.getElementById('status-bar');
     }
 
-    // Changes between page views. Currently main + settings. Does change between the status-bar as that stays always shown.
     changeView(view) {
         const mainPage = document.getElementById('main-page');
         const settingsPage = document.getElementById('settings-page');
@@ -173,6 +172,13 @@ export class UIManager {
             onCancel();
             document.body.removeChild(modal);
         });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                onCancel();
+                document.body.removeChild(modal);
+            }
+        });
     }
 
     showInputModal(message, defaultValue, onConfirm, onCancel) {
@@ -181,7 +187,7 @@ export class UIManager {
         modal.innerHTML = `
             <div class="modal-content">
                 <p>${message}</p>
-                <input type="number" id="modal-input" value="${defaultValue}" min="1" max="${state.currentMods.length}">
+                <input type="text" id="modal-input" value="${defaultValue}">
                 <div class="modal-buttons">
                     <button id="modal-confirm">OK</button>
                     <button id="modal-cancel">Cancel</button>
@@ -200,6 +206,13 @@ export class UIManager {
         document.getElementById('modal-cancel').addEventListener('click', () => {
             onCancel();
             document.body.removeChild(modal);
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                onCancel();
+                document.body.removeChild(modal);
+            }
         });
     }
 
