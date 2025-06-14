@@ -6,6 +6,7 @@ export class UIManager {
         this.statusBar = document.getElementById('status-bar');
     }
 
+    // Changes between page views. Currently main + settings. Does change between the status-bar as that stays always shown.
     changeView(view) {
         const mainPage = document.getElementById('main-page');
         const settingsPage = document.getElementById('settings-page');
@@ -36,9 +37,6 @@ export class UIManager {
 
             combinedButton.textContent = 'Settings';
             combinedButton.className = 'header-combined-button settings-state';
-
-            // this.statusBar.style.display = 'block';
-
         } else if (view === 'settings') {
             cleanupAnimation(presetControls);
             cleanupAnimation(searchBar);
@@ -58,8 +56,6 @@ export class UIManager {
 
             combinedButton.textContent = 'Cancel';
             combinedButton.className = 'header-combined-button cancel-state';
-
-            // this.statusBar.style.display = 'none';
         }
     }
 
@@ -294,5 +290,13 @@ export class UIManager {
             }
             document.getElementById('mod-context-menu').style.display = 'none';
         }
+    }
+
+    showError(message) {
+        this.statusBar.textContent = `Error: ${message}`;
+        this.statusBar.classList.add('error');
+        setTimeout(() => {
+            this.statusBar.classList.remove('error');
+        }, 5000); // Clear error styling after 5 seconds
     }
 }

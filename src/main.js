@@ -130,7 +130,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Show your custom menu on .mod-item
+    // Show your custom menu on .mod-item.
+    // Does dynamically stay within the window bounds if need be for the future.
     const modList = document.getElementById('mod-list');
     if (modList) {
         modList.addEventListener('contextmenu', (event) => {
@@ -142,8 +143,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const menu = document.getElementById('mod-context-menu');
             if (menu) {
-                menu.style.top = `${event.clientY}px`;
-                menu.style.left = `${event.clientX}px`;
+                let top = event.clientY;
+                let left = event.clientX;
+
+                // Ensure menu stays within window bounds
+                const menuHeight = menu.offsetHeight || 150; // Fallback if not yet rendered
+                const menuWidth = menu.offsetWidth || 200;
+                const windowHeight = window.innerHeight;
+                const windowWidth = window.innerWidth;
+
+                if (top + menuHeight > windowHeight) {
+                    top = windowHeight - menuHeight - 10; // 10px margin
+                }
+                if (left + menuWidth > windowWidth) {
+                    left = windowWidth - menuWidth - 10;
+                }
+                if (top < 0) top = 10; // Prevent negative top
+                if (left < 0) left = 10; // Prevent negative left
+
+                menu.style.top = `${top}px`;
+                menu.style.left = `${left}px`;
                 menu.style.display = 'block';
             }
         });
