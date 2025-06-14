@@ -9,7 +9,7 @@ export class SettingsManager {
             entangled_dir: '',
             dark_mode: false,
             selected_preset: 'Default',
-            version: '0.3.1',
+            version: '', // Version will be set by backend
             log_settings: {
                 max_log_files: 50,
                 max_log_size_mb: 10,
@@ -21,23 +21,29 @@ export class SettingsManager {
 
     async loadConfig() {
         if (!window.__TAURI__?.core) {
+            this.uiManager.showError('Tauri is not initialized. Application may not function correctly.');
             this.uiManager.logAction('ERROR', 'Tauri is not initialized');
-            return;
+            return false;
         }
 
+        let hasError = false;
+
         try {
-            let settings, presets;
+            let settings, presets, version;
             try {
+                version = await window.__TAURI__.core.invoke('get_version');
                 settings = await window.__TAURI__.core.invoke('load_settings');
                 presets = await window.__TAURI__.core.invoke('load_presets');
             } catch (error) {
+                this.uiManager.showError(`Error loading configuration: ${error.message}. Using defaults.`);
                 this.uiManager.logAction('ERROR', `Error loading config: ${error.message}`);
+                hasError = true;
                 settings = {
                     noita_dir: '',
                     entangled_dir: '',
                     dark_mode: false,
                     selected_preset: 'Default',
-                    version: '0.3.1',
+                    version: version || 'unknown',
                     log_settings: {
                         max_log_files: 50,
                         max_log_size_mb: 10,
@@ -48,6 +54,7 @@ export class SettingsManager {
                 try {
                     settings.noita_dir = await window.__TAURI__.core.invoke('get_noita_save_path');
                 } catch (pathError) {
+                    this.uiManager.showError('Could not determine default Noita save path.');
                     this.uiManager.logAction('ERROR', `Could not get default Noita path: ${pathError.message}`);
                     settings.noita_dir = '';
                 }
@@ -65,12 +72,19 @@ export class SettingsManager {
             if (settings.noita_dir) {
                 await this.modManager.loadModConfigFromDirectory(settings.noita_dir);
             } else {
-                this.uiManager.logAction('WARN', 'Noita save directory not set. Please set it in settings.');
+                this.uiManager.showError('Noita save directory not set. Please set it in settings.');
+                this.uiManager.logAction('ERROR', 'Noita save directory not set. Please set it in settings.');
+                hasError = true;
             }
 
-            this.uiManager.logAction('INFO', 'Configuration loaded successfully');
+            if (!hasError) {
+                this.uiManager.logAction('INFO', 'Configuration loaded successfully');
+            }
+            return !hasError;
         } catch (error) {
+            this.uiManager.showError(`Critical error in loadConfig: ${error.message}`);
             this.uiManager.logAction('ERROR', `Critical error in loadConfig: ${error.message}`);
+            return false;
         }
     }
 
@@ -79,6 +93,7 @@ export class SettingsManager {
             await window.__TAURI__.core.invoke('save_settings', { settings });
             await window.__TAURI__.core.invoke('save_presets', { presets });
         } catch (error) {
+            this.uiManager.showError(`Error saving default settings: ${error.message}`);
             this.uiManager.logAction('ERROR', `Error saving default settings: ${error.message}`);
         }
     }
@@ -123,6 +138,7 @@ export class SettingsManager {
             this.settings.entangled_dir = entangledDirElement ? entangledDirElement.value : '';
             this.settings.dark_mode = state.isDarkMode;
             this.settings.selected_preset = state.selectedPreset;
+            this.settings.version = await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown');
 
             if (window.__TAURI__?.core) {
                 const presetsForSave = {};
@@ -141,6 +157,7 @@ export class SettingsManager {
 
             this.uiManager.changeView('main');
         } catch (error) {
+            this.uiManager.showError(`Critical error during save: ${error.message}`);
             this.uiManager.logAction('ERROR', `Critical error during save: ${error.message}`);
             this.uiManager.changeView('main');
         }
@@ -164,6 +181,7 @@ export class SettingsManager {
                 }
             }
         } catch (error) {
+            this.uiManager.showError(`Error selecting directory: ${error.message}`);
             this.uiManager.logAction('ERROR', `Error selecting directory: ${error.message}`);
         }
     }
@@ -172,6 +190,7 @@ export class SettingsManager {
         const dirElement = document.getElementById(`${type}-dir`);
         const directory = dirElement ? dirElement.value : '';
         if (!directory) {
+            this.uiManager.showError(`No ${type} directory set`);
             this.uiManager.logAction('ERROR', `No ${type} directory set`);
             return;
         }
@@ -180,6 +199,7 @@ export class SettingsManager {
             await window.__TAURI__.core.invoke('open_directory', { directory });
             this.uiManager.logAction('INFO', `Opened ${type} directory: ${directory}`);
         } catch (error) {
+            this.uiManager.showError(`Error opening directory: ${error.message}`);
             this.uiManager.logAction('ERROR', `Error opening directory: ${error.message}`);
         }
     }
@@ -190,6 +210,7 @@ export class SettingsManager {
             await window.__TAURI__.core.invoke('open_directory', { directory: settingsDir });
             this.uiManager.logAction('INFO', `Opened directory: ${settingsDir}`);
         } catch (error) {
+            this.uiManager.showError(`Error opening directory: ${error.message}`);
             this.uiManager.logAction('ERROR', `Error opening directory: ${error.message}`);
         }
     }
@@ -203,6 +224,7 @@ export class SettingsManager {
             try {
                 defaultNoitaDir = await window.__TAURI__.core.invoke('get_noita_save_path');
             } catch {
+                this.uiManager.showError('Failed to get Noita save path. Please set manually.');
                 this.uiManager.logAction('ERROR', 'Failed to get Noita save path');
                 this.uiManager.logAction('ERROR', 'Unable to find directory. Please set manually.');
                 return;
@@ -211,6 +233,7 @@ export class SettingsManager {
                 .then(() => true)
                 .catch(() => false);
             if (!pathExists) {
+                this.uiManager.showError('Invalid Noita save directory. Please set a valid directory.');
                 this.uiManager.logAction('ERROR', 'Invalid Noita save directory');
                 this.uiManager.logAction('ERROR', 'Invalid directory. Please set a valid directory.');
                 return;
@@ -220,7 +243,7 @@ export class SettingsManager {
                 entangled_dir: '',
                 dark_mode: false,
                 selected_preset: 'Default',
-                version: '0.3.1',
+                version: await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown'),
                 log_settings: {
                     max_log_files: 50,
                     max_log_size_mb: 10,
@@ -243,6 +266,7 @@ export class SettingsManager {
             await window.__TAURI__.core.invoke('save_settings', { settings: this.settings });
             this.uiManager.logAction('INFO', 'Successfully reset to defaults');
         } catch (error) {
+            this.uiManager.showError(`Error resetting defaults: ${error.message}`);
             this.uiManager.logAction('ERROR', `Error resetting defaults: ${error.message}`);
         }
     }
