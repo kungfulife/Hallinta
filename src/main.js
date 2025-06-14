@@ -8,8 +8,8 @@ import { setupEventHandlers } from './js/eventHandlers.js';
 
 const uiManager = new UIManager(null);
 const modManager = new ModManager(uiManager);
-uiManager.modManager = modManager; // Resolve circular dependency
-const presetManager = new PresetManager(uiManager);
+uiManager.modManager = modManager;
+const presetManager = new PresetManager(uiManager, modManager);
 const settingsManager = new SettingsManager(modManager, uiManager);
 
 state.phraseManager = new PhraseManager();
