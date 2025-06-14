@@ -1,7 +1,6 @@
 import { state } from './state.js';
 
 export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager) {
-    // Global function bindings
     window.changeDirectory = (type) => settingsManager.changeDirectory(type);
     window.openDirectory = (type) => settingsManager.openDirectory(type);
     window.openAppSettingsFolder = () => settingsManager.openAppSettingsFolder();
@@ -23,7 +22,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     window.openWorkshop = () => uiManager.openWorkshop();
     window.copyWorkshopLink = () => uiManager.copyWorkshopLink();
 
-    // Log window functions
     window.openLogs = () => {
         const modal = document.getElementById('log-modal');
         if (modal) {
@@ -102,8 +100,10 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         const isInSettings = button.textContent === 'Cancel';
 
         if (isInSettings) {
+            settingsManager.restorePreviousSettings();
             uiManager.changeView('main');
         } else {
+            settingsManager.storeCurrentSettings();
             uiManager.changeView('settings');
         }
     };
@@ -111,7 +111,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     document.addEventListener('DOMContentLoaded', async () => {
         const isDev = window.__TAURI__ ? await window.__TAURI__.core.invoke('is_dev_build') : true;
 
-        // Light Dev Tool Restriction
         document.addEventListener('keydown', (e) => {
             if (isDev) return;
             if ((e.ctrlKey && e.key === 'r') || e.key === 'F5') {
@@ -127,7 +126,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             }
         });
 
-        // Show custom menu on .mod-item
         const modList = document.getElementById('mod-list');
         if (modList) {
             modList.addEventListener('contextmenu', (event) => {
@@ -174,7 +172,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             });
         }
 
-        // Hide menu on any click
         document.addEventListener('click', () => {
             const menu = document.getElementById('mod-context-menu');
             if (menu) {
@@ -182,7 +179,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             }
         });
 
-        // Hard-coded keybinds
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 const modal = document.querySelector('.custom-modal');
@@ -199,7 +195,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             }
         });
 
-        // App Loading
         await settingsManager.loadConfig();
         presetManager.loadPresets();
 
@@ -209,7 +204,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             }
         }, 2000);
 
-        // Sortable setup
         const list = document.getElementById('mod-list');
         if (list) {
             new Sortable(list, {
@@ -229,7 +223,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             });
         }
 
-        // Debounced log flushing
         setInterval(async () => {
             try {
                 await window.__TAURI__.core.invoke('flush_log_buffer');
@@ -237,5 +230,13 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 uiManager.logAction('ERROR', `Failed to flush log buffer: ${error}`);
             }
         }, 5000);
+
+        window.addEventListener('focus', () => {
+            state.isAppFocused = true;
+        });
+
+        window.addEventListener('blur', () => {
+            state.isAppFocused = false;
+        });
     });
 }

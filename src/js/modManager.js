@@ -184,7 +184,7 @@ export class ModManager {
     generateModConfigXML() {
         let xml = '<Mods>\n';
         state.currentMods.forEach(mod => {
-            xml += `  <Mod enabled="${mod.enabled ? '1' : '0'}" name="${mod.name}" settings_fold_open="${mod.settingsFoldOpen ? '1' : '0'}" workshop_item_id="${mod.workshopId}" />\n`;
+            xml += `  <Mod name="${mod.name}" enabled="${mod.enabled ? '1' : '0'}" workshop_item_id="${mod.workshopId}" settings_fold_open="${mod.settingsFoldOpen ? '1' : '0'}">\n  </Mod>\n`;
         });
         xml += '</Mods>';
         return xml;

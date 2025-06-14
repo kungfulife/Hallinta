@@ -6,9 +6,9 @@ import { UIManager } from './js/uiManager.js';
 import { PhraseManager } from './js/phraseManager.js';
 import { setupEventHandlers } from './js/eventHandlers.js';
 
-const uiManager = new UIManager(null);
-const modManager = new ModManager(uiManager);
-uiManager.modManager = modManager;
+const modManager = new ModManager(null);
+const uiManager = new UIManager(modManager);
+modManager.uiManager = uiManager;
 const presetManager = new PresetManager(uiManager, modManager);
 const settingsManager = new SettingsManager(modManager, uiManager);
 
