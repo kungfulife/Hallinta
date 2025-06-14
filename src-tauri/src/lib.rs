@@ -48,6 +48,7 @@ pub struct LogEntry {
 static LOG_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
 static LOG_FILE_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
 static MAX_BUFFER_SIZE: usize = 1000;
+
 fn get_data_dir() -> Result<PathBuf, String> {
     let local_app_data = std::env::var("LOCALAPPDATA")
         .map_err(|_| "Could not get LOCALAPPDATA environment variable.".to_string())?;
@@ -69,7 +70,12 @@ fn is_dev_build() -> bool {
 
 #[tauri::command]
 fn get_version() -> String {
-    "0.3.1".to_string()
+    let context: tauri::Context<tauri_runtime_wry::Wry<tauri::EventLoopMessage>> = tauri::generate_context!();
+    context
+        .config()
+        .version
+        .clone()
+        .unwrap_or("unknown".to_string())
 }
 
 #[tauri::command]

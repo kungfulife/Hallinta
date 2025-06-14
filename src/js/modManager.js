@@ -10,13 +10,72 @@ export class ModManager {
             if (window.__TAURI__ && window.__TAURI__.core) {
                 const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', { directory });
                 this.parseModConfig(xmlContent, true);
+                await this.checkPresetConsistency(directory, xmlContent); // Check preset consistency on startup
                 this.uiManager.logAction('INFO', `Loaded ${state.currentMods.length} mods from mod_config.xml`);
                 this.uiManager.updateModCount();
                 await this.startFileWatching(directory);
             }
         } catch (error) {
-            this.uiManager.logAction('ERROR', `Failed to load mod_config.xml: ${error.message}`);
+            let errorMessage = `Failed to load mod_config.xml: ${error.message}`;
+            if (error.message.includes("mod_config.xml not found")) {
+                errorMessage = "mod_config.xml not found in the specified directory. Please ensure the Noita save directory is correct.";
+            }
+            this.uiManager.showError(errorMessage);
+            this.uiManager.logAction('ERROR', errorMessage);
         }
+    }
+
+    async checkPresetConsistency(directory, xmlContent) {
+        const currentPresetMods = state.currentPresets[state.selectedPreset] || [];
+        const fileMods = this.parseModConfigToArray(xmlContent);
+
+        const isDifferent = !this.areModsEqual(currentPresetMods, fileMods);
+        if (isDifferent) {
+            const confirmed = confirm(`The mod_config.xml file does not match the current preset "${state.selectedPreset}". Do you want to load the file's contents? This will overwrite the current preset.`);
+            if (confirmed) {
+                state.currentMods = fileMods;
+                state.currentPresets[state.selectedPreset] = [...fileMods];
+                this.uiManager.renderModList();
+                this.uiManager.updateModCount();
+                this.uiManager.logAction('INFO', `Loaded mod_config.xml contents into preset: ${state.selectedPreset}`);
+            } else {
+                await this.saveModConfigToFile(); // Save current preset to file
+                this.uiManager.logAction('INFO', `Kept current preset and updated mod_config.xml`);
+            }
+        }
+    }
+
+    parseModConfigToArray(xmlContent) {
+        try {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
+            const parserError = xmlDoc.querySelector('parsererror');
+            if (parserError) {
+                throw new Error(`XML parsing failed: ${parserError.textContent}`);
+            }
+
+            const mods = xmlDoc.querySelectorAll('Mod');
+            return Array.from(mods).map((mod, index) => ({
+                name: mod.getAttribute('name') || 'Unknown Mod',
+                enabled: mod.getAttribute('enabled') === '1',
+                workshopId: mod.getAttribute('workshop_item_id') || '0',
+                settingsFoldOpen: mod.getAttribute('settings_fold_open') === '1',
+                index: index
+            }));
+        } catch (error) {
+            this.uiManager.logAction('ERROR', `Error parsing XML for consistency check: ${error.message}`);
+            return [];
+        }
+    }
+
+    areModsEqual(mods1, mods2) {
+        if (mods1.length !== mods2.length) return false;
+        return mods1.every((mod, i) => (
+            mod.name === mods2[i].name &&
+            mod.enabled === mods2[i].enabled &&
+            mod.workshopId === mods2[i].workshopId &&
+            mod.settingsFoldOpen === mods2[i].settingsFoldOpen
+        ));
     }
 
     async startFileWatching(directory) {
@@ -115,7 +174,9 @@ export class ModManager {
             } catch (error) {
                 this.uiManager.logAction('WARN', `Could not update last modified time: ${error.message}`);
             }
+            this.uiManager.logAction('INFO', 'Saved mod_config.xml');
         } catch (error) {
+            this.uiManager.showError(`Error saving mod_config.xml: ${error.message}`);
             this.uiManager.logAction('ERROR', `Error saving mod_config.xml: ${error.message}`);
         }
     }
@@ -162,7 +223,6 @@ export class ModManager {
         this.uiManager.logAction('INFO', `Reordered mod from position ${oldIndex + 1} to ${newIndex + 1}`);
     }
 
-    // Reorders mod list, then saves to disk.
     async finishReordering() {
         if (state.pendingReorder) {
             state.isReordering = false;
@@ -175,7 +235,6 @@ export class ModManager {
         this.uiManager.logAction(level, message, 'ModManager');
     }
 
-    // Placeholder for unimplemented functions
     async exportModList() {
         this.logAction('INFO', 'Export mod list requested');
     }
