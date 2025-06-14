@@ -15,14 +15,14 @@ export class ModManager {
                 this.uiManager.updateModCount();
 
                 // Start file watching
-                this.startFileWatching(directory);
+                await this.startFileWatching(directory);
 
                 // Log the action
                 this.logAction('INFO', `Loaded ${state.currentMods.length} mods from ${directory}`);
             }
         } catch (error) {
             console.error('Error loading mod config:', error);
-            statusBar.textContent = `Error loading mod_config.xml: ${error.message}`;
+            this.uiManager.showError(`Failed to load mod_config.xml: ${error.message}`);
             this.logAction('ERROR', `Failed to load mod config: ${error.message}`);
         }
     }
@@ -49,7 +49,7 @@ export class ModManager {
                     });
 
                     if (hasChanged) {
-                        this.handleExternalFileChange(directory);
+                        await this.handleExternalFileChange(directory);
                     }
                 } catch (error) {
                     console.error('Error checking file modification:', error);
@@ -151,7 +151,6 @@ export class ModManager {
             this.logAction('ERROR', `Failed to save mod config: ${error.message}`);
         }
     }
-
 
     generateModConfigXML() {
         let xml = '<Mods>\n';

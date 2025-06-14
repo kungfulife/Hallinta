@@ -190,6 +190,7 @@ input:checked + .slider:before {
     font-family: 'Courier New', monospace;
     font-size: 0.85em;
     height: 400px;
+    max-height: 400px;
     line-height: 1.4;
     overflow-y: auto;
     padding: 1rem;
