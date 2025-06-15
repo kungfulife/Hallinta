@@ -355,4 +355,8 @@ export class UIManager {
     showError(message) {
         this.logAction('ERROR', message);
     }
+
+    setModManager(modManager) {
+        this.modManager = modManager;
+    }
 }

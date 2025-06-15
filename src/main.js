@@ -1,3 +1,4 @@
+// --- Suggested Change ---
 import { state } from './js/state.js';
 import { ModManager } from './js/modManager.js';
 import { PresetManager } from './js/presetManager.js';
@@ -6,12 +7,14 @@ import { UIManager } from './js/uiManager.js';
 import { PhraseManager } from './js/phraseManager.js';
 import { setupEventHandlers } from './js/eventHandlers.js';
 
-const modManager = new ModManager(null);
-const uiManager = new UIManager(modManager);
-modManager.uiManager = uiManager;
+// Instantiate managers
+const uiManager = new UIManager();
+const modManager = new ModManager(uiManager);
 const settingsManager = new SettingsManager(modManager, uiManager);
 const presetManager = new PresetManager(uiManager, modManager, settingsManager);
 
-state.phraseManager = new PhraseManager();
+// Set the circular dependency
+uiManager.setModManager(modManager); // You'd need to add this simple method to UIManager
 
+state.phraseManager = new PhraseManager();
 setupEventHandlers(uiManager, modManager, presetManager, settingsManager);

@@ -35,7 +35,7 @@ export class ModManager {
 
     async checkPresetConsistency(directory, xmlContent) {
         const currentPresetMods = state.currentPresets[state.selectedPreset] || [];
-        const fileMods = this.parseModConfigToArray(xmlContent);
+        const fileMods = this.parseModsFromXML(xmlContent);
 
         if (currentPresetMods.length === 0 && fileMods.length > 0) {
             this.uiManager.logAction('INFO', `Populating empty preset '${state.selectedPreset}' from mod_config.xml.`);
@@ -96,30 +96,6 @@ export class ModManager {
         return true; // Consistent
     }
 
-
-    parseModConfigToArray(xmlContent) {
-        try {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
-            const parserError = xmlDoc.querySelector('parsererror');
-            if (parserError) {
-                throw new Error(`XML parsing failed: ${parserError.textContent}`);
-            }
-
-            const mods = xmlDoc.querySelectorAll('Mod');
-            return Array.from(mods).map((mod, index) => ({
-                name: mod.getAttribute('name') || 'Unknown Mod',
-                enabled: mod.getAttribute('enabled') === '1',
-                workshopId: mod.getAttribute('workshop_item_id') || '0',
-                settingsFoldOpen: mod.getAttribute('settings_fold_open') === '1',
-                index: index
-            }));
-        } catch (error) {
-            this.uiManager.logAction('ERROR', `Error parsing XML for consistency check: ${error.message}`);
-            return [];
-        }
-    }
-
     areModsEqual(mods1, mods2) {
         if (mods1.length !== mods2.length) return false;
         return mods1.every((mod, i) => (
@@ -130,7 +106,7 @@ export class ModManager {
         ));
     }
 
-    parseModConfig(xmlContent, isInitialLoad = false) {
+    parseModsFromXML(xmlContent) {
         try {
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(xmlContent, 'text/xml');
@@ -138,25 +114,29 @@ export class ModManager {
             if (parserError) {
                 throw new Error(`XML parsing failed: ${parserError.textContent}`);
             }
-
             const mods = xmlDoc.querySelectorAll('Mod');
-            state.currentMods = Array.from(mods).map((mod, index) => ({
+            return Array.from(mods).map((mod, index) => ({
                 name: mod.getAttribute('name') || 'Unknown Mod',
                 enabled: mod.getAttribute('enabled') === '1',
                 workshopId: mod.getAttribute('workshop_item_id') || '0',
                 settingsFoldOpen: mod.getAttribute('settings_fold_open') === '1',
                 index: index
             }));
-            if (isInitialLoad) {
-                state.lastKnownModOrder = [...state.currentMods];
-                state.currentPresets[state.selectedPreset] = [...state.currentMods];
-            }
-
-            this.uiManager.renderModList();
-            this.uiManager.updateModCount();
         } catch (error) {
             this.uiManager.logAction('ERROR', `Error parsing XML: ${error.message}`);
+            return []; // Return empty array on error
         }
+    }
+
+    parseModConfig(xmlContent, isInitialLoad = false) {
+        const mods = this.parseModsFromXML(xmlContent);
+        state.currentMods = mods;
+        if (isInitialLoad) {
+            state.lastKnownModOrder = [...state.currentMods];
+            state.currentPresets[state.selectedPreset] = [...state.currentMods];
+        }
+        this.uiManager.renderModList();
+        this.uiManager.updateModCount();
     }
 
     async saveModConfigToFile() {
@@ -260,4 +240,5 @@ export class ModManager {
     async importRegular() {
         this.logAction('INFO', 'Import regular requested');
     }
+
 }

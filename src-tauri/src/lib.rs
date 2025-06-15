@@ -1,14 +1,14 @@
+use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use serde_json;
+use std::collections::VecDeque;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::time::SystemTime;
 use std::path::Path;
-use tokio::fs as tokio_fs;
-use serde_json;
-use chrono::{Local, Utc, DateTime};
+use std::path::PathBuf;
 use std::sync::Mutex;
-use std::collections::VecDeque;
+use std::time::SystemTime;
+use tokio::fs as tokio_fs;
 use zip::write::FileOptions;
 use zip::ZipWriter;
 
@@ -51,10 +51,9 @@ static LOG_FILE_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
 static MAX_BUFFER_SIZE: usize = 1000;
 
 fn get_data_dir() -> Result<PathBuf, String> {
-    let local_app_data = std::env::var("LOCALAPPDATA")
-        .map_err(|_| "Could not get LOCALAPPDATA environment variable.".to_string())?;
-
-    let data_dir = PathBuf::from(local_app_data).join("Hallinta");
+    let data_dir = dirs::data_local_dir()
+        .ok_or_else(|| "Could not find local data directory.".to_string())?
+        .join("Hallinta");
 
     if !data_dir.exists() {
         fs::create_dir_all(&data_dir)
@@ -71,11 +70,9 @@ fn is_dev_build() -> bool {
 
 #[tauri::command]
 fn get_version() -> String {
-    let context: tauri::Context<tauri_runtime_wry::Wry<tauri::EventLoopMessage>> = tauri::generate_context!();
-    context
-        .package_info()
-        .version
-        .to_string()
+    let context: tauri::Context<tauri_runtime_wry::Wry<tauri::EventLoopMessage>> =
+        tauri::generate_context!();
+    context.package_info().version.to_string()
 }
 
 #[tauri::command]
@@ -91,16 +88,14 @@ fn read_mod_config(directory: String) -> Result<String, String> {
         return Err("mod_config.xml not found in directory.".to_string());
     }
 
-    fs::read_to_string(config_path)
-        .map_err(|e| format!("Failed to read mod_config.xml: {}", e))
+    fs::read_to_string(config_path).map_err(|e| format!("Failed to read mod_config.xml: {}", e))
 }
 
 #[tauri::command]
 fn write_mod_config(directory: String, content: String) -> Result<(), String> {
     let config_path = PathBuf::from(directory).join("mod_config.xml");
 
-    fs::write(config_path, content)
-        .map_err(|e| format!("Failed to write mod_config.xml: {}", e))
+    fs::write(config_path, content).map_err(|e| format!("Failed to write mod_config.xml: {}", e))
 }
 
 #[tauri::command]
@@ -125,8 +120,7 @@ fn get_exe_dir() -> Result<String, String> {
 
 #[tauri::command]
 fn get_noita_save_path() -> Result<String, String> {
-    let home_dir = dirs::home_dir()
-        .ok_or_else(|| "Failed to get home directory.".to_string())?;
+    let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory.".to_string())?;
 
     Ok(home_dir
         .join("AppData")
@@ -182,10 +176,12 @@ async fn check_file_modified(file_path: String, last_modified: u64) -> Result<bo
         .await
         .map_err(|e| format!("Failed to get file metadata: {}", e))?;
 
-    let modified = metadata.modified()
+    let modified = metadata
+        .modified()
         .map_err(|e| format!("Failed to get modification time: {}", e))?;
 
-    let current_time = modified.duration_since(SystemTime::UNIX_EPOCH)
+    let current_time = modified
+        .duration_since(SystemTime::UNIX_EPOCH)
         .map_err(|e| format!("Failed to convert time: {}", e))?
         .as_secs();
 
@@ -203,43 +199,66 @@ async fn get_file_modified_time(file_path: String) -> Result<u64, String> {
         .await
         .map_err(|e| format!("Failed to get file metadata: {}", e))?;
 
-    let modified = metadata.modified()
+    let modified = metadata
+        .modified()
         .map_err(|e| format!("Failed to get modification time: {}", e))?;
 
-    let current_time = modified.duration_since(SystemTime::UNIX_EPOCH)
+    let current_time = modified
+        .duration_since(SystemTime::UNIX_EPOCH)
         .map_err(|e| format!("Failed to convert time: {}", e))?
         .as_secs();
 
     Ok(current_time)
 }
 
-async fn create_upgrade_backup(settings: AppSettings, presets: std::collections::HashMap<String, Vec<ModPreset>>, old_version: String, new_version: String) -> Result<(), String> {
+async fn create_upgrade_backup(
+    settings: AppSettings,
+    presets: std::collections::HashMap<String, Vec<ModPreset>>,
+    old_version: String,
+    new_version: String,
+) -> Result<(), String> {
     let data_dir = get_data_dir()?;
     let upgrade_backup_dir = data_dir.join("upgrade_backups");
     if !upgrade_backup_dir.exists() {
-        tokio_fs::create_dir_all(&upgrade_backup_dir).await.map_err(|e| format!("Failed to create upgrade backup directory: {}", e))?;
+        tokio_fs::create_dir_all(&upgrade_backup_dir)
+            .await
+            .map_err(|e| format!("Failed to create upgrade backup directory: {}", e))?;
     }
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-    let zip_file_path = upgrade_backup_dir.join(format!("upgrade_backup_from_v{}_to_v{}_{}.zip", old_version, new_version, timestamp));
+    let zip_file_path = upgrade_backup_dir.join(format!(
+        "upgrade_backup_from_v{}_to_v{}_{}.zip",
+        old_version, new_version, timestamp
+    ));
 
-    let settings_json = serde_json::to_string_pretty(&settings).map_err(|e| format!("Failed to serialize settings: {}", e))?;
-    let presets_json = serde_json::to_string_pretty(&presets).map_err(|e| format!("Failed to serialize presets: {}", e))?;
+    let settings_json = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+    let presets_json = serde_json::to_string_pretty(&presets)
+        .map_err(|e| format!("Failed to serialize presets: {}", e))?;
 
     let zip_file_path_clone = zip_file_path.clone();
     tokio::task::spawn_blocking(move || {
-        let file = std::fs::File::create(&zip_file_path_clone).map_err(|e| format!("Failed to create zip file: {}", e))?;
+        let file = std::fs::File::create(&zip_file_path_clone)
+            .map_err(|e| format!("Failed to create zip file: {}", e))?;
         let mut zip = ZipWriter::new(file);
-        let options: FileOptions<()> = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        let options: FileOptions<()> =
+            FileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
-        zip.start_file("settings.json", options).map_err(|e| format!("Failed to start file in zip: {}", e))?;
-        zip.write_all(settings_json.as_bytes()).map_err(|e| format!("Failed to write settings to zip: {}", e))?;
+        zip.start_file("settings.json", options)
+            .map_err(|e| format!("Failed to start file in zip: {}", e))?;
+        zip.write_all(settings_json.as_bytes())
+            .map_err(|e| format!("Failed to write settings to zip: {}", e))?;
 
-        zip.start_file("presets.json", options).map_err(|e| format!("Failed to start file in zip: {}", e))?;
-        zip.write_all(presets_json.as_bytes()).map_err(|e| format!("Failed to write presets to zip: {}", e))?;
+        zip.start_file("presets.json", options)
+            .map_err(|e| format!("Failed to start file in zip: {}", e))?;
+        zip.write_all(presets_json.as_bytes())
+            .map_err(|e| format!("Failed to write presets to zip: {}", e))?;
 
-        zip.finish().map_err(|e| format!("Failed to finish zip: {}", e))?;
+        zip.finish()
+            .map_err(|e| format!("Failed to finish zip: {}", e))?;
         Ok::<(), String>(())
-    }).await.map_err(|e| format!("Failed to create upgrade backup: {}", e))??;
+    })
+    .await
+    .map_err(|e| format!("Failed to create upgrade backup: {}", e))??;
 
     Ok(())
 }
@@ -254,13 +273,17 @@ fn add_log_entry(level: String, message: String, module: String) -> Result<(), S
         module,
     };
 
-    let mut buffer = LOG_BUFFER.lock().map_err(|e| format!("Failed to lock log buffer: {}", e))?;
+    let mut buffer = LOG_BUFFER
+        .lock()
+        .map_err(|e| format!("Failed to lock log buffer: {}", e))?;
     if buffer.len() >= MAX_BUFFER_SIZE {
         buffer.pop_front();
     }
     buffer.push_back(entry.clone());
 
-    let mut file_buffer = LOG_FILE_BUFFER.lock().map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
+    let mut file_buffer = LOG_FILE_BUFFER
+        .lock()
+        .map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
     file_buffer.push_back(entry);
 
     Ok(())
@@ -268,14 +291,20 @@ fn add_log_entry(level: String, message: String, module: String) -> Result<(), S
 
 #[tauri::command]
 fn get_log_entries() -> Result<Vec<LogEntry>, String> {
-    let buffer = LOG_BUFFER.lock().map_err(|e| format!("Failed to lock log buffer: {}", e))?;
+    let buffer = LOG_BUFFER
+        .lock()
+        .map_err(|e| format!("Failed to lock log buffer: {}", e))?;
     Ok(buffer.iter().cloned().collect())
 }
 
 #[tauri::command]
 fn clear_log_buffer() -> Result<(), String> {
-    let mut buffer = LOG_BUFFER.lock().map_err(|e| format!("Failed to lock log buffer: {}", e))?;
-    let mut file_buffer = LOG_FILE_BUFFER.lock().map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
+    let mut buffer = LOG_BUFFER
+        .lock()
+        .map_err(|e| format!("Failed to lock log buffer: {}", e))?;
+    let mut file_buffer = LOG_FILE_BUFFER
+        .lock()
+        .map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
     buffer.clear();
     file_buffer.clear();
     Ok(())
@@ -292,19 +321,31 @@ async fn flush_log_buffer() -> Result<(), String> {
     }
 
     let logs = {
-        let mut file_buffer = LOG_FILE_BUFFER.lock().map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
+        let mut file_buffer = LOG_FILE_BUFFER
+            .lock()
+            .map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
         if file_buffer.is_empty() {
             return Ok(());
         }
         file_buffer.drain(..).collect::<Vec<_>>()
     };
 
-    let mut logs_by_date: std::collections::HashMap<String, Vec<LogEntry>> = std::collections::HashMap::new();
+    let mut logs_by_date: std::collections::HashMap<String, Vec<LogEntry>> =
+        std::collections::HashMap::new();
     for entry in logs {
-        let log_time: DateTime<Utc> = entry.timestamp.parse()
+        let log_time: DateTime<Utc> = entry
+            .timestamp
+            .parse()
             .map_err(|e| format!("Failed to parse timestamp: {}", e))?;
-        let local_date = log_time.with_timezone(&Local).date_naive().format("%Y%m%d").to_string();
-        logs_by_date.entry(local_date).or_insert(Vec::new()).push(entry);
+        let local_date = log_time
+            .with_timezone(&Local)
+            .date_naive()
+            .format("%Y%m%d")
+            .to_string();
+        logs_by_date
+            .entry(local_date)
+            .or_insert(Vec::new())
+            .push(entry);
     }
 
     for (date, entries) in logs_by_date {
@@ -317,9 +358,13 @@ async fn flush_log_buffer() -> Result<(), String> {
             .map_err(|e| format!("Failed to open log file {}: {}", log_file.display(), e))?;
 
         for entry in entries {
-            let log_line = format!("[{}] [{}] [{}] {}\n", entry.timestamp, entry.level, entry.module, entry.message);
-            file.write_all(log_line.as_bytes())
-                .map_err(|e| format!("Failed to write to log file {}: {}", log_file.display(), e))?;
+            let log_line = format!(
+                "[{}] [{}] [{}] {}\n",
+                entry.timestamp, entry.level, entry.module, entry.message
+            );
+            file.write_all(log_line.as_bytes()).map_err(|e| {
+                format!("Failed to write to log file {}: {}", log_file.display(), e)
+            })?;
         }
     }
 
@@ -366,8 +411,8 @@ async fn load_settings() -> Result<AppSettings, String> {
     let content = fs::read_to_string(&settings_path)
         .map_err(|e| format!("Failed to read settings file: {}", e))?;
 
-    let mut settings: AppSettings = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse settings: {}", e))?;
+    let mut settings: AppSettings =
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse settings: {}", e))?;
 
     if settings.version != get_version() {
         let old_version = settings.version.clone();
@@ -382,7 +427,11 @@ async fn load_settings() -> Result<AppSettings, String> {
             std::collections::HashMap::new()
         };
         create_upgrade_backup(settings.clone(), presets, old_version, new_version).await?;
-        add_log_entry("INFO".to_string(), "Version update detected, created upgrade backup".to_string(), "SettingsManager".to_string())?;
+        add_log_entry(
+            "INFO".to_string(),
+            "Version update detected, created upgrade backup".to_string(),
+            "SettingsManager".to_string(),
+        )?;
         settings.version = get_version();
         save_settings(settings.clone())?;
     }
@@ -419,8 +468,8 @@ fn load_presets() -> Result<std::collections::HashMap<String, Vec<ModPreset>>, S
     let content = fs::read_to_string(&presets_path)
         .map_err(|e| format!("Failed to read presets file: {}", e))?;
 
-    let presets: std::collections::HashMap<String, Vec<ModPreset>> = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse presets: {}", e))?;
+    let presets: std::collections::HashMap<String, Vec<ModPreset>> =
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse presets: {}", e))?;
 
     Ok(presets)
 }
@@ -431,7 +480,10 @@ fn open_workshop_item(workshop_id: String) -> Result<(), String> {
         return Err("No workshop ID provided.".to_string());
     }
 
-    let url = format!("https://steamcommunity.com/sharedfiles/filedetails/?id={}", workshop_id);
+    let url = format!(
+        "https://steamcommunity.com/sharedfiles/filedetails/?id={}",
+        workshop_id
+    );
 
     #[cfg(target_os = "windows")]
     {
