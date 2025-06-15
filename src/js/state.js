@@ -1,3 +1,7 @@
+export function deepCopyMods(mods) {
+    return mods.map(mod => ({ ...mod }));
+}
+
 export const state = {
     currentMods: [],
     currentPresets: { "Default": [] },

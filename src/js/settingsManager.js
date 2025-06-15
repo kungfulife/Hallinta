@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { deepCopyMods } from './state.js';
 
 export class SettingsManager {
     constructor(modManager, uiManager) {
@@ -231,16 +232,6 @@ export class SettingsManager {
             } catch {
                 this.uiManager.showError('Failed to get Noita save path. Please set manually.');
                 this.uiManager.logAction('ERROR', 'Failed to get Noita save path');
-                this.uiManager.logAction('ERROR', 'Unable to find directory. Please set manually.');
-                return;
-            }
-            const pathExists = await window.__TAURI__.core.invoke('read_mod_config', { directory: defaultNoitaDir })
-                .then(() => true)
-                .catch(() => false);
-            if (!pathExists) {
-                this.uiManager.showError('Invalid Noita save directory. Please set a valid directory.');
-                this.uiManager.logAction('ERROR', 'Invalid Noita save directory');
-                this.uiManager.logAction('ERROR', 'Invalid directory. Please set a valid directory.');
                 return;
             }
             this.settings = {
@@ -258,6 +249,10 @@ export class SettingsManager {
             };
             state.isDarkMode = false;
             state.selectedPreset = 'Default';
+            if (!state.currentPresets['Default']) {
+                state.currentPresets['Default'] = [];
+            }
+            state.currentMods = deepCopyMods(state.currentPresets['Default']);
             const noitaDirElement = document.getElementById('noita-dir');
             const entangledDirElement = document.getElementById('entangled-dir');
             const darkModeElement = document.getElementById('dark-mode-checkbox');
@@ -265,8 +260,6 @@ export class SettingsManager {
             if (entangledDirElement) entangledDirElement.value = '';
             if (darkModeElement) darkModeElement.checked = false;
             this.uiManager.applyDarkMode();
-            state.currentPresets = { "Default": [] };
-            await window.__TAURI__.core.invoke('save_presets', { presets: { "Default": [] } });
             await this.modManager.loadModConfigFromDirectory(defaultNoitaDir);
             await window.__TAURI__.core.invoke('save_settings', { settings: this.settings });
             this.uiManager.logAction('INFO', 'Successfully reset to defaults');
