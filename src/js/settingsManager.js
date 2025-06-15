@@ -73,7 +73,17 @@ export class SettingsManager {
             }
 
             if (settings.noita_dir) {
-                await this.modManager.loadModConfigFromDirectory(settings.noita_dir);
+                const configPath = `${settings.noita_dir}/mod_config.xml`;
+                const fileExists = await window.__TAURI__.core.invoke('check_file_exists', { path: configPath });
+                if (fileExists) {
+                    const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', { directory: settings.noita_dir });
+                    await this.modManager.checkPresetConsistency(settings.noita_dir, xmlContent); // Check consistency on initial load
+                    await this.modManager.loadModConfigFromDirectory(settings.noita_dir);
+                } else {
+                    this.uiManager.showError('Noita save directory does not contain mod_config.xml. Please set a valid directory.');
+                    this.uiManager.logAction('ERROR', 'Noita save directory does not contain mod_config.xml');
+                    hasError = true;
+                }
             } else {
                 this.uiManager.showError('Noita save directory not set. Please set it in settings.');
                 this.uiManager.logAction('ERROR', 'Noita save directory not set. Please set it in settings.');
@@ -146,6 +156,17 @@ export class SettingsManager {
             this.settings.selected_preset = state.selectedPreset;
             this.settings.version = await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown');
 
+            // Check if mod_config.xml exists in the Noita directory
+            if (this.settings.noita_dir) {
+                const configPath = `${this.settings.noita_dir}/mod_config.xml`;
+                const fileExists = await window.__TAURI__.core.invoke('check_file_exists', { path: configPath });
+                if (!fileExists) {
+                    this.uiManager.showError('Cannot save: mod_config.xml not found in the specified Noita directory.');
+                    this.uiManager.logAction('ERROR', 'Cannot save: mod_config.xml not found in Noita directory');
+                    return; // Abort save operation
+                }
+            }
+
             if (window.__TAURI__?.core) {
                 const presetsForSave = {};
                 Object.keys(state.currentPresets).forEach(presetName => {
@@ -158,6 +179,7 @@ export class SettingsManager {
                 });
                 await window.__TAURI__.core.invoke('save_settings', { settings: this.settings });
                 await window.__TAURI__.core.invoke('save_presets', { presets: presetsForSave });
+                await this.modManager.saveModConfigToFile(); // Save mod configuration to file
                 this.uiManager.logAction('INFO', 'Configuration saved successfully');
             }
 
@@ -261,8 +283,7 @@ export class SettingsManager {
             if (darkModeElement) darkModeElement.checked = false;
             this.uiManager.applyDarkMode();
             await this.modManager.loadModConfigFromDirectory(defaultNoitaDir);
-            await window.__TAURI__.core.invoke('save_settings', { settings: this.settings });
-            this.uiManager.logAction('INFO', 'Successfully reset to defaults');
+            this.uiManager.logAction('INFO', 'Settings reset to defaults. Press Save & Close to apply.');
         } catch (error) {
             this.uiManager.showError(`Error resetting defaults: ${error.message}`);
             this.uiManager.logAction('ERROR', `Error resetting defaults: ${error.message}`);

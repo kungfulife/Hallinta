@@ -50,23 +50,17 @@ export class PresetManager {
                 if (newName && newName.trim() !== '' && !state.currentPresets[newName]) {
                     state.currentPresets[newName] = [...state.currentMods];
                     state.selectedPreset = newName;
-                    await this.saveSelectedPreset();
-                    await this.modManager.saveModConfigToFile();
+                    await this.saveSelectedPreset(); // Save new preset
                     this.loadPresets();
                     this.uiManager.logAction('INFO', `Created new preset: ${newName}`);
                 } else {
                     selector.value = state.selectedPreset;
-                    if (newName === null) {
-                        this.uiManager.logAction('INFO', 'Preset creation canceled');
-                    } else {
-                        this.uiManager.logAction('ERROR', 'Invalid preset name or preset already exists');
-                    }
+                    this.uiManager.logAction('INFO', newName === null ? 'Preset creation canceled' : 'Invalid preset name or preset already exists');
                 }
             } else if (state.currentPresets[selectedValue] && Array.isArray(state.currentPresets[selectedValue])) {
+                // Load mods from selected preset without saving to file
                 state.selectedPreset = selectedValue;
-                state.currentMods = [...state.currentPresets[selectedValue]];
-                await this.modManager.saveModConfigToFile();
-                await this.saveSelectedPreset();
+                state.currentMods = deepCopyMods(state.currentPresets[selectedValue]); // Use deep copy to avoid reference issues
                 this.uiManager.renderModList();
                 this.uiManager.updateModCount();
                 this.uiManager.logAction('INFO', `Switched to preset: ${selectedValue}`);

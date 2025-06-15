@@ -190,6 +190,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 } else if (logModal && logModal.style.display !== 'none') {
                     closeLogs();
                 } else if (settingsPage && settingsPage.style.display === 'block') {
+                    settingsManager.restorePreviousSettings();
                     uiManager.changeView('main');
                 }
             }
@@ -231,8 +232,24 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             }
         }, 5000);
 
-        window.addEventListener('focus', () => {
+        window.addEventListener('focus', async () => {
             state.isAppFocused = true;
+            if (settingsManager.settings.noita_dir) {
+                try {
+                    const configPath = `${settingsManager.settings.noita_dir}/mod_config.xml`;
+                    const hasChanged = await window.__TAURI__.core.invoke('check_file_modified', {
+                        filePath: configPath,
+                        lastModified: state.lastModifiedTime
+                    });
+                    if (hasChanged) {
+                        const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', { directory: settingsManager.settings.noita_dir });
+                        await modManager.checkPresetConsistency(settingsManager.settings.noita_dir, xmlContent);
+                        state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', { filePath: configPath });
+                    }
+                } catch (error) {
+                    uiManager.logAction('ERROR', `Error checking mod_config.xml on focus: ${error.message}`);
+                }
+            }
         });
 
         window.addEventListener('blur', () => {
