@@ -1,10 +1,10 @@
 export function deepCopyMods(mods) {
-    return mods.map(mod => ({ ...mod }));
+    return mods.map(mod => ({...mod}));
 }
 
 export const state = {
     currentMods: [],
-    currentPresets: { "Default": [] },
+    currentPresets: {"Default": []},
     selectedPreset: "Default",
     isDarkMode: false,
     lastKnownModOrder: [],
@@ -15,5 +15,6 @@ export const state = {
     lastModifiedTime: 0,
     isReordering: false,
     pendingReorder: false,
-    logger: null
+    logger: null,
+    isModalVisible: false
 };

@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import {state} from './state.js';
 
 export class UIManager {
     constructor(modManager) {
@@ -150,14 +150,17 @@ export class UIManager {
         const {
             confirmText = 'Confirm',
             cancelText = 'Cancel',
-            onConfirm = () => {},
-            onCancel = () => {}
+            onConfirm = () => {
+            },
+            onCancel = () => {
+            }
         } = options;
 
-        const existingModal = document.querySelector('.custom-modal');
-        if (existingModal) {
-            existingModal.remove();
+        if (state.isModalVisible) {
+            this.logAction('WARN', 'Confirmation modal already open. New request ignored.');
+            return;
         }
+        state.isModalVisible = true;
 
         const modal = document.createElement('div');
         modal.className = 'custom-modal';
@@ -180,6 +183,7 @@ export class UIManager {
                 document.body.removeChild(modal);
             }
             document.removeEventListener('keydown', escapeHandler);
+            state.isModalVisible = false;
         };
 
         const confirmAction = () => {
@@ -299,7 +303,7 @@ export class UIManager {
             const mod = state.currentMods[state.contextMenuTarget];
             if (mod.workshopId !== '0' && window.__TAURI__) {
                 try {
-                    await window.__TAURI__.core.invoke('open_workshop_item', { workshopId: mod.workshopId });
+                    await window.__TAURI__.core.invoke('open_workshop_item', {workshopId: mod.workshopId});
                     this.logAction('INFO', `Opened workshop page for ${mod.name}`);
                 } catch (error) {
                     this.logAction('ERROR', `Error opening workshop: ${error.message}`);
@@ -341,7 +345,7 @@ export class UIManager {
             }
         }
         if (window.__TAURI__ && window.__TAURI__.core) {
-            window.__TAURI__.core.invoke('add_log_entry', { level, message, module })
+            window.__TAURI__.core.invoke('add_log_entry', {level, message, module})
                 .catch(error => {
                     console.error(`Failed to log action: ${error.message}`);
                 });
