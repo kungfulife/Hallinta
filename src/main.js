@@ -13,8 +13,10 @@ const modManager = new ModManager(uiManager);
 const settingsManager = new SettingsManager(modManager, uiManager);
 const presetManager = new PresetManager(uiManager, modManager, settingsManager);
 
+
 // Set the circular dependency
-uiManager.setModManager(modManager); // You'd need to add this simple method to UIManager
+uiManager.setDependencies(modManager,settingsManager);
 
 state.phraseManager = new PhraseManager();
 setupEventHandlers(uiManager, modManager, presetManager, settingsManager);
+

@@ -9,16 +9,11 @@ export class ModManager {
         try {
             if (window.__TAURI__ && window.__TAURI__.core) {
                 const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', {directory});
-
-                // This will handle user interaction if there's an inconsistency.
-                // It returns true if the file was consistent with the preset.
                 const wasConsistent = await this.checkPresetConsistency(directory, xmlContent);
 
                 if (wasConsistent) {
-                    // If it was consistent, we still need to parse and load the mods into the UI.
                     this.parseModConfig(xmlContent, true);
                 }
-                // If it was not consistent, the handlers within checkPresetConsistency already updated the UI.
 
                 this.uiManager.logAction('INFO', `Loaded ${state.currentMods.length} mods from mod_config.xml`);
                 this.uiManager.updateModCount();
@@ -64,13 +59,11 @@ export class ModManager {
                         cancelText: 'Overwrite File',
                         onConfirm: async () => {
                             this.uiManager.logAction('INFO', `Loading changes from mod_config.xml into preset '${state.selectedPreset}'.`);
-                            // Update both the preset and the current mod list/UI
                             state.currentMods = [...fileMods];
                             state.currentPresets[state.selectedPreset] = [...fileMods];
                             this.uiManager.renderModList();
                             this.uiManager.updateModCount();
 
-                            // Save all presets to presets.json
                             const presetsForSave = {};
                             Object.keys(state.currentPresets).forEach(presetName => {
                                 presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
@@ -81,19 +74,19 @@ export class ModManager {
                                 }));
                             });
                             await window.__TAURI__.core.invoke('save_presets', {presets: presetsForSave});
-                            resolve(false); // Inconsistent
+                            resolve(false);
                         },
                         onCancel: async () => {
                             this.uiManager.logAction('INFO', `Overwriting mod_config.xml with preset '${state.selectedPreset}'.`);
                             await this.saveModConfigToFile();
-                            resolve(false); // Inconsistent
+                            resolve(false);
                         }
                     }
                 );
             });
         }
 
-        return true; // Consistent
+        return true;
     }
 
     areModsEqual(mods1, mods2) {
@@ -124,7 +117,7 @@ export class ModManager {
             }));
         } catch (error) {
             this.uiManager.logAction('ERROR', `Error parsing XML: ${error.message}`);
-            return []; // Return empty array on error
+            return [];
         }
     }
 
@@ -167,9 +160,9 @@ export class ModManager {
     }
 
     generateModConfigXML() {
-        let xml = '<Mods>\n';
+        let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<Mods>\n';
         state.currentMods.forEach(mod => {
-            xml += `  <Mod name="${mod.name}" enabled="${mod.enabled ? '1' : '0'}" workshop_item_id="${mod.workshopId}" settings_fold_open="${mod.settingsFoldOpen ? '1' : '0'}">\n  </Mod>\n`;
+            xml += `  <Mod name="${mod.name}" enabled="${mod.enabled ? '1' : '0'}" workshop_item_id="${mod.workshopId}" settings_fold_open="${mod.settingsFoldOpen ? '1' : '0'}"></Mod>\n`;
         });
         xml += '</Mods>';
         return xml;
@@ -179,7 +172,7 @@ export class ModManager {
         state.currentMods[index].enabled = !state.currentMods[index].enabled;
         this.uiManager.updateModCount();
         this.saveModConfigToFile();
-        this.uiManager.logAction('INFO', `${state.currentMods[index].name} ${state.currentMods[index].enabled ? 'enabled' : 'disabled'}`);
+        this.uiManager.logAction('DEBUG', `${state.currentMods[index].name} ${state.currentMods[index].enabled ? 'enabled' : 'disabled'}`);
     }
 
     deleteMod(index) {
@@ -191,7 +184,7 @@ export class ModManager {
         this.uiManager.renderModList();
         this.uiManager.updateModCount();
         this.saveModConfigToFile();
-        this.uiManager.logAction('INFO', `Deleted mod ${modName}`);
+        this.uiManager.logAction('DEBUG', `Deleted mod ${modName}`);
         return modName;
     }
 
@@ -206,7 +199,7 @@ export class ModManager {
         this.uiManager.updateModCount();
         this.saveModConfigToFile();
         state.pendingReorder = true;
-        this.uiManager.logAction('INFO', `Reordered mod from position ${oldIndex + 1} to ${newIndex + 1}`);
+        this.uiManager.logAction('DEBUG', `Reordered mod from position ${oldIndex + 1} to ${newIndex + 1}`);
     }
 
     async finishReordering() {
@@ -222,23 +215,22 @@ export class ModManager {
     }
 
     async exportModList() {
-        this.logAction('INFO', 'Export mod list requested');
+        this.logAction('DEBUG', 'Export mod list requested');
     }
 
     async restoreBackup() {
-        this.logAction('INFO', 'Restore backup requested');
+        this.logAction('DEBUG', 'Restore backup requested');
     }
 
     async createBackup() {
-        this.logAction('INFO', 'Create backup requested');
+        this.logAction('DEBUG', 'Create backup requested');
     }
 
     async backupMonitor() {
-        this.logAction('INFO', 'Backup monitor requested');
+        this.logAction('DEBUG', 'Backup monitor requested');
     }
 
     async importRegular() {
-        this.logAction('INFO', 'Import regular requested');
+        this.logAction('DEBUG', 'Import regular requested');
     }
-
 }

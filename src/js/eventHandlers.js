@@ -23,7 +23,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     window.copyWorkshopLink = () => uiManager.copyWorkshopLink();
 
     window.openLogs = () => {
-        // Prevent opening logs if another modal is already visible
+        uiManager.logAction('DEBUG', 'Opening logs modal');
         if (state.isModalVisible) {
             uiManager.logAction('INFO', 'Cannot open logs while another modal is active.');
             return;
@@ -39,6 +39,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     window.closeLogs = () => {
+        uiManager.logAction('DEBUG', 'Closing logs modal');
         const modal = document.getElementById('log-modal');
         if (modal) {
             modal.style.display = 'none';
@@ -46,6 +47,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     window.refreshLogs = async () => {
+        uiManager.logAction('DEBUG', 'Refreshing logs');
         try {
             const logs = await window.__TAURI__.core.invoke('get_log_entries');
             const logContent = document.getElementById('log-content');
@@ -76,6 +78,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     window.clearLogs = async () => {
+        uiManager.logAction('DEBUG', 'Clearing logs');
         try {
             await window.__TAURI__.core.invoke('clear_log_buffer');
             const logContent = document.getElementById('log-content');
@@ -89,6 +92,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     window.saveLogs = async () => {
+        uiManager.logAction('DEBUG', 'Saving logs');
         try {
             await window.__TAURI__.core.invoke('flush_log_buffer');
             uiManager.logAction('INFO', 'Logs flushed to daily log file');
@@ -100,6 +104,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     window.cancelSettings = () => uiManager.changeView('main');
 
     window.toggleSettingsView = () => {
+        uiManager.logAction('DEBUG', 'Toggling settings view');
         const button = document.getElementById('header-combined-button');
         if (!button) return;
 
@@ -114,7 +119,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
 
-    // --- New File Watcher Logic ---
     let fileCheckInterval = null;
 
     const stopFileWatcher = () => {
@@ -125,7 +129,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     const performCheck = async () => {
-        // Do not check if a modal is already open, if we are reordering, or if the directory isn't set.
         if (state.isModalVisible || state.isReordering || !settingsManager.settings.noita_dir) {
             return;
         }
@@ -145,33 +148,30 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 uiManager.logAction('INFO', 'External change detected for mod_config.xml.');
 
                 const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', {directory: settingsManager.settings.noita_dir});
-
-                // This function shows the modal and resolves after the user makes a choice.
                 await modManager.checkPresetConsistency(settingsManager.settings.noita_dir, xmlContent);
 
-                // Update the time and restart the watcher *after* the user's action is complete.
                 state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', {filePath: configPath});
                 startFileWatcher();
             }
         } catch (error) {
             uiManager.logAction('ERROR', `Error during file check: ${error.message}`);
             stopFileWatcher();
-            setTimeout(startFileWatcher, 5000); // Restart watcher after a delay on error
+            setTimeout(startFileWatcher, 5000);
         }
     };
 
     const startFileWatcher = () => {
-        stopFileWatcher(); // Ensure only one interval runs
+        stopFileWatcher();
         fileCheckInterval = setInterval(() => {
             if (state.isAppFocused) {
                 performCheck();
             }
-        }, 5000); // Check every 5 seconds
+        }, 5000);
     };
 
     window.addEventListener('focus', () => {
         state.isAppFocused = true;
-        performCheck(); // Check immediately on focus
+        performCheck();
     });
 
     window.addEventListener('blur', () => {
@@ -179,6 +179,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     });
 
     document.addEventListener('DOMContentLoaded', async () => {
+        uiManager.logAction('INFO', 'Setting up event handlers');
         const isDev = window.__TAURI__ ? await window.__TAURI__.core.invoke('is_dev_build') : true;
 
         document.addEventListener('keydown', (e) => {
@@ -200,12 +201,17 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         if (modList) {
             modList.addEventListener('contextmenu', (event) => {
                 const item = event.target.closest('.mod-item');
+
                 if (!item) return;
 
                 event.preventDefault();
                 state.contextMenuTarget = Number(item.dataset.index);
 
                 const mod = state.currentMods[state.contextMenuTarget];
+
+
+                uiManager.logAction('DEBUG', 'Opening context menu on ' + mod.name);
+
                 const menu = document.getElementById('mod-context-menu');
                 if (menu) {
                     const copyWorkshopLinkItem = menu.querySelector('#copy-workshop-link');
@@ -243,6 +249,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
 
         document.addEventListener('click', () => {
+            uiManager.logAction('DEBUG', 'Hiding context menu');
             const menu = document.getElementById('mod-context-menu');
             if (menu) {
                 menu.style.display = 'none';
@@ -255,7 +262,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 const logModal = document.getElementById('log-modal');
                 const settingsPage = document.getElementById('settings-page');
 
-                if (modal && !state.isModalVisible) { // Check if it's not the confirmation modal
+                if (modal && !state.isModalVisible) {
                     modal.remove();
                 } else if (logModal && logModal.style.display !== 'none') {
                     closeLogs();
@@ -269,7 +276,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         await settingsManager.loadConfig();
         presetManager.loadPresets();
 
-        // Set initial modified time and start the file watcher
         if (settingsManager.settings.noita_dir) {
             const configPath = `${settingsManager.settings.noita_dir}/mod_config.xml`;
             try {
@@ -296,6 +302,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 ghostClass: 'sortable-ghost',
                 forceFallback: true,
                 onStart: () => {
+                    uiManager.logAction('DEBUG', 'Starting mod reorder');
                     state.isReordering = true;
                 },
                 onEnd: (evt) => {

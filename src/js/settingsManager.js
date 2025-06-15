@@ -131,10 +131,12 @@ export class SettingsManager {
         const noitaDirElement = document.getElementById('noita-dir');
         const entangledDirElement = document.getElementById('entangled-dir');
         const darkModeElement = document.getElementById('dark-mode-checkbox');
+        const logLevelSelect = document.getElementById('log-level-select');
 
         if (noitaDirElement) noitaDirElement.value = settings.noita_dir;
         if (entangledDirElement) entangledDirElement.value = settings.entangled_dir;
         if (darkModeElement) darkModeElement.checked = state.isDarkMode;
+        if (logLevelSelect) logLevelSelect.value = settings.log_settings.log_level || 'INFO';
 
         this.uiManager.applyDarkMode();
     }
@@ -143,19 +145,21 @@ export class SettingsManager {
         try {
             const noitaDirElement = document.getElementById('noita-dir');
             const entangledDirElement = document.getElementById('entangled-dir');
+            const logLevelSelect = document.getElementById('log-level-select');
             this.settings.noita_dir = noitaDirElement ? noitaDirElement.value : '';
             this.settings.entangled_dir = entangledDirElement ? entangledDirElement.value : '';
             this.settings.dark_mode = state.isDarkMode;
             this.settings.selected_preset = state.selectedPreset;
+            if (logLevelSelect) this.settings.log_settings.log_level = logLevelSelect.value;
             this.settings.version = await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown');
-            // Check if mod_config.xml exists in the Noita directory
+
             if (this.settings.noita_dir) {
                 const configPath = `${this.settings.noita_dir}/mod_config.xml`;
                 const fileExists = await window.__TAURI__.core.invoke('check_file_exists', { path: configPath });
                 if (!fileExists) {
                     this.uiManager.showError('Cannot save: mod_config.xml not found in the specified Noita directory.');
                     this.uiManager.logAction('ERROR', 'Cannot save: mod_config.xml not found in Noita directory');
-                    return; // Abort save operation
+                    return;
                 }
             }
 
@@ -171,7 +175,7 @@ export class SettingsManager {
                 });
                 await window.__TAURI__.core.invoke('save_settings', { settings: this.settings });
                 await window.__TAURI__.core.invoke('save_presets', { presets: presetsForSave });
-                await this.modManager.saveModConfigToFile(); // Save mod configuration to file
+                await this.modManager.saveModConfigToFile();
                 this.uiManager.logAction('INFO', 'Configuration saved successfully');
             }
 
@@ -194,7 +198,7 @@ export class SettingsManager {
                     const dirElement = document.getElementById(`${type}-dir`);
                     if (dirElement) dirElement.value = selected;
                     this.settings[`${type}_dir`] = selected;
-                    this.uiManager.logAction('INFO', `Selected directory for ${type}: ${selected}`);
+                    this.uiManager.logAction('DEBUG', `Selected directory for ${type}: ${selected}`);
                     if (type === 'noita') {
                         await this.modManager.loadModConfigFromDirectory(selected);
                     }
@@ -217,7 +221,7 @@ export class SettingsManager {
 
         try {
             await window.__TAURI__.core.invoke('open_directory', { directory });
-            this.uiManager.logAction('INFO', `Opened ${type} directory: ${directory}`);
+            this.uiManager.logAction('DEBUG', `Opened ${type} directory: ${directory}`);
         } catch (error) {
             this.uiManager.showError(`Error opening directory: ${error.message}`);
             this.uiManager.logAction('ERROR', `Error opening directory: ${error.message}`);
@@ -228,7 +232,7 @@ export class SettingsManager {
         try {
             const settingsDir = await window.__TAURI__.core.invoke('get_app_settings_dir');
             await window.__TAURI__.core.invoke('open_directory', { directory: settingsDir });
-            this.uiManager.logAction('INFO', `Opened directory: ${settingsDir}`);
+            this.uiManager.logAction('DEBUG', `Opened directory: ${settingsDir}`);
         } catch (error) {
             this.uiManager.showError(`Error opening directory: ${error.message}`);
             this.uiManager.logAction('ERROR', `Error opening directory: ${error.message}`);
@@ -270,9 +274,11 @@ export class SettingsManager {
             const noitaDirElement = document.getElementById('noita-dir');
             const entangledDirElement = document.getElementById('entangled-dir');
             const darkModeElement = document.getElementById('dark-mode-checkbox');
+            const logLevelSelect = document.getElementById('log-level-select');
             if (noitaDirElement) noitaDirElement.value = defaultNoitaDir;
             if (entangledDirElement) entangledDirElement.value = '';
             if (darkModeElement) darkModeElement.checked = false;
+            if (logLevelSelect) logLevelSelect.value = 'INFO';
             this.uiManager.applyDarkMode();
             await this.modManager.loadModConfigFromDirectory(defaultNoitaDir);
             this.uiManager.logAction('INFO', 'Settings reset to defaults. Press Save & Close to apply.');
@@ -294,9 +300,11 @@ export class SettingsManager {
             const noitaDirElement = document.getElementById('noita-dir');
             const entangledDirElement = document.getElementById('entangled-dir');
             const darkModeElement = document.getElementById('dark-mode-checkbox');
+            const logLevelSelect = document.getElementById('log-level-select');
             if (noitaDirElement) noitaDirElement.value = this.settings.noita_dir;
             if (entangledDirElement) entangledDirElement.value = this.settings.entangled_dir;
             if (darkModeElement) darkModeElement.checked = state.isDarkMode;
+            if (logLevelSelect) logLevelSelect.value = this.settings.log_settings.log_level;
             this.uiManager.applyDarkMode();
         }
     }

@@ -1,12 +1,15 @@
 import {state} from './state.js';
 
 export class UIManager {
-    constructor(modManager) {
-        this.modManager = modManager;
-        this.statusBar = document.getElementById('status-bar');
+
+    constructor() {
+        // Set in main.js
+        this.modManager = null;
+        this.settingsManager = null;
     }
 
     changeView(view) {
+        this.logAction('DEBUG', `Changing view to ${view}`);
         const mainPage = document.getElementById('main-page');
         const settingsPage = document.getElementById('settings-page');
         const presetControls = document.getElementById('preset-controls');
@@ -57,6 +60,7 @@ export class UIManager {
     }
 
     renderModList() {
+        this.logAction('DEBUG', 'Rendering mod list');
         const modList = document.getElementById('mod-list');
         modList.innerHTML = '';
 
@@ -127,6 +131,7 @@ export class UIManager {
     }
 
     filterMods() {
+        this.logAction('DEBUG', 'Filtering mods');
         const searchTerm = document.querySelector('.search-bar').value.toLowerCase();
         const modItems = document.querySelectorAll('.mod-item');
 
@@ -137,6 +142,7 @@ export class UIManager {
     }
 
     toggleDarkMode() {
+        this.logAction('DEBUG', `Toggled dark mode to ${state.isDarkMode}`);
         const checkbox = document.getElementById('dark-mode-checkbox');
         state.isDarkMode = checkbox.checked;
         this.applyDarkMode();
@@ -147,13 +153,12 @@ export class UIManager {
     }
 
     showConfirmModal(message, options = {}) {
+        this.logAction('DEBUG', 'Showing confirm modal');
         const {
             confirmText = 'Confirm',
             cancelText = 'Cancel',
-            onConfirm = () => {
-            },
-            onCancel = () => {
-            }
+            onConfirm = () => {},
+            onCancel = () => {}
         } = options;
 
         if (state.isModalVisible) {
@@ -212,8 +217,8 @@ export class UIManager {
         document.addEventListener('keydown', escapeHandler);
     }
 
-
     showInputModal(message, defaultValue, onConfirm, onCancel) {
+        this.logAction('DEBUG', 'Showing input modal');
         const modal = document.createElement('div');
         modal.className = 'custom-modal';
         modal.innerHTML = `
@@ -262,7 +267,7 @@ export class UIManager {
                     cancelText: 'Cancel',
                     onConfirm: () => {
                         this.modManager.deleteMod(state.contextMenuTarget);
-                        this.logAction('INFO', `Deleted mod: ${modName}`);
+                        this.logAction('DEBUG', `Deleted mod: ${modName}`);
                         document.getElementById('mod-context-menu').style.display = 'none';
                     },
                     onCancel: () => {
@@ -286,7 +291,7 @@ export class UIManager {
                         this.logAction('ERROR', `Invalid position for "${modName}"`);
                     } else {
                         this.modManager.reorderMod(state.contextMenuTarget, newIndex);
-                        this.logAction('INFO', `Moved "${modName}" to position ${newIndex + 1}`);
+                        this.logAction('DEBUG', `Moved "${modName}" to position ${newIndex + 1}`);
                     }
                     document.getElementById('mod-context-menu').style.display = 'none';
                 },
@@ -304,12 +309,12 @@ export class UIManager {
             if (mod.workshopId !== '0' && window.__TAURI__) {
                 try {
                     await window.__TAURI__.core.invoke('open_workshop_item', {workshopId: mod.workshopId});
-                    this.logAction('INFO', `Opened workshop page for ${mod.name}`);
+                    this.logAction('DEBUG', `Opened workshop page for ${mod.name}`);
                 } catch (error) {
                     this.logAction('ERROR', `Error opening workshop: ${error.message}`);
                     const url = `https://steamcommunity.com/sharedfiles/filedetails/?id=${mod.workshopId}`;
                     window.open(url, '_blank');
-                    this.logAction('INFO', `Opened workshop page for ${mod.name}`);
+                    this.logAction('DEBUG', `Opened workshop page for ${mod.name}`);
                 }
             }
             document.getElementById('mod-context-menu').style.display = 'none';
@@ -322,7 +327,7 @@ export class UIManager {
             const url = `https://steamcommunity.com/sharedfiles/filedetails/?id=${mod.workshopId}`;
             try {
                 await navigator.clipboard.writeText(url);
-                this.logAction('INFO', `Copied workshop link for ${mod.name}`);
+                this.logAction('DEBUG', `Copied workshop link for ${mod.name}`);
             } catch (error) {
                 this.logAction('ERROR', `Error copying to clipboard: ${error.message}`);
             }
@@ -331,24 +336,36 @@ export class UIManager {
     }
 
     logAction(level, message, module = 'UIManager') {
-        const statusBar = document.getElementById('status-bar');
-        if (statusBar) {
-            if (level === 'ERROR') {
-                statusBar.textContent = `Error: ${message}`;
-                statusBar.classList.add('error');
-                setTimeout(() => {
-                    statusBar.classList.remove('error');
-                }, 5000);
-            } else {
-                statusBar.textContent = message;
-                statusBar.className = 'status-bar';
+        const normalizedLevel = level.toUpperCase(); // Normalize to uppercase
+        const logLevelOrder = { 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3 };
+        const currentLogLevel = this.settingsManager?.settings.log_settings.log_level?.toUpperCase() || 'INFO';
+        const currentLevelValue = logLevelOrder[currentLogLevel] ?? 1;
+        const logLevelValue = logLevelOrder[normalizedLevel] ?? 0;
+
+        if (logLevelValue >= currentLevelValue) {
+
+            // Print to browser console.
+            console.log(`Logging: [${normalizedLevel}] ${message} (Current Level: ${currentLogLevel}, Log Value: ${logLevelValue}, Current Value: ${currentLevelValue})`);
+
+            const statusBar = document.getElementById('status-bar');
+            if (statusBar) {
+                if (normalizedLevel === 'ERROR') {
+                    statusBar.textContent = `Error: ${message}`;
+                    statusBar.classList.add('error');
+                    setTimeout(() => {
+                        statusBar.classList.remove('error');
+                    }, 5000);
+                } else {
+                    statusBar.textContent = message;
+                    statusBar.className = 'status-bar';
+                }
             }
-        }
-        if (window.__TAURI__ && window.__TAURI__.core) {
-            window.__TAURI__.core.invoke('add_log_entry', {level, message, module})
-                .catch(error => {
-                    console.error(`Failed to log action: ${error.message}`);
-                });
+            if (window.__TAURI__ && window.__TAURI__.core) {
+                window.__TAURI__.core.invoke('add_log_entry', { level: normalizedLevel, message, module })
+                    .catch(error => {
+                        console.error(`Failed to log action: ${error.message}`);
+                    });
+            }
         }
     }
 
@@ -356,7 +373,8 @@ export class UIManager {
         this.logAction('ERROR', message);
     }
 
-    setModManager(modManager) {
+    setDependencies(modManager, settingsManager) {
         this.modManager = modManager;
+        this.settingsManager = settingsManager; // Added to access settings in logAction
     }
 }
