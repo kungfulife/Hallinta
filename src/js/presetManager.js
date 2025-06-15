@@ -1,9 +1,10 @@
 import {deepCopyMods, state} from './state.js';
 
 export class PresetManager {
-    constructor(uiManager, modManager) {
+    constructor(uiManager, modManager, settingsManager) {
         this.uiManager = uiManager;
         this.modManager = modManager;
+        this.settingsManager = settingsManager;
     }
 
     loadPresets() {
@@ -37,7 +38,6 @@ export class PresetManager {
             return;
         }
         const selectedValue = selector.value;
-
         if (!this.modManager) {
             this.logAction('ERROR', 'ModManager is not initialized');
             selector.value = state.selectedPreset;
@@ -58,12 +58,16 @@ export class PresetManager {
                     this.uiManager.logAction('INFO', newName === null ? 'Preset creation canceled' : 'Invalid preset name or preset already exists');
                 }
             } else if (state.currentPresets[selectedValue] && Array.isArray(state.currentPresets[selectedValue])) {
-                // Load mods from selected preset while saving to file
+                // Load mods from selected preset
                 state.selectedPreset = selectedValue;
-                state.currentMods = deepCopyMods(state.currentPresets[selectedValue]); // Use deep copy to avoid reference issues
+                state.currentMods = deepCopyMods(state.currentPresets[selectedValue]);
                 this.uiManager.renderModList();
                 this.uiManager.updateModCount();
+
+                // Persist all changes to disk
                 await this.modManager.saveModConfigToFile();
+                await this.saveSelectedPreset();
+
                 this.uiManager.logAction('INFO', `Switched to preset: ${selectedValue}`);
             } else {
                 this.logAction('ERROR', `Preset ${selectedValue} is invalid or not found`);
@@ -140,9 +144,11 @@ export class PresetManager {
 
     async saveSelectedPreset() {
         try {
-            if (window.__TAURI__ && window.__TAURI__.core) {
-                const settings = await window.__TAURI__.core.invoke('load_settings');
+            if (window.__TAURI__ && window.__TAURI__.core && this.settingsManager) {
+                // Use the authoritative in-memory settings from SettingsManager
+                const settings = this.settingsManager.settings;
                 settings.selected_preset = state.selectedPreset || 'Default';
+
                 const presetsForSave = {};
                 Object.keys(state.currentPresets).forEach(presetName => {
                     presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
@@ -154,7 +160,7 @@ export class PresetManager {
                 });
                 await window.__TAURI__.core.invoke('save_settings', { settings });
                 await window.__TAURI__.core.invoke('save_presets', { presets: presetsForSave });
-                this.logAction('INFO', `Saved preset: ${state.selectedPreset}`);
+                this.logAction('INFO', `Saved preset configuration for: ${state.selectedPreset}`);
             }
         } catch (error) {
             this.logAction('ERROR', `Failed to save selected preset: ${error.message}`);

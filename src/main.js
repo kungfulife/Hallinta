@@ -9,8 +9,8 @@ import { setupEventHandlers } from './js/eventHandlers.js';
 const modManager = new ModManager(null);
 const uiManager = new UIManager(modManager);
 modManager.uiManager = uiManager;
-const presetManager = new PresetManager(uiManager, modManager);
 const settingsManager = new SettingsManager(modManager, uiManager);
+const presetManager = new PresetManager(uiManager, modManager, settingsManager);
 
 state.phraseManager = new PhraseManager();
 
