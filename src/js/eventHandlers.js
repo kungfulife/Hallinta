@@ -23,9 +23,9 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     window.copyWorkshopLink = () => uiManager.copyWorkshopLink();
 
     window.openLogs = () => {
-        uiManager.logAction('DEBUG', 'Opening logs modal');
+        uiManager.logAction('DEBUG', 'Opening logs modal', 'EventHandler');
         if (state.isModalVisible) {
-            uiManager.logAction('INFO', 'Cannot open logs while another modal is active.');
+            uiManager.logAction('INFO', 'Cannot open logs while another modal is active.', 'EventHandler');
             return;
         }
 
@@ -34,12 +34,12 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             modal.style.display = 'flex';
             refreshLogs();
         } else {
-            uiManager.showError('Log modal not found');
+            uiManager.logAction('ERROR','Log modal not found', 'EventHandler');
         }
     };
 
     window.closeLogs = () => {
-        uiManager.logAction('DEBUG', 'Closing logs modal');
+        uiManager.logAction('DEBUG', 'Closing logs modal', 'EventHandler');
         const modal = document.getElementById('log-modal');
         if (modal) {
             modal.style.display = 'none';
@@ -47,13 +47,13 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     window.refreshLogs = async () => {
-        uiManager.logAction('DEBUG', 'Refreshing logs');
+        uiManager.logAction('DEBUG', 'Refreshing logs', 'EventHandler');
         try {
             const logs = await window.__TAURI__.core.invoke('get_log_entries');
             const logContent = document.getElementById('log-content');
 
             if (!logContent) {
-                uiManager.logAction('ERROR', 'Log content element not found');
+                uiManager.logAction('ERROR', 'Log content element not found', 'EventHandler');
                 return;
             }
 
@@ -69,7 +69,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             logContent.textContent = logText;
             logContent.scrollTop = logContent.scrollHeight;
         } catch (error) {
-            uiManager.logAction('ERROR', `Error refreshing logs: ${error}`);
+            uiManager.logAction('ERROR', `Error refreshing logs: ${error}`, 'EventHandler');
             const logContent = document.getElementById('log-content');
             if (logContent) {
                 logContent.textContent = 'Error loading logs.';
@@ -78,33 +78,33 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     window.clearLogs = async () => {
-        uiManager.logAction('DEBUG', 'Clearing logs');
+        uiManager.logAction('DEBUG', 'Clearing logs', 'EventHandler');
         try {
             await window.__TAURI__.core.invoke('clear_log_buffer');
             const logContent = document.getElementById('log-content');
             if (logContent) {
                 logContent.textContent = 'Logs cleared.';
-                uiManager.logAction('INFO', 'Logs cleared');
+                uiManager.logAction('INFO', 'Logs cleared', 'EventHandler');
             }
         } catch (error) {
-            uiManager.logAction('ERROR', `Error clearing logs: ${error}`);
+            uiManager.logAction('ERROR', `Error clearing logs: ${error}`, 'EventHandler');
         }
     };
 
     window.saveLogs = async () => {
-        uiManager.logAction('DEBUG', 'Saving logs');
+        uiManager.logAction('DEBUG', 'Saving logs', 'EventHandler');
         try {
             await window.__TAURI__.core.invoke('flush_log_buffer');
-            uiManager.logAction('INFO', 'Logs flushed to daily log file');
+            uiManager.logAction('INFO', 'Logs flushed to daily log file', 'EventHandler');
         } catch (error) {
-            uiManager.logAction('ERROR', `Error flushing logs: ${error}`);
+            uiManager.logAction('ERROR', `Error flushing logs: ${error}`, 'EventHandler');
         }
     };
 
     window.cancelSettings = () => uiManager.changeView('main');
 
     window.toggleSettingsView = () => {
-        uiManager.logAction('DEBUG', 'Toggling settings view');
+        uiManager.logAction('DEBUG', 'Toggling settings view', 'EventHandler');
         const button = document.getElementById('header-combined-button');
         if (!button) return;
 
@@ -145,7 +145,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
             if (hasChanged) {
                 stopFileWatcher();
-                uiManager.logAction('INFO', 'External change detected for mod_config.xml.');
+                uiManager.logAction('INFO', 'External change detected for mod_config.xml.', 'EventHandler');
 
                 const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', {directory: settingsManager.settings.noita_dir});
                 await modManager.checkPresetConsistency(settingsManager.settings.noita_dir, xmlContent);
@@ -154,7 +154,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 startFileWatcher();
             }
         } catch (error) {
-            uiManager.logAction('ERROR', `Error during file check: ${error.message}`);
+            uiManager.logAction('ERROR', `Error during file check: ${error.message}`, 'EventHandler');
             stopFileWatcher();
             setTimeout(startFileWatcher, 5000);
         }
@@ -179,7 +179,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     });
 
     document.addEventListener('DOMContentLoaded', async () => {
-        uiManager.logAction('INFO', 'Setting up event handlers');
+        uiManager.logAction('INFO', 'Setting up event handlers', 'EventHandler');
         const isDev = window.__TAURI__ ? await window.__TAURI__.core.invoke('is_dev_build') : true;
 
         document.addEventListener('keydown', (e) => {
@@ -209,8 +209,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
                 const mod = state.currentMods[state.contextMenuTarget];
 
-
-                uiManager.logAction('DEBUG', 'Opening context menu on ' + mod.name);
+                uiManager.logAction('DEBUG', `Opening context menu on: ${mod.name}`, 'EventHandler');
 
                 const menu = document.getElementById('mod-context-menu');
                 if (menu) {
@@ -249,7 +248,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
 
         document.addEventListener('click', () => {
-            uiManager.logAction('DEBUG', 'Hiding context menu');
+            uiManager.logAction('DEBUG', 'Hiding context menu', 'EventHandler');
             const menu = document.getElementById('mod-context-menu');
             if (menu) {
                 menu.style.display = 'none';
@@ -284,7 +283,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                     state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', {filePath: configPath});
                 }
             } catch (e) {
-                uiManager.logAction('WARN', `Could not get initial mod time: ${e.message}`);
+                uiManager.logAction('WARN', `Could not get initial mod time: ${e.message}`, 'EventHandler');
             }
         }
         startFileWatcher();
@@ -302,7 +301,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 ghostClass: 'sortable-ghost',
                 forceFallback: true,
                 onStart: () => {
-                    uiManager.logAction('DEBUG', 'Starting mod reorder');
+                    uiManager.logAction('DEBUG', 'Starting mod reorder', 'EventHandler');
                     state.isReordering = true;
                 },
                 onEnd: (evt) => {
@@ -319,7 +318,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             try {
                 await window.__TAURI__.core.invoke('flush_log_buffer');
             } catch (error) {
-                uiManager.logAction('ERROR', `Failed to flush log buffer: ${error}`);
+                uiManager.logAction('ERROR', `Failed to flush log buffer: ${error}`, 'EventHandler');
             }
         }, 5000);
     });

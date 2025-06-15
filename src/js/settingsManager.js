@@ -23,8 +23,7 @@ export class SettingsManager {
 
     async loadConfig() {
         if (!window.__TAURI__?.core) {
-            this.uiManager.showError('Tauri is not initialized. Application may not function correctly.');
-            this.uiManager.logAction('ERROR', 'Tauri is not initialized');
+            this.logAction('ERROR', 'Tauri is not initialized. Application may not function correctly.')
             return false;
         }
 
@@ -36,8 +35,8 @@ export class SettingsManager {
                 settings = await window.__TAURI__.core.invoke('load_settings');
                 presets = await window.__TAURI__.core.invoke('load_presets');
             } catch (error) {
-                this.uiManager.showError(`Error loading configuration: ${error.message}. Using defaults.`);
-                this.uiManager.logAction('ERROR', `Error loading config: ${error.message}`);
+                this.logAction('ERROR', `Error loading configuration: ${error.message}. Using defaults.`)
+                this.logAction('ERROR', `Error loading config: ${error.message}`);
                 hasError = true;
                 settings = {
                     noita_dir: '',
@@ -55,13 +54,12 @@ export class SettingsManager {
                 try {
                     settings.noita_dir = await window.__TAURI__.core.invoke('get_noita_save_path');
                 } catch (pathError) {
-                    this.uiManager.showError('Could not determine default Noita save path.');
-                    this.uiManager.logAction('ERROR', `Could not get default Noita path: ${pathError.message}`);
+                    this.logAction('ERROR', `Could not get default Noita path: ${pathError.message}`);
                     settings.noita_dir = '';
                 }
                 presets = { "Default": [] };
                 await this.saveDefaults(settings, presets);
-                this.uiManager.logAction('INFO', 'Created default configuration');
+                this.logAction('INFO', 'Created default configuration');
             }
 
             this.applyConfig(settings, presets);
@@ -76,23 +74,20 @@ export class SettingsManager {
                 if (fileExists) {
                     await this.modManager.loadModConfigFromDirectory(settings.noita_dir);
                 } else {
-                    this.uiManager.showError('Noita save directory does not contain mod_config.xml. Please set a valid directory.');
-                    this.uiManager.logAction('ERROR', 'Noita save directory does not contain mod_config.xml');
+                    this.logAction('ERROR', 'Noita save directory does not contain mod_config.xml');
                     hasError = true;
                 }
             } else {
-                this.uiManager.showError('Noita save directory not set. Please set it in settings.');
-                this.uiManager.logAction('ERROR', 'Noita save directory not set. Please set it in settings.');
+                this.logAction('ERROR', 'Noita save directory not set. Please set it in settings.');
                 hasError = true;
             }
 
             if (!hasError) {
-                this.uiManager.logAction('INFO', 'Configuration loaded successfully');
+                this.logAction('INFO', 'Configuration loaded successfully');
             }
             return !hasError;
         } catch (error) {
-            this.uiManager.showError(`Critical error in loadConfig: ${error.message}`);
-            this.uiManager.logAction('ERROR', `Critical error in loadConfig: ${error.message}`);
+            this.logAction('ERROR', `Critical error in loadConfig: ${error.message}`);
             return false;
         }
     }
@@ -102,8 +97,7 @@ export class SettingsManager {
             await window.__TAURI__.core.invoke('save_settings', { settings });
             await window.__TAURI__.core.invoke('save_presets', { presets });
         } catch (error) {
-            this.uiManager.showError(`Error saving default settings: ${error.message}`);
-            this.uiManager.logAction('ERROR', `Error saving default settings: ${error.message}`);
+            this.logAction('ERROR', `Error saving default settings: ${error.message}`);
         }
     }
 
@@ -157,8 +151,7 @@ export class SettingsManager {
                 const configPath = `${this.settings.noita_dir}/mod_config.xml`;
                 const fileExists = await window.__TAURI__.core.invoke('check_file_exists', { path: configPath });
                 if (!fileExists) {
-                    this.uiManager.showError('Cannot save: mod_config.xml not found in the specified Noita directory.');
-                    this.uiManager.logAction('ERROR', 'Cannot save: mod_config.xml not found in Noita directory');
+                    this.logAction('ERROR', 'Cannot save: mod_config.xml not found in Noita directory');
                     return;
                 }
             }
@@ -176,13 +169,12 @@ export class SettingsManager {
                 await window.__TAURI__.core.invoke('save_settings', { settings: this.settings });
                 await window.__TAURI__.core.invoke('save_presets', { presets: presetsForSave });
                 await this.modManager.saveModConfigToFile();
-                this.uiManager.logAction('INFO', 'Configuration saved successfully');
+                this.logAction('INFO', 'Configuration saved successfully');
             }
 
             this.uiManager.changeView('main');
         } catch (error) {
-            this.uiManager.showError(`Critical error during save: ${error.message}`);
-            this.uiManager.logAction('ERROR', `Critical error during save: ${error.message}`);
+            this.logAction('ERROR', `Critical error during save: ${error.message}`);
             this.uiManager.changeView('main');
         }
     }
@@ -198,15 +190,14 @@ export class SettingsManager {
                     const dirElement = document.getElementById(`${type}-dir`);
                     if (dirElement) dirElement.value = selected;
                     this.settings[`${type}_dir`] = selected;
-                    this.uiManager.logAction('DEBUG', `Selected directory for ${type}: ${selected}`);
+                    this.logAction('DEBUG', `Selected directory for ${type}: ${selected}`);
                     if (type === 'noita') {
                         await this.modManager.loadModConfigFromDirectory(selected);
                     }
                 }
             }
         } catch (error) {
-            this.uiManager.showError(`Error selecting directory: ${error.message}`);
-            this.uiManager.logAction('ERROR', `Error selecting directory: ${error.message}`);
+            this.logAction('ERROR', `Error selecting directory: ${error.message}`);
         }
     }
 
@@ -214,17 +205,15 @@ export class SettingsManager {
         const dirElement = document.getElementById(`${type}-dir`);
         const directory = dirElement ? dirElement.value : '';
         if (!directory) {
-            this.uiManager.showError(`No ${type} directory set`);
-            this.uiManager.logAction('ERROR', `No ${type} directory set`);
+            this.logAction('ERROR', `No ${type} directory set`);
             return;
         }
 
         try {
             await window.__TAURI__.core.invoke('open_directory', { directory });
-            this.uiManager.logAction('DEBUG', `Opened ${type} directory: ${directory}`);
+            this.logAction('DEBUG', `Opened ${type} directory: ${directory}`);
         } catch (error) {
-            this.uiManager.showError(`Error opening directory: ${error.message}`);
-            this.uiManager.logAction('ERROR', `Error opening directory: ${error.message}`);
+            this.logAction('ERROR', `Error opening directory: ${error.message}`);
         }
     }
 
@@ -232,10 +221,9 @@ export class SettingsManager {
         try {
             const settingsDir = await window.__TAURI__.core.invoke('get_app_settings_dir');
             await window.__TAURI__.core.invoke('open_directory', { directory: settingsDir });
-            this.uiManager.logAction('DEBUG', `Opened directory: ${settingsDir}`);
+            this.logAction('DEBUG', `Opened directory: ${settingsDir}`);
         } catch (error) {
-            this.uiManager.showError(`Error opening directory: ${error.message}`);
-            this.uiManager.logAction('ERROR', `Error opening directory: ${error.message}`);
+            this.logAction('ERROR', `Error opening directory: ${error.message}`);
         }
     }
 
@@ -248,8 +236,7 @@ export class SettingsManager {
             try {
                 defaultNoitaDir = await window.__TAURI__.core.invoke('get_noita_save_path');
             } catch {
-                this.uiManager.showError('Failed to get Noita save path. Please set manually.');
-                this.uiManager.logAction('ERROR', 'Failed to get Noita save path');
+                this.logAction('ERROR', 'Failed to get Noita save path');
                 return;
             }
             this.settings = {
@@ -281,10 +268,9 @@ export class SettingsManager {
             if (logLevelSelect) logLevelSelect.value = 'INFO';
             this.uiManager.applyDarkMode();
             await this.modManager.loadModConfigFromDirectory(defaultNoitaDir);
-            this.uiManager.logAction('INFO', 'Settings reset to defaults. Press Save & Close to apply.');
+            this.logAction('INFO', 'Settings reset to defaults. Press Save & Close to apply.');
         } catch (error) {
-            this.uiManager.showError(`Error resetting defaults: ${error.message}`);
-            this.uiManager.logAction('ERROR', `Error resetting defaults: ${error.message}`);
+            this.logAction('ERROR', `Error resetting defaults: ${error.message}`);
         }
     }
 
