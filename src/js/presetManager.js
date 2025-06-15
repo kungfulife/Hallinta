@@ -85,27 +85,27 @@ export class PresetManager {
             return;
         }
 
-        if (!this.modManager) {
-            this.logAction('ERROR', 'ModManager is not initialized');
-            return;
-        }
-
-        try {
-            if (window.confirm(`Delete preset "${state.selectedPreset}"?`)) {
-                const deletedPreset = state.selectedPreset;
-                delete state.currentPresets[state.selectedPreset];
-                state.selectedPreset = 'Default';
-                state.currentMods = [...(state.currentPresets['Default'] || [])];
-                await this.modManager.saveModConfigToFile();
-                await this.saveSelectedPreset();
-                this.uiManager.renderModList();
-                this.uiManager.updateModCount();
-                this.loadPresets();
-                this.logAction('INFO', `Deleted preset: ${deletedPreset}`);
+        this.uiManager.showConfirmModal(
+            `Are you sure you want to delete the preset "${state.selectedPreset}"?`, {
+                confirmText: 'Delete',
+                cancelText: 'Cancel',
+                onConfirm: async () => {
+                    const deletedPreset = state.selectedPreset;
+                    delete state.currentPresets[state.selectedPreset];
+                    state.selectedPreset = 'Default';
+                    state.currentMods = [...(state.currentPresets['Default'] || [])];
+                    await this.modManager.saveModConfigToFile();
+                    await this.saveSelectedPreset();
+                    this.uiManager.renderModList();
+                    this.uiManager.updateModCount();
+                    this.loadPresets();
+                    this.logAction('INFO', `Deleted preset: ${deletedPreset}`);
+                },
+                onCancel: () => {
+                    this.logAction('INFO', `Deletion of preset "${state.selectedPreset}" canceled.`);
+                }
             }
-        } catch (error) {
-            this.logAction('ERROR', `Error deleting preset: ${error.message}`);
-        }
+        );
     }
 
     async renameCurrentPreset() {
@@ -114,33 +114,28 @@ export class PresetManager {
             return;
         }
 
-        if (!this.modManager) {
-            this.logAction('ERROR', 'ModManager is not initialized');
-            return;
-        }
-
-        try {
-            const newName = prompt('Enter new name:', state.selectedPreset);
-            if (newName && newName.trim() !== '' && newName !== state.selectedPreset && !state.currentPresets[newName]) {
-                const oldName = state.selectedPreset;
-                state.currentPresets[newName] = state.currentPresets[state.selectedPreset];
-                delete state.currentPresets[state.selectedPreset];
-                state.selectedPreset = newName;
-                await this.saveSelectedPreset();
-                await this.modManager.saveModConfigToFile();
-                this.loadPresets();
-                this.logAction('INFO', `Renamed preset from ${oldName} to ${newName}`);
-            } else {
-                if (newName === null) {
-                    this.logAction('INFO', 'Preset rename canceled');
+        this.uiManager.showInputModal(
+            `Enter new name for "${state.selectedPreset}":`,
+            state.selectedPreset,
+            async (newName) => { // onConfirm
+                if (newName && newName.trim() !== '' && newName !== state.selectedPreset && !state.currentPresets[newName]) {
+                    const oldName = state.selectedPreset;
+                    state.currentPresets[newName] = state.currentPresets[state.selectedPreset];
+                    delete state.currentPresets[state.selectedPreset];
+                    state.selectedPreset = newName;
+                    await this.saveSelectedPreset();
+                    this.loadPresets();
+                    this.logAction('INFO', `Renamed preset from ${oldName} to ${newName}`);
                 } else {
                     this.logAction('ERROR', 'Invalid preset name or preset already exists');
                 }
+            },
+            () => { // onCancel
+                this.logAction('INFO', 'Preset rename canceled');
             }
-        } catch (error) {
-            this.logAction('ERROR', `Error renaming preset: ${error.message}`);
-        }
+        );
     }
+
 
     async saveSelectedPreset() {
         try {

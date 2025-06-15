@@ -23,6 +23,12 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     window.copyWorkshopLink = () => uiManager.copyWorkshopLink();
 
     window.openLogs = () => {
+        // Prevent opening logs if another modal is already visible
+        if (state.isModalVisible) {
+            uiManager.logAction('INFO', 'Cannot open logs while another modal is active.');
+            return;
+        }
+
         const modal = document.getElementById('log-modal');
         if (modal) {
             modal.style.display = 'flex';
