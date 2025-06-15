@@ -265,10 +265,11 @@ async fn create_upgrade_backup(
 
 #[tauri::command]
 fn add_log_entry(level: String, message: String, module: String) -> Result<(), String> {
+    let normalized_level = level.to_uppercase(); // Normalize to uppercase
     let timestamp = Utc::now().to_rfc3339();
     let entry = LogEntry {
         timestamp,
-        level: level.clone(),
+        level: normalized_level.clone(),
         message: message.clone(),
         module,
     };

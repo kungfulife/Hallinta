@@ -46,11 +46,12 @@ export class PresetManager {
 
         try {
             if (selectedValue === 'createnew') {
+                this.logAction('DEBUG', 'Creating new preset');
                 const newName = prompt('Enter name for new preset:', `Preset ${Object.keys(state.currentPresets).length + 1}`);
                 if (newName && newName.trim() !== '' && !state.currentPresets[newName]) {
                     state.currentPresets[newName] = [...state.currentMods];
                     state.selectedPreset = newName;
-                    await this.saveSelectedPreset(); // Save new preset
+                    await this.saveSelectedPreset();
                     this.loadPresets();
                     this.uiManager.logAction('INFO', `Created new preset: ${newName}`);
                 } else {
@@ -58,13 +59,12 @@ export class PresetManager {
                     this.uiManager.logAction('INFO', newName === null ? 'Preset creation canceled' : 'Invalid preset name or preset already exists');
                 }
             } else if (state.currentPresets[selectedValue] && Array.isArray(state.currentPresets[selectedValue])) {
-                // Load mods from selected preset
+                this.logAction('DEBUG', `Switching to preset: ${selectedValue}`);
                 state.selectedPreset = selectedValue;
                 state.currentMods = deepCopyMods(state.currentPresets[selectedValue]);
                 this.uiManager.renderModList();
                 this.uiManager.updateModCount();
 
-                // Persist all changes to disk
                 await this.modManager.saveModConfigToFile();
                 await this.saveSelectedPreset();
 
@@ -80,6 +80,7 @@ export class PresetManager {
     }
 
     async deleteCurrentPreset() {
+        this.logAction('DEBUG', `Attempting to delete preset: ${state.selectedPreset}`);
         if (state.selectedPreset === 'Default') {
             this.logAction('WARN', 'Cannot delete default preset');
             return;
@@ -109,6 +110,7 @@ export class PresetManager {
     }
 
     async renameCurrentPreset() {
+        this.logAction('DEBUG', `Attempting to rename preset: ${state.selectedPreset}`);
         if (state.selectedPreset === 'Default') {
             this.logAction('ERROR', 'Cannot rename default preset');
             return;
@@ -117,7 +119,7 @@ export class PresetManager {
         this.uiManager.showInputModal(
             `Enter new name for "${state.selectedPreset}":`,
             state.selectedPreset,
-            async (newName) => { // onConfirm
+            async (newName) => {
                 if (newName && newName.trim() !== '' && newName !== state.selectedPreset && !state.currentPresets[newName]) {
                     const oldName = state.selectedPreset;
                     state.currentPresets[newName] = state.currentPresets[state.selectedPreset];
@@ -130,17 +132,15 @@ export class PresetManager {
                     this.logAction('ERROR', 'Invalid preset name or preset already exists');
                 }
             },
-            () => { // onCancel
+            () => {
                 this.logAction('INFO', 'Preset rename canceled');
             }
         );
     }
 
-
     async saveSelectedPreset() {
         try {
             if (window.__TAURI__ && window.__TAURI__.core && this.settingsManager) {
-                // Use the authoritative in-memory settings from SettingsManager
                 const settings = this.settingsManager.settings;
                 settings.selected_preset = state.selectedPreset || 'Default';
 
