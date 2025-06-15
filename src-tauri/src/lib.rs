@@ -213,95 +213,6 @@ async fn get_file_modified_time(file_path: String) -> Result<u64, String> {
     Ok(current_time)
 }
 
-#[tauri::command]
-async fn create_settings_backup(settings: AppSettings) -> Result<(), String> {
-    let data_dir = get_data_dir()?;
-    let backup_dir = data_dir.join("backups");
-
-    if !backup_dir.exists() {
-        tokio_fs::create_dir_all(&backup_dir)
-            .await
-            .map_err(|e| format!("Failed to create backup directory: {}", e))?;
-    }
-
-    let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-    let backup_file = backup_dir.join(format!("settings_backup_v{}_{}.json", settings.version, timestamp));
-
-    let json_content = serde_json::to_string_pretty(&settings)
-        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
-
-    tokio_fs::write(&backup_file, json_content)
-        .await
-        .map_err(|e| format!("Failed to write backup file: {}", e))?;
-
-    cleanup_old_backups(&backup_dir, 10).await?;
-
-    Ok(())
-}
-
-async fn create_presets_backup(presets: std::collections::HashMap<String, Vec<ModPreset>>) -> Result<(), String> {
-    let data_dir = get_data_dir()?;
-    let backup_dir = data_dir.join("backups");
-
-    if !backup_dir.exists() {
-        tokio_fs::create_dir_all(&backup_dir)
-            .await
-            .map_err(|e| format!("Failed to create backup directory: {}", e))?;
-    }
-
-    let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-    let version = get_version();
-    let backup_file = backup_dir.join(format!("presets_backup_v{}_{}.json", version, timestamp));
-
-    let json_content = serde_json::to_string_pretty(&presets)
-        .map_err(|e| format!("Failed to serialize presets: {}", e))?;
-
-    tokio_fs::write(&backup_file, json_content)
-        .await
-        .map_err(|e| format!("Failed to write presets backup file: {}", e))?;
-
-    cleanup_old_backups(&backup_dir, 10).await?;
-
-    Ok(())
-}
-
-async fn cleanup_old_backups(backup_dir: &Path, keep_count: usize) -> Result<(), String> {
-    let mut entries = tokio_fs::read_dir(backup_dir)
-        .await
-        .map_err(|e| format!("Failed to read backup directory: {}", e))?;
-
-    let mut backup_files = Vec::new();
-
-    while let Some(entry) = entries.next_entry()
-        .await
-        .map_err(|e| format!("Failed to read directory entry: {}", e))? {
-
-        let path = entry.path();
-        if path.is_file() && path.file_name()
-            .and_then(|n| n.to_str())
-            .map_or(false, |n| n.starts_with("settings_backup_") || n.starts_with("presets_backup_")) {
-
-            let metadata = entry.metadata()
-                .await
-                .map_err(|e| format!("Failed to get file metadata: {}", e))?;
-
-            backup_files.push((path, metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH)));
-        }
-    }
-
-    if backup_files.len() > keep_count {
-        backup_files.sort_by(|a, b| b.1.cmp(&a.1));
-
-        for (path, _) in backup_files.iter().skip(keep_count) {
-            tokio_fs::remove_file(path)
-                .await
-                .map_err(|e| format!("Failed to remove old backup: {}", e))?;
-        }
-    }
-
-    Ok(())
-}
-
 async fn create_upgrade_backup(settings: AppSettings, presets: std::collections::HashMap<String, Vec<ModPreset>>, old_version: String, new_version: String) -> Result<(), String> {
     let data_dir = get_data_dir()?;
     let upgrade_backup_dir = data_dir.join("upgrade_backups");
@@ -571,7 +482,6 @@ pub fn run() {
             open_directory,
             check_file_modified,
             get_file_modified_time,
-            create_settings_backup,
             add_log_entry,
             get_log_entries,
             clear_log_buffer,
