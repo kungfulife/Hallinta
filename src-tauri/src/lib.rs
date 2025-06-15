@@ -9,6 +9,8 @@ use serde_json;
 use chrono::{Local, Utc, DateTime};
 use std::sync::Mutex;
 use std::collections::VecDeque;
+use zip::write::FileOptions;
+use zip::ZipWriter;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AppSettings {
@@ -71,10 +73,9 @@ fn is_dev_build() -> bool {
 fn get_version() -> String {
     let context: tauri::Context<tauri_runtime_wry::Wry<tauri::EventLoopMessage>> = tauri::generate_context!();
     context
-        .config()
+        .package_info()
         .version
-        .clone()
-        .unwrap_or("unknown".to_string())
+        .to_string()
 }
 
 #[tauri::command]
@@ -100,6 +101,12 @@ fn write_mod_config(directory: String, content: String) -> Result<(), String> {
 
     fs::write(config_path, content)
         .map_err(|e| format!("Failed to write mod_config.xml: {}", e))
+}
+
+#[tauri::command]
+fn check_file_exists(path: String) -> Result<bool, String> {
+    let path = Path::new(&path);
+    Ok(path.exists())
 }
 
 #[tauri::command]
@@ -218,7 +225,7 @@ async fn create_settings_backup(settings: AppSettings) -> Result<(), String> {
     }
 
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-    let backup_file = backup_dir.join(format!("settings_backup_{}.json", timestamp));
+    let backup_file = backup_dir.join(format!("settings_backup_v{}_{}.json", settings.version, timestamp));
 
     let json_content = serde_json::to_string_pretty(&settings)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
@@ -243,7 +250,8 @@ async fn create_presets_backup(presets: std::collections::HashMap<String, Vec<Mo
     }
 
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-    let backup_file = backup_dir.join(format!("presets_backup_{}.json", timestamp));
+    let version = get_version();
+    let backup_file = backup_dir.join(format!("presets_backup_v{}_{}.json", version, timestamp));
 
     let json_content = serde_json::to_string_pretty(&presets)
         .map_err(|e| format!("Failed to serialize presets: {}", e))?;
@@ -290,6 +298,37 @@ async fn cleanup_old_backups(backup_dir: &Path, keep_count: usize) -> Result<(),
                 .map_err(|e| format!("Failed to remove old backup: {}", e))?;
         }
     }
+
+    Ok(())
+}
+
+async fn create_upgrade_backup(settings: AppSettings, presets: std::collections::HashMap<String, Vec<ModPreset>>, old_version: String, new_version: String) -> Result<(), String> {
+    let data_dir = get_data_dir()?;
+    let upgrade_backup_dir = data_dir.join("upgrade_backups");
+    if !upgrade_backup_dir.exists() {
+        tokio_fs::create_dir_all(&upgrade_backup_dir).await.map_err(|e| format!("Failed to create upgrade backup directory: {}", e))?;
+    }
+    let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
+    let zip_file_path = upgrade_backup_dir.join(format!("upgrade_backup_from_v{}_to_v{}_{}.zip", old_version, new_version, timestamp));
+
+    let settings_json = serde_json::to_string_pretty(&settings).map_err(|e| format!("Failed to serialize settings: {}", e))?;
+    let presets_json = serde_json::to_string_pretty(&presets).map_err(|e| format!("Failed to serialize presets: {}", e))?;
+
+    let zip_file_path_clone = zip_file_path.clone();
+    tokio::task::spawn_blocking(move || {
+        let file = std::fs::File::create(&zip_file_path_clone).map_err(|e| format!("Failed to create zip file: {}", e))?;
+        let mut zip = ZipWriter::new(file);
+        let options: FileOptions<()> = FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+
+        zip.start_file("settings.json", options).map_err(|e| format!("Failed to start file in zip: {}", e))?;
+        zip.write_all(settings_json.as_bytes()).map_err(|e| format!("Failed to write settings to zip: {}", e))?;
+
+        zip.start_file("presets.json", options).map_err(|e| format!("Failed to start file in zip: {}", e))?;
+        zip.write_all(presets_json.as_bytes()).map_err(|e| format!("Failed to write presets to zip: {}", e))?;
+
+        zip.finish().map_err(|e| format!("Failed to finish zip: {}", e))?;
+        Ok::<(), String>(())
+    }).await.map_err(|e| format!("Failed to create upgrade backup: {}", e))??;
 
     Ok(())
 }
@@ -358,7 +397,8 @@ async fn flush_log_buffer() -> Result<(), String> {
     }
 
     for (date, entries) in logs_by_date {
-        let log_file = logs_dir.join(format!("hallinta_{}.log", date));
+        let version = get_version();
+        let log_file = logs_dir.join(format!("hallinta_v{}_{}.log", version, date));
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
@@ -419,19 +459,19 @@ async fn load_settings() -> Result<AppSettings, String> {
         .map_err(|e| format!("Failed to parse settings: {}", e))?;
 
     if settings.version != get_version() {
-        create_settings_backup(settings.clone()).await?;
-
+        let old_version = settings.version.clone();
+        let new_version = get_version();
         let presets_path = data_dir.join("presets.json");
-        if presets_path.exists() {
+        let presets = if presets_path.exists() {
             let presets_content = fs::read_to_string(&presets_path)
                 .map_err(|e| format!("Failed to read presets file: {}", e))?;
-            let presets: std::collections::HashMap<String, Vec<ModPreset>> = serde_json::from_str(&presets_content)
-                .map_err(|e| format!("Failed to parse presets: {}", e))?;
-            create_presets_backup(presets).await?;
-        }
-
-        add_log_entry("INFO".to_string(), "Version update detected, backed up settings and presets".to_string(), "SettingsManager".to_string())?;
-
+            serde_json::from_str(&presets_content)
+                .map_err(|e| format!("Failed to parse presets: {}", e))?
+        } else {
+            std::collections::HashMap::new()
+        };
+        create_upgrade_backup(settings.clone(), presets, old_version, new_version).await?;
+        add_log_entry("INFO".to_string(), "Version update detected, created upgrade backup".to_string(), "SettingsManager".to_string())?;
         settings.version = get_version();
         save_settings(settings.clone())?;
     }
@@ -535,7 +575,8 @@ pub fn run() {
             add_log_entry,
             get_log_entries,
             clear_log_buffer,
-            flush_log_buffer
+            flush_log_buffer,
+            check_file_exists
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
