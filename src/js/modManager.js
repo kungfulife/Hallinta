@@ -15,16 +15,17 @@ export class ModManager {
                     this.parseModConfig(xmlContent, true);
                 }
 
-                this.uiManager.logAction('INFO', `Loaded ${state.currentMods.length} mods from mod_config.xml`);
+                this.logAction('INFO', `Loaded ${state.currentMods.length} mods from mod_config.xml`);
                 this.uiManager.updateModCount();
             }
+
+            this.logAction('DEBUG', 'Loaded Mod Config from directory');
         } catch (error) {
             let errorMessage = `Failed to load mod_config.xml: ${error.message}`;
             if (error.message.includes("mod_config.xml not found")) {
                 errorMessage = "mod_config.xml not found in the specified directory. Please ensure the Noita save directory is correct.";
             }
-            this.uiManager.showError(errorMessage);
-            this.uiManager.logAction('ERROR', errorMessage);
+            this.logAction('ERROR', errorMessage);
         }
     }
 
@@ -33,7 +34,7 @@ export class ModManager {
         const fileMods = this.parseModsFromXML(xmlContent);
 
         if (currentPresetMods.length === 0 && fileMods.length > 0) {
-            this.uiManager.logAction('INFO', `Populating empty preset '${state.selectedPreset}' from mod_config.xml.`);
+            this.logAction('INFO', `Populating empty preset '${state.selectedPreset}' from mod_config.xml.`);
             state.currentPresets[state.selectedPreset] = [...fileMods];
 
             const presetsForSave = {};
@@ -58,7 +59,7 @@ export class ModManager {
                         confirmText: 'Load from File',
                         cancelText: 'Overwrite File',
                         onConfirm: async () => {
-                            this.uiManager.logAction('INFO', `Loading changes from mod_config.xml into preset '${state.selectedPreset}'.`);
+                            this.logAction('INFO', `Loading changes from mod_config.xml into preset '${state.selectedPreset}'.`);
                             state.currentMods = [...fileMods];
                             state.currentPresets[state.selectedPreset] = [...fileMods];
                             this.uiManager.renderModList();
@@ -77,7 +78,7 @@ export class ModManager {
                             resolve(false);
                         },
                         onCancel: async () => {
-                            this.uiManager.logAction('INFO', `Overwriting mod_config.xml with preset '${state.selectedPreset}'.`);
+                            this.logAction('INFO', `Overwriting mod_config.xml with preset '${state.selectedPreset}'.`);
                             await this.saveModConfigToFile();
                             resolve(false);
                         }
@@ -116,7 +117,7 @@ export class ModManager {
                 index: index
             }));
         } catch (error) {
-            this.uiManager.logAction('ERROR', `Error parsing XML: ${error.message}`);
+            this.logAction('ERROR', `Error parsing XML: ${error.message}`);
             return [];
         }
     }
@@ -150,12 +151,11 @@ export class ModManager {
                 const configPath = `${noitaDir}/mod_config.xml`;
                 state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', {filePath: configPath});
             } catch (error) {
-                this.uiManager.logAction('WARN', `Could not update last modified time: ${error.message}`);
+                this.logAction('WARN', `Could not update last modified time: ${error.message}`);
             }
-            this.uiManager.logAction('INFO', 'Saved mod_config.xml');
+            this.logAction('INFO', 'Saved mod_config.xml');
         } catch (error) {
-            this.uiManager.showError(`Error saving mod_config.xml: ${error.message}`);
-            this.uiManager.logAction('ERROR', `Error saving mod_config.xml: ${error.message}`);
+            this.logAction('ERROR', `Error saving mod_config.xml: ${error.message}`);
         }
     }
 
@@ -172,7 +172,7 @@ export class ModManager {
         state.currentMods[index].enabled = !state.currentMods[index].enabled;
         this.uiManager.updateModCount();
         this.saveModConfigToFile();
-        this.uiManager.logAction('DEBUG', `${state.currentMods[index].name} ${state.currentMods[index].enabled ? 'enabled' : 'disabled'}`);
+        this.logAction('DEBUG', `${state.currentMods[index].name} ${state.currentMods[index].enabled ? 'enabled' : 'disabled'}`);
     }
 
     deleteMod(index) {
@@ -184,7 +184,7 @@ export class ModManager {
         this.uiManager.renderModList();
         this.uiManager.updateModCount();
         this.saveModConfigToFile();
-        this.uiManager.logAction('DEBUG', `Deleted mod ${modName}`);
+        this.logAction('DEBUG', `Deleted mod ${modName}`);
         return modName;
     }
 
@@ -199,7 +199,7 @@ export class ModManager {
         this.uiManager.updateModCount();
         this.saveModConfigToFile();
         state.pendingReorder = true;
-        this.uiManager.logAction('DEBUG', `Reordered mod from position ${oldIndex + 1} to ${newIndex + 1}`);
+        this.logAction('DEBUG', `Reordered mod from position ${oldIndex + 1} to ${newIndex + 1}`);
     }
 
     async finishReordering() {

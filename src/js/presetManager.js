@@ -29,6 +29,8 @@ export class PresetManager {
             }
             selector.appendChild(option);
         });
+
+        this.logAction('DEBUG', 'Loaded Presets');
     }
 
     async onPresetChange() {
