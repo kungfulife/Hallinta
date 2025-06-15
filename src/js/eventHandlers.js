@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import {state} from './state.js';
 
 export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager) {
     window.changeDirectory = (type) => settingsManager.changeDirectory(type);
@@ -108,6 +108,70 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
 
+    // --- New File Watcher Logic ---
+    let fileCheckInterval = null;
+
+    const stopFileWatcher = () => {
+        if (fileCheckInterval) {
+            clearInterval(fileCheckInterval);
+            fileCheckInterval = null;
+        }
+    };
+
+    const performCheck = async () => {
+        // Do not check if a modal is already open, if we are reordering, or if the directory isn't set.
+        if (state.isModalVisible || state.isReordering || !settingsManager.settings.noita_dir) {
+            return;
+        }
+
+        try {
+            const configPath = `${settingsManager.settings.noita_dir}/mod_config.xml`;
+            const fileExists = await window.__TAURI__.core.invoke('check_file_exists', {path: configPath});
+            if (!fileExists) return;
+
+            const hasChanged = await window.__TAURI__.core.invoke('check_file_modified', {
+                filePath: configPath,
+                lastModified: state.lastModifiedTime,
+            });
+
+            if (hasChanged) {
+                stopFileWatcher();
+                uiManager.logAction('INFO', 'External change detected for mod_config.xml.');
+
+                const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', {directory: settingsManager.settings.noita_dir});
+
+                // This function shows the modal and resolves after the user makes a choice.
+                await modManager.checkPresetConsistency(settingsManager.settings.noita_dir, xmlContent);
+
+                // Update the time and restart the watcher *after* the user's action is complete.
+                state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', {filePath: configPath});
+                startFileWatcher();
+            }
+        } catch (error) {
+            uiManager.logAction('ERROR', `Error during file check: ${error.message}`);
+            stopFileWatcher();
+            setTimeout(startFileWatcher, 5000); // Restart watcher after a delay on error
+        }
+    };
+
+    const startFileWatcher = () => {
+        stopFileWatcher(); // Ensure only one interval runs
+        fileCheckInterval = setInterval(() => {
+            if (state.isAppFocused) {
+                performCheck();
+            }
+        }, 5000); // Check every 5 seconds
+    };
+
+    window.addEventListener('focus', () => {
+        state.isAppFocused = true;
+        performCheck(); // Check immediately on focus
+    });
+
+    window.addEventListener('blur', () => {
+        state.isAppFocused = false;
+    });
+
     document.addEventListener('DOMContentLoaded', async () => {
         const isDev = window.__TAURI__ ? await window.__TAURI__.core.invoke('is_dev_build') : true;
 
@@ -185,7 +249,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 const logModal = document.getElementById('log-modal');
                 const settingsPage = document.getElementById('settings-page');
 
-                if (modal) {
+                if (modal && !state.isModalVisible) { // Check if it's not the confirmation modal
                     modal.remove();
                 } else if (logModal && logModal.style.display !== 'none') {
                     closeLogs();
@@ -198,6 +262,20 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
         await settingsManager.loadConfig();
         presetManager.loadPresets();
+
+        // Set initial modified time and start the file watcher
+        if (settingsManager.settings.noita_dir) {
+            const configPath = `${settingsManager.settings.noita_dir}/mod_config.xml`;
+            try {
+                const fileExists = await window.__TAURI__.core.invoke('check_file_exists', {path: configPath});
+                if (fileExists) {
+                    state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', {filePath: configPath});
+                }
+            } catch (e) {
+                uiManager.logAction('WARN', `Could not get initial mod time: ${e.message}`);
+            }
+        }
+        startFileWatcher();
 
         setTimeout(() => {
             if (state.phraseManager) {
@@ -231,29 +309,5 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 uiManager.logAction('ERROR', `Failed to flush log buffer: ${error}`);
             }
         }, 5000);
-
-        window.addEventListener('focus', async () => {
-            state.isAppFocused = true;
-            if (settingsManager.settings.noita_dir) {
-                try {
-                    const configPath = `${settingsManager.settings.noita_dir}/mod_config.xml`;
-                    const hasChanged = await window.__TAURI__.core.invoke('check_file_modified', {
-                        filePath: configPath,
-                        lastModified: state.lastModifiedTime
-                    });
-                    if (hasChanged) {
-                        const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', { directory: settingsManager.settings.noita_dir });
-                        await modManager.checkPresetConsistency(settingsManager.settings.noita_dir, xmlContent);
-                        state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', { filePath: configPath });
-                    }
-                } catch (error) {
-                    uiManager.logAction('ERROR', `Error checking mod_config.xml on focus: ${error.message}`);
-                }
-            }
-        });
-
-        window.addEventListener('blur', () => {
-            state.isAppFocused = false;
-        });
     });
 }
