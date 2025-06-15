@@ -9,8 +9,12 @@ export class ModManager {
         try {
             if (window.__TAURI__ && window.__TAURI__.core) {
                 const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', { directory });
-                this.parseModConfig(xmlContent, true);
-                await this.checkPresetConsistency(directory, xmlContent); // Check preset consistency on startup
+                const shouldContinue = await this.checkPresetConsistency(directory, xmlContent);
+
+                if (shouldContinue) {
+                    this.parseModConfig(xmlContent, true);
+                }
+
                 this.uiManager.logAction('INFO', `Loaded ${state.currentMods.length} mods from mod_config.xml`);
                 this.uiManager.updateModCount();
                 await this.startFileWatching(directory);
@@ -29,21 +33,59 @@ export class ModManager {
         const currentPresetMods = state.currentPresets[state.selectedPreset] || [];
         const fileMods = this.parseModConfigToArray(xmlContent);
 
-        const isDifferent = !this.areModsEqual(currentPresetMods, fileMods);
-        if (isDifferent) {
-            const confirmed = confirm(`The mod_config.xml file does not match the current preset "${state.selectedPreset}". Do you want to load the file's contents? This will overwrite the current preset.`);
-            if (confirmed) {
-                state.currentMods = fileMods;
-                state.currentPresets[state.selectedPreset] = [...fileMods];
-                this.uiManager.renderModList();
-                this.uiManager.updateModCount();
-                this.uiManager.logAction('INFO', `Loaded mod_config.xml contents into preset: ${state.selectedPreset}`);
-            } else {
-                await this.saveModConfigToFile(); // Save current preset to file
-                this.uiManager.logAction('INFO', `Kept current preset and updated mod_config.xml`);
-            }
+        if (currentPresetMods.length === 0 && fileMods.length > 0) {
+            this.uiManager.logAction('INFO', `Populating empty preset '${state.selectedPreset}' from mod_config.xml.`);
+            state.currentPresets[state.selectedPreset] = [...fileMods];
+
+            const presetsForSave = {};
+            Object.keys(state.currentPresets).forEach(presetName => {
+                presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
+                    name: mod.name,
+                    enabled: mod.enabled,
+                    workshop_id: mod.workshopId || '0',
+                    settings_fold_open: mod.settingsFoldOpen || false
+                }));
+            });
+            await window.__TAURI__.core.invoke('save_presets', { presets: presetsForSave });
+            return true;
         }
+
+        const isDifferent = !this.areModsEqual(currentPresetMods, fileMods);
+
+        if (isDifferent) {
+            return new Promise((resolve) => {
+                this.uiManager.showConfirmModal(
+                    `The mod_config.xml file in your Noita folder has changed and doesn't match the "${state.selectedPreset}" preset. How would you like to proceed?`, {
+                        confirmText: 'Load from File',
+                        cancelText: 'Overwrite File',
+                        onConfirm: () => {
+                            this.uiManager.logAction('INFO', `Loading changes from mod_config.xml into preset '${state.selectedPreset}'.`);
+                            state.currentPresets[state.selectedPreset] = [...fileMods];
+                            const presetsForSave = {};
+                            Object.keys(state.currentPresets).forEach(presetName => {
+                                presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
+                                    name: mod.name,
+                                    enabled: mod.enabled,
+                                    workshop_id: mod.workshopId || '0',
+                                    settings_fold_open: mod.settingsFoldOpen || false
+                                }));
+                            });
+                            window.__TAURI__.core.invoke('save_presets', { presets: presetsForSave });
+                            resolve(true);
+                        },
+                        onCancel: async () => {
+                            this.uiManager.logAction('INFO', `Overwriting mod_config.xml with preset '${state.selectedPreset}'.`);
+                            await this.saveModConfigToFile();
+                            resolve(true);
+                        }
+                    }
+                );
+            });
+        }
+
+        return true;
     }
+
 
     parseModConfigToArray(xmlContent) {
         try {
@@ -84,7 +126,6 @@ export class ModManager {
         }
 
         const configPath = `${directory}/mod_config.xml`;
-
         try {
             state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', { filePath: configPath });
             state.fileWatcher = setInterval(async () => {
@@ -109,18 +150,24 @@ export class ModManager {
     async handleExternalFileChange(directory) {
         if (state.isReordering) return;
 
-        const confirmed = confirm('mod_config.xml has been modified externally. Do you want to reload the changes? This will overwrite your current modifications.');
-        if (confirmed) {
-            await this.loadModConfigFromDirectory(directory);
-            this.uiManager.logAction('INFO', 'Reloaded mod config due to external changes');
-        } else {
-            try {
-                const configPath = `${directory}/mod_config.xml`;
-                state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', { filePath: configPath });
-            } catch (error) {
-                this.uiManager.logAction('ERROR', `Error updating last modified time: ${error.message}`);
+        this.uiManager.showConfirmModal(
+            'mod_config.xml has been modified externally. Do you want to reload the changes? This will overwrite your current modifications in the active preset.', {
+                confirmText: 'Reload',
+                cancelText: 'Ignore',
+                onConfirm: async () => {
+                    this.uiManager.logAction('INFO', 'Reloading mod config due to external changes');
+                    const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', { directory });
+                    this.parseModConfig(xmlContent, true); // true overwrites the current preset
+                    const configPath = `${directory}/mod_config.xml`;
+                    state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', { filePath: configPath });
+                },
+                onCancel: async () => {
+                    this.uiManager.logAction('INFO', 'Ignoring external changes to mod_config.xml.');
+                    const configPath = `${directory}/mod_config.xml`;
+                    state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', { filePath: configPath });
+                }
             }
-        }
+        );
     }
 
     parseModConfig(xmlContent, isInitialLoad = false) {
@@ -140,7 +187,6 @@ export class ModManager {
                 settingsFoldOpen: mod.getAttribute('settings_fold_open') === '1',
                 index: index
             }));
-
             if (isInitialLoad) {
                 state.lastKnownModOrder = [...state.currentMods];
                 state.currentPresets[state.selectedPreset] = [...state.currentMods];
@@ -166,7 +212,6 @@ export class ModManager {
                 directory: noitaDir,
                 content: xmlContent
             });
-
             state.currentPresets[state.selectedPreset] = [...state.currentMods];
             try {
                 const configPath = `${noitaDir}/mod_config.xml`;
@@ -219,6 +264,7 @@ export class ModManager {
         });
         this.uiManager.renderModList();
         this.uiManager.updateModCount();
+        this.saveModConfigToFile();
         state.pendingReorder = true;
         this.uiManager.logAction('INFO', `Reordered mod from position ${oldIndex + 1} to ${newIndex + 1}`);
     }

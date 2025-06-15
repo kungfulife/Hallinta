@@ -1,6 +1,5 @@
 import { state } from './state.js';
 import { deepCopyMods } from './state.js';
-
 export class SettingsManager {
     constructor(modManager, uiManager) {
         this.modManager = modManager;
@@ -30,7 +29,6 @@ export class SettingsManager {
         }
 
         let hasError = false;
-
         try {
             let settings, presets, version;
             try {
@@ -76,8 +74,6 @@ export class SettingsManager {
                 const configPath = `${settings.noita_dir}/mod_config.xml`;
                 const fileExists = await window.__TAURI__.core.invoke('check_file_exists', { path: configPath });
                 if (fileExists) {
-                    const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', { directory: settings.noita_dir });
-                    await this.modManager.checkPresetConsistency(settings.noita_dir, xmlContent); // Check consistency on initial load
                     await this.modManager.loadModConfigFromDirectory(settings.noita_dir);
                 } else {
                     this.uiManager.showError('Noita save directory does not contain mod_config.xml. Please set a valid directory.');
@@ -113,7 +109,6 @@ export class SettingsManager {
 
     applyConfig(settings, presets) {
         this.settings = settings;
-
         state.currentPresets = Object.keys(presets).reduce((acc, presetName) => {
             acc[presetName] = presets[presetName].map(mod => ({
                 name: mod.name,
@@ -124,7 +119,6 @@ export class SettingsManager {
             }));
             return acc;
         }, {});
-
         state.selectedPreset = settings.selected_preset || 'Default';
         if (!state.currentPresets[state.selectedPreset]) {
             state.selectedPreset = 'Default';
@@ -134,7 +128,6 @@ export class SettingsManager {
         }
 
         state.isDarkMode = settings.dark_mode;
-
         const noitaDirElement = document.getElementById('noita-dir');
         const entangledDirElement = document.getElementById('entangled-dir');
         const darkModeElement = document.getElementById('dark-mode-checkbox');
@@ -155,7 +148,6 @@ export class SettingsManager {
             this.settings.dark_mode = state.isDarkMode;
             this.settings.selected_preset = state.selectedPreset;
             this.settings.version = await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown');
-
             // Check if mod_config.xml exists in the Noita directory
             if (this.settings.noita_dir) {
                 const configPath = `${this.settings.noita_dir}/mod_config.xml`;

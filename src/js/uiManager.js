@@ -33,7 +33,6 @@ export class UIManager {
 
             mainPage.style.display = 'flex';
             settingsPage.style.display = 'none';
-
             combinedButton.textContent = 'Settings';
             combinedButton.className = 'header-combined-button settings-state';
         } else if (view === 'settings') {
@@ -49,7 +48,6 @@ export class UIManager {
                 cleanupAnimation(presetControls);
                 cleanupAnimation(searchBar);
             }, TRANSITION_DURATION_MS);
-
             mainPage.style.display = 'none';
             settingsPage.style.display = 'block';
 
@@ -148,38 +146,68 @@ export class UIManager {
         document.body.classList.toggle('dark-mode', state.isDarkMode);
     }
 
-    showConfirmModal(message, onConfirm, onCancel) {
+    showConfirmModal(message, options = {}) {
+        const {
+            confirmText = 'Confirm',
+            cancelText = 'Cancel',
+            onConfirm = () => {},
+            onCancel = () => {}
+        } = options;
+
+        const existingModal = document.querySelector('.custom-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
         const modal = document.createElement('div');
         modal.className = 'custom-modal';
         modal.innerHTML = `
             <div class="modal-content">
                 <p>${message}</p>
                 <div class="modal-buttons">
-                    <button id="modal-confirm">Confirm</button>
-                    <button id="modal-cancel">Cancel</button>
+                    <button id="modal-confirm">${confirmText}</button>
+                    <button id="modal-cancel">${cancelText}</button>
                 </div>
             </div>
         `;
-
         document.body.appendChild(modal);
 
-        document.getElementById('modal-confirm').addEventListener('click', () => {
-            onConfirm();
-            document.body.removeChild(modal);
-        });
+        const confirmButton = document.getElementById('modal-confirm');
+        const cancelButton = document.getElementById('modal-cancel');
 
-        document.getElementById('modal-cancel').addEventListener('click', () => {
-            onCancel();
-            document.body.removeChild(modal);
-        });
-
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                onCancel();
+        const closeModal = () => {
+            if (modal.parentNode) {
                 document.body.removeChild(modal);
             }
+            document.removeEventListener('keydown', escapeHandler);
+        };
+
+        const confirmAction = () => {
+            onConfirm();
+            closeModal();
+        };
+
+        const cancelAction = () => {
+            onCancel();
+            closeModal();
+        };
+
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                cancelAction();
+            }
+        };
+
+        confirmButton.addEventListener('click', confirmAction);
+        cancelButton.addEventListener('click', cancelAction);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                cancelAction();
+            }
         });
+        document.addEventListener('keydown', escapeHandler);
     }
+
 
     showInputModal(message, defaultValue, onConfirm, onCancel) {
         const modal = document.createElement('div');
@@ -194,7 +222,6 @@ export class UIManager {
                 </div>
             </div>
         `;
-
         document.body.appendChild(modal);
 
         document.getElementById('modal-confirm').addEventListener('click', () => {
@@ -202,12 +229,10 @@ export class UIManager {
             onConfirm(input);
             document.body.removeChild(modal);
         });
-
         document.getElementById('modal-cancel').addEventListener('click', () => {
             onCancel();
             document.body.removeChild(modal);
         });
-
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 onCancel();
@@ -228,15 +253,18 @@ export class UIManager {
         if (state.contextMenuTarget !== null) {
             const modName = state.currentMods[state.contextMenuTarget].name;
             this.showConfirmModal(
-                `Are you sure you want to delete the mod "${modName}"?`,
-                () => {
-                    this.modManager.deleteMod(state.contextMenuTarget);
-                    this.logAction('INFO', `Deleted mod: ${modName}`);
-                    document.getElementById('mod-context-menu').style.display = 'none';
-                },
-                () => {
-                    this.logAction('INFO', `Deletion of "${modName}" canceled`);
-                    document.getElementById('mod-context-menu').style.display = 'none';
+                `Are you sure you want to delete the mod "${modName}"?`, {
+                    confirmText: 'Delete',
+                    cancelText: 'Cancel',
+                    onConfirm: () => {
+                        this.modManager.deleteMod(state.contextMenuTarget);
+                        this.logAction('INFO', `Deleted mod: ${modName}`);
+                        document.getElementById('mod-context-menu').style.display = 'none';
+                    },
+                    onCancel: () => {
+                        this.logAction('INFO', `Deletion of "${modName}" canceled`);
+                        document.getElementById('mod-context-menu').style.display = 'none';
+                    }
                 }
             );
         }
