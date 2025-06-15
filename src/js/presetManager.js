@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import {deepCopyMods, state} from './state.js';
 
 export class PresetManager {
     constructor(uiManager, modManager) {
@@ -58,11 +58,12 @@ export class PresetManager {
                     this.uiManager.logAction('INFO', newName === null ? 'Preset creation canceled' : 'Invalid preset name or preset already exists');
                 }
             } else if (state.currentPresets[selectedValue] && Array.isArray(state.currentPresets[selectedValue])) {
-                // Load mods from selected preset without saving to file
+                // Load mods from selected preset while saving to file
                 state.selectedPreset = selectedValue;
                 state.currentMods = deepCopyMods(state.currentPresets[selectedValue]); // Use deep copy to avoid reference issues
                 this.uiManager.renderModList();
                 this.uiManager.updateModCount();
+                await this.modManager.saveModConfigToFile();
                 this.uiManager.logAction('INFO', `Switched to preset: ${selectedValue}`);
             } else {
                 this.logAction('ERROR', `Preset ${selectedValue} is invalid or not found`);
