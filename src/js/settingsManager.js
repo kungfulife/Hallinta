@@ -292,6 +292,8 @@ export class SettingsManager {
             if (darkModeElement) darkModeElement.checked = state.isDarkMode;
             if (logLevelSelect) logLevelSelect.value = this.settings.log_settings.log_level;
             this.uiManager.applyDarkMode();
+
+            this.logAction('DEBUG', 'Restored Previous Settings');
         }
     }
 
