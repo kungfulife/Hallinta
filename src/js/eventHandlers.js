@@ -39,9 +39,9 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     window.closeLogs = () => {
-        uiManager.logAction('DEBUG', 'Closing logs modal', 'EventHandler');
         const modal = document.getElementById('log-modal');
         if (modal) {
+            uiManager.logAction('DEBUG', 'Closing logs modal', 'EventHandler');
             modal.style.display = 'none';
         }
     };
@@ -248,22 +248,22 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
 
         document.addEventListener('click', () => {
-            uiManager.logAction('DEBUG', 'Hiding context menu', 'EventHandler');
             const menu = document.getElementById('mod-context-menu');
-            if (menu) {
+            if (menu && menu.style.display !== 'none') {
+                uiManager.logAction('DEBUG', 'Hiding context menu', 'EventHandler');
                 menu.style.display = 'none';
             }
         });
 
+        // TODO: Confirm that there are no memory leaks when closing Logs/Settings via Escape Key.
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                const modal = document.querySelector('.custom-modal');
+                uiManager.logAction('DEBUG', 'Pressed Escape Key', 'EventHandler');
+
                 const logModal = document.getElementById('log-modal');
                 const settingsPage = document.getElementById('settings-page');
 
-                if (modal && !state.isModalVisible) {
-                    modal.remove();
-                } else if (logModal && logModal.style.display !== 'none') {
+                if (logModal && logModal.style.display !== 'none') {
                     closeLogs();
                 } else if (settingsPage && settingsPage.style.display === 'block') {
                     settingsManager.restorePreviousSettings();
