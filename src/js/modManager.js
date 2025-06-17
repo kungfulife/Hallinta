@@ -90,6 +90,28 @@ export class ModManager {
         return true;
     }
 
+    // TODO : Semi Duplicate code that should not be.
+    async saveSelectedPreset() {
+        try {
+            if (window.__TAURI__ && window.__TAURI__.core) {
+                const presetsForSave = {};
+                Object.keys(state.currentPresets).forEach(presetName => {
+                    presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
+                        name: mod.name,
+                        enabled: mod.enabled,
+                        workshop_id: mod.workshopId || '0',
+                        settings_fold_open: mod.settingsFoldOpen || false
+                    }));
+                });
+                await window.__TAURI__.core.invoke('save_presets', { presets: presetsForSave });
+                this.logAction('INFO', `Saved preset configuration for: ${state.selectedPreset}`);
+            }
+        } catch (error) {
+            this.logAction('ERROR', `Failed to save selected preset: ${error.message}`);
+            throw error;
+        }
+    }
+
     areModsEqual(mods1, mods2) {
         if (mods1.length !== mods2.length) return false;
         return mods1.every((mod, i) => (
@@ -172,6 +194,7 @@ export class ModManager {
         state.currentMods[index].enabled = !state.currentMods[index].enabled;
         this.uiManager.updateModCount();
         this.saveModConfigToFile();
+        this.saveSelectedPreset();
         this.logAction('DEBUG', `${state.currentMods[index].name} ${state.currentMods[index].enabled ? 'enabled' : 'disabled'}`);
     }
 
@@ -184,6 +207,7 @@ export class ModManager {
         this.uiManager.renderModList();
         this.uiManager.updateModCount();
         this.saveModConfigToFile();
+        this.saveSelectedPreset();
         this.logAction('DEBUG', `Deleted mod ${modName}`);
         return modName;
     }
@@ -198,6 +222,7 @@ export class ModManager {
         this.uiManager.renderModList();
         this.uiManager.updateModCount();
         this.saveModConfigToFile();
+        this.saveSelectedPreset();
         state.pendingReorder = true;
         this.logAction('DEBUG', `Reordered mod from position ${oldIndex + 1} to ${newIndex + 1}`);
     }
@@ -207,6 +232,7 @@ export class ModManager {
             state.isReordering = false;
             state.pendingReorder = false;
             await this.saveModConfigToFile();
+            await this.saveSelectedPreset();
         }
     }
 
