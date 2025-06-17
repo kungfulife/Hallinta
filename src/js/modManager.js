@@ -56,8 +56,8 @@ export class ModManager {
             return new Promise((resolve) => {
                 this.uiManager.showConfirmModal(
                     `The mod_config.xml file in your Noita folder has changed and doesn't match the "${state.selectedPreset}" preset. How would you like to proceed?`, {
-                        confirmText: 'Load from File',
-                        cancelText: 'Overwrite File',
+                        confirmText: 'Load File',
+                        cancelText: 'Load Preset',
                         onConfirm: async () => {
                             this.logAction('INFO', `Loading changes from mod_config.xml into preset '${state.selectedPreset}'.`);
                             state.currentMods = [...fileMods];
