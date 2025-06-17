@@ -146,6 +146,7 @@ export class PresetManager {
         );
     }
 
+    // TODO: Duplicate code
     async saveSelectedPreset() {
         try {
             if (window.__TAURI__ && window.__TAURI__.core && this.settingsManager) {

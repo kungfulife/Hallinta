@@ -156,6 +156,7 @@ export class SettingsManager {
                 }
             }
 
+            // TOOD: Semi duplicate code
             if (window.__TAURI__?.core) {
                 const presetsForSave = {};
                 Object.keys(state.currentPresets).forEach(presetName => {
