@@ -259,8 +259,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         // TODO: Confirm that there are no memory leaks when closing Logs/Settings via Escape Key.
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                uiManager.logAction('DEBUG', 'Pressed Escape Key', 'EventHandler');
-
                 const logModal = document.getElementById('log-modal');
                 const settingsPage = document.getElementById('settings-page');
 
