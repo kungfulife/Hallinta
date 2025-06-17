@@ -191,8 +191,7 @@ export class UIManager {
                 document.body.removeChild(modal);
             }
 
-            if(!isImportant)
-                document.removeEventListener('keydown', escapeHandler);
+            document.removeEventListener('keydown', escapeHandler);
 
             state.isModalVisible = false;
         };
@@ -216,14 +215,14 @@ export class UIManager {
         confirmButton.addEventListener('click', confirmAction);
         cancelButton.addEventListener('click', cancelAction);
 
-        if(!isImportant){
+        // Allows ESC and Click, canceling shortcuts.
+        document.addEventListener('keydown', escapeHandler);
+        if(!isImportant)
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
                     cancelAction();
                 }
             });
-            document.addEventListener('keydown', escapeHandler);
-        }
     }
 
     showInputModal(message, defaultValue, onConfirm, onCancel) {
