@@ -13,9 +13,9 @@ export class ModManager {
 
                 if (wasConsistent) {
                     this.parseModConfig(xmlContent, true);
+                    this.logAction('INFO', `Loaded ${state.currentMods.length} mods from mod_config.xml`);
                 }
 
-                this.logAction('INFO', `Loaded ${state.currentMods.length} mods from mod_config.xml`);
                 this.uiManager.updateModCount();
             }
 
@@ -78,10 +78,10 @@ export class ModManager {
                             resolve(false);
                         },
                         onCancel: async () => {
-                            this.logAction('INFO', `Overwriting mod_config.xml with preset '${state.selectedPreset}'.`);
-                            await this.saveModConfigToFile();
+                            state.isInitializeByPreset = true;
                             resolve(false);
-                        }
+                        },
+                        isImportant: true
                     }
                 );
             });

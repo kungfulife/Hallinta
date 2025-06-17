@@ -30,7 +30,7 @@ export class PresetManager {
             selector.appendChild(option);
         });
 
-        this.logAction('DEBUG', 'Loaded Presets');
+        this.logAction('INFO', 'Loaded Presets');
     }
 
     async onPresetChange() {
@@ -63,14 +63,10 @@ export class PresetManager {
             } else if (state.currentPresets[selectedValue] && Array.isArray(state.currentPresets[selectedValue])) {
                 this.logAction('DEBUG', `Switching to preset: ${selectedValue}`);
                 state.selectedPreset = selectedValue;
-                state.currentMods = deepCopyMods(state.currentPresets[selectedValue]);
-                this.uiManager.renderModList();
-                this.uiManager.updateModCount();
 
-                await this.modManager.saveModConfigToFile();
-                await this.saveSelectedPreset();
+                await this.loadToSelectedPreset();
 
-                this.uiManager.logAction('INFO', `Switched to preset: ${selectedValue}`);
+                this.uiManager.logAction('INFO', `Switched to preset: ${state.selectedPreset}`);
             } else {
                 this.logAction('ERROR', `Preset ${selectedValue} is invalid or not found`);
                 selector.value = state.selectedPreset;
@@ -79,6 +75,15 @@ export class PresetManager {
             this.logAction('ERROR', `Error changing preset: ${error.message}`);
             selector.value = state.selectedPreset;
         }
+    }
+
+    async loadToSelectedPreset() {
+        state.currentMods = deepCopyMods(state.currentPresets[state.selectedPreset]);
+        this.uiManager.renderModList();
+        this.uiManager.updateModCount();
+
+        await this.modManager.saveModConfigToFile();
+        await this.saveSelectedPreset();
     }
 
     async deleteCurrentPreset() {
