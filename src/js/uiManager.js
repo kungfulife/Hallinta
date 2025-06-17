@@ -159,13 +159,15 @@ export class UIManager {
         const {
             confirmText = 'Confirm',
             cancelText = 'Cancel',
-            onConfirm = () => {},
-            onCancel = () => {},
+            onConfirm = () => {
+            },
+            onCancel = () => {
+            },
             isImportant = false
         } = options;
 
         if (state.isModalVisible) {
-            this.logAction('WARN', 'Confirmation modal already open. New request ignored.');
+            this.logAction('WARN', 'A modal already open. New request ignored.');
             return;
         }
         state.isModalVisible = true;
@@ -181,6 +183,7 @@ export class UIManager {
                 </div>
             </div>
         `;
+
         document.body.appendChild(modal);
 
         const confirmButton = document.getElementById('modal-confirm');
@@ -217,7 +220,7 @@ export class UIManager {
 
         // Allows ESC and Click, canceling shortcuts.
         document.addEventListener('keydown', escapeHandler);
-        if(!isImportant)
+        if (!isImportant)
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
                     cancelAction();
@@ -226,7 +229,12 @@ export class UIManager {
     }
 
     showInputModal(message, defaultValue, onConfirm, onCancel) {
-        this.logAction('DEBUG', 'Showing input modal');
+        if (state.isModalVisible) {
+            this.logAction('WARN', 'A modal is already open. New request ignored.');
+            return;
+        }
+        state.isModalVisible = true;
+
         const modal = document.createElement('div');
         modal.className = 'custom-modal';
         modal.innerHTML = `
@@ -241,21 +249,41 @@ export class UIManager {
         `;
         document.body.appendChild(modal);
 
-        document.getElementById('modal-confirm').addEventListener('click', () => {
-            const input = document.getElementById('modal-input').value;
-            onConfirm(input);
-            document.body.removeChild(modal);
-        });
-        document.getElementById('modal-cancel').addEventListener('click', () => {
-            onCancel();
-            document.body.removeChild(modal);
-        });
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                onCancel();
+        const confirmButton = document.getElementById('modal-confirm');
+        const cancelButton = document.getElementById('modal-cancel');
+
+        const closeModal = () => {
+            if (modal.parentNode) {
                 document.body.removeChild(modal);
             }
-        });
+
+            document.removeEventListener('keydown', escapeHandler);
+
+            state.isModalVisible = false;
+        };
+
+        const confirmAction = () => {
+            const input = document.getElementById('modal-input').value;
+            onConfirm(input);
+            closeModal();
+        };
+
+        const cancelAction = () => {
+            onCancel();
+            closeModal();
+        };
+
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                cancelAction();
+            }
+        };
+
+        confirmButton.addEventListener('click', confirmAction);
+        cancelButton.addEventListener('click', cancelAction);
+
+        // Allows ESC and Click, canceling shortcuts.
+        document.addEventListener('keydown', escapeHandler);
     }
 
     toggleMod() {
@@ -345,7 +373,7 @@ export class UIManager {
 
     logAction(level, message, module = 'UIManager') {
         const normalizedLevel = level.toUpperCase(); // Normalize to uppercase
-        const logLevelOrder = { 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3 };
+        const logLevelOrder = {'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3};
         const currentLogLevel = this.settingsManager?.settings.log_settings.log_level?.toUpperCase() || 'INFO';
         const currentLevelValue = logLevelOrder[currentLogLevel] ?? 1;
         const logLevelValue = logLevelOrder[normalizedLevel] ?? 0;
@@ -369,7 +397,7 @@ export class UIManager {
                 }
             }
             if (window.__TAURI__ && window.__TAURI__.core) {
-                window.__TAURI__.core.invoke('add_log_entry', { level: normalizedLevel, message, module })
+                window.__TAURI__.core.invoke('add_log_entry', {level: normalizedLevel, message, module})
                     .catch(error => {
                         console.error(`Failed to log action: ${error.message}`);
                     });

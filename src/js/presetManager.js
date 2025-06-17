@@ -141,7 +141,8 @@ export class PresetManager {
             },
             () => {
                 this.logAction('INFO', 'Preset rename canceled');
-            }
+            },
+
         );
     }
 
