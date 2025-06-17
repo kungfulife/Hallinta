@@ -152,13 +152,16 @@ export class UIManager {
         document.body.classList.toggle('dark-mode', state.isDarkMode);
     }
 
+    // ShowConfirmModal allows you to display a customizable two option request to the user.
+    // by default "isImportant" is false, allowing for ease ESC Key/Clicking outside of request to used to cancel.
     showConfirmModal(message, options = {}) {
-        this.logAction('DEBUG', 'Showing confirm modal');
+        // this.logAction('DEBUG', `Showing Confirmation modal - ${message}`);
         const {
             confirmText = 'Confirm',
             cancelText = 'Cancel',
             onConfirm = () => {},
-            onCancel = () => {}
+            onCancel = () => {},
+            isImportant = false
         } = options;
 
         if (state.isModalVisible) {
@@ -187,7 +190,10 @@ export class UIManager {
             if (modal.parentNode) {
                 document.body.removeChild(modal);
             }
-            document.removeEventListener('keydown', escapeHandler);
+
+            if(!isImportant)
+                document.removeEventListener('keydown', escapeHandler);
+
             state.isModalVisible = false;
         };
 
@@ -209,12 +215,15 @@ export class UIManager {
 
         confirmButton.addEventListener('click', confirmAction);
         cancelButton.addEventListener('click', cancelAction);
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                cancelAction();
-            }
-        });
-        document.addEventListener('keydown', escapeHandler);
+
+        if(!isImportant){
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    cancelAction();
+                }
+            });
+            document.addEventListener('keydown', escapeHandler);
+        }
     }
 
     showInputModal(message, defaultValue, onConfirm, onCancel) {

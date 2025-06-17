@@ -34,7 +34,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             modal.style.display = 'flex';
             refreshLogs();
         } else {
-            uiManager.logAction('ERROR','Log modal not found', 'EventHandler');
+            uiManager.logAction('ERROR', 'Log modal not found', 'EventHandler');
         }
     };
 
@@ -128,7 +128,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
 
-    const performCheck = async () => {
+    const performFileCheck = async () => {
         if (state.isModalVisible || state.isReordering || !settingsManager.settings.noita_dir) {
             return;
         }
@@ -164,14 +164,14 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         stopFileWatcher();
         fileCheckInterval = setInterval(() => {
             if (state.isAppFocused) {
-                performCheck();
+                performFileCheck();
             }
         }, 5000);
     };
 
     window.addEventListener('focus', () => {
         state.isAppFocused = true;
-        performCheck();
+        performFileCheck();
     });
 
     window.addEventListener('blur', () => {
@@ -179,7 +179,8 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     });
 
     document.addEventListener('DOMContentLoaded', async () => {
-        uiManager.logAction('INFO', 'Setting up event handlers', 'EventHandler');
+
+        uiManager.logAction('INFO', 'Setting up event handlers', 'DOMContentLoaded');
         const isDev = window.__TAURI__ ? await window.__TAURI__.core.invoke('is_dev_build') : true;
 
         document.addEventListener('keydown', (e) => {
@@ -275,6 +276,11 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         await settingsManager.loadConfig();
         presetManager.loadPresets();
 
+        if (state.isInitializeByPreset) {
+            await presetManager.loadToSelectedPreset();
+            uiManager.logAction('INFO', `Initialized mod_config.xml with preset '${state.selectedPreset}'.`, 'DOMContentLoaded');
+        }
+
         if (settingsManager.settings.noita_dir) {
             const configPath = `${settingsManager.settings.noita_dir}/mod_config.xml`;
             try {
@@ -283,9 +289,10 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                     state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', {filePath: configPath});
                 }
             } catch (e) {
-                uiManager.logAction('WARN', `Could not get initial mod time: ${e.message}`, 'EventHandler');
+                uiManager.logAction('WARN', `Could not get initial mod time: ${e.message}`, 'DOMContentLoaded');
             }
         }
+
         startFileWatcher();
 
         setTimeout(() => {
@@ -318,7 +325,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             try {
                 await window.__TAURI__.core.invoke('flush_log_buffer');
             } catch (error) {
-                uiManager.logAction('ERROR', `Failed to flush log buffer: ${error}`, 'EventHandler');
+                uiManager.logAction('ERROR', `Failed to flush log buffer: ${error}`, 'DOMContentLoaded');
             }
         }, 5000);
     });
