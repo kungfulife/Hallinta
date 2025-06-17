@@ -381,7 +381,7 @@ export class UIManager {
         if (logLevelValue >= currentLevelValue) {
 
             // Print to browser console.
-            console.log(`Logging: [${normalizedLevel}] ${message} (Current Level: ${currentLogLevel}, Log Value: ${logLevelValue}, Current Value: ${currentLevelValue})`);
+            // console.log(`Logging: [${normalizedLevel}] ${message} (Current Level: ${currentLogLevel}, Log Value: ${logLevelValue}, Current Value: ${currentLevelValue})`);
 
             const statusBar = document.getElementById('status-bar');
             if (statusBar) {
