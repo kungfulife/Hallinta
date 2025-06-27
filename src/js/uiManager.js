@@ -122,6 +122,9 @@ export class UIManager {
 
             modList.appendChild(li);
         });
+
+        // Reapply the search filter to preserve the current search state
+        this.filterMods();
     }
 
     updateModCount() {
