@@ -120,15 +120,103 @@ fn get_exe_dir() -> Result<String, String> {
 
 #[tauri::command]
 fn get_noita_save_path() -> Result<String, String> {
-    let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory.".to_string())?;
+    // Currently only supports Windows
+    #[cfg(target_os = "windows")]
+    {
+        let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory.".to_string())?;
+        let noita_path = home_dir
+            .join("AppData")
+            .join("LocalLow")
+            .join("Nolla_Games_Noita")
+            .join("save00");
 
-    Ok(home_dir
-        .join("AppData")
-        .join("LocalLow")
-        .join("Nolla_Games_Noita")
-        .join("save00")
-        .to_string_lossy()
-        .to_string())
+        if noita_path.exists() {
+            Ok(noita_path.to_string_lossy().to_string())
+        } else {
+            Err("Noita save directory not found".to_string())
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("Noita save path detection is only supported on Windows".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_entangled_worlds_config_path() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory.".to_string())?;
+        let ew_path = home_dir
+            .join("AppData")
+            .join("Roaming")
+            .join("quant")
+            .join("entangledworlds");
+
+        if ew_path.exists() {
+            Ok(ew_path.to_string_lossy().to_string())
+        } else {
+            Err("Entangled Worlds config directory not found".to_string())
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory.".to_string())?;
+        let config_path = home_dir.join(".config").join("entangledworlds");
+
+        if config_path.exists() {
+            Ok(config_path.to_string_lossy().to_string())
+        } else {
+            Err("Entangled Worlds config directory not found".to_string())
+        }
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        Err("Entangled Worlds path detection is not supported on this platform".to_string())
+    }
+}
+
+#[tauri::command]
+fn get_entangled_worlds_save_path() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory.".to_string())?;
+        let ew_path = home_dir
+            .join("AppData")
+            .join("Roaming")
+            .join("quant")
+            .join("entangledworlds")
+            .join("data");
+
+        if ew_path.exists() {
+            Ok(ew_path.to_string_lossy().to_string())
+        } else {
+            Err("Entangled Worlds save directory not found".to_string())
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory.".to_string())?;
+        let save_path = home_dir
+            .join(".local")
+            .join("share")
+            .join("entangledworlds");
+
+        if save_path.exists() {
+            Ok(save_path.to_string_lossy().to_string())
+        } else {
+            Err("Entangled Worlds save directory not found".to_string())
+        }
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        Err("Entangled Worlds save path detection is not supported on this platform".to_string())
+    }
 }
 
 #[tauri::command]
@@ -164,6 +252,24 @@ async fn open_directory(directory: String) -> Result<(), String> {
 
     Ok(())
 }
+
+// Preparatory backup functions (commented out for now)
+/*
+async fn create_noita_backup(noita_save_dir: String) -> Result<(), String> {
+    // This would backup the entire save00 folder
+    // let backup_path = format!("{}_backup_{}", noita_save_dir, chrono::Utc::now().format("%Y%m%d_%H%M%S"));
+    // Implementation would copy the entire save00 directory
+    Ok(())
+}
+
+async fn create_entangled_worlds_backup(ew_dir: String) -> Result<(), String> {
+    // This would backup specifically the data folder within %AppData%\Roaming\quant\entangledworlds\data
+    // let data_dir = PathBuf::from(ew_dir).join("data");
+    // let backup_path = format!("{}_backup_{}", data_dir.display(), chrono::Utc::now().format("%Y%m%d_%H%M%S"));
+    // Implementation would copy the entire data directory
+    Ok(())
+}
+*/
 
 #[tauri::command]
 async fn check_file_modified(file_path: String, last_modified: u64) -> Result<bool, String> {
@@ -257,8 +363,8 @@ async fn create_upgrade_backup(
             .map_err(|e| format!("Failed to finish zip: {}", e))?;
         Ok::<(), String>(())
     })
-    .await
-    .map_err(|e| format!("Failed to create upgrade backup: {}", e))??;
+        .await
+        .map_err(|e| format!("Failed to create upgrade backup: {}", e))??;
 
     Ok(())
 }
@@ -392,9 +498,26 @@ async fn load_settings() -> Result<AppSettings, String> {
     let settings_path = data_dir.join("settings.json");
 
     if !settings_path.exists() {
+        // Get default paths, log warnings if not found instead of errors
+        let noita_dir = match get_noita_save_path() {
+            Ok(path) => path,
+            Err(_) => {
+                // Log that Noita directory was not found, but continue
+                String::new()
+            }
+        };
+
+        let entangled_dir = match get_entangled_worlds_config_path() {
+            Ok(path) => path,
+            Err(_) => {
+                // Log that Entangled Worlds directory was not found, but continue (this is optional)
+                String::new()
+            }
+        };
+
         let default_settings = AppSettings {
-            noita_dir: get_noita_save_path()?,
-            entangled_dir: String::new(),
+            noita_dir,
+            entangled_dir,
             dark_mode: false,
             selected_preset: "Default".to_string(),
             version: get_version(),
@@ -522,6 +645,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_exe_dir,
             get_noita_save_path,
+            get_entangled_worlds_config_path,
+            get_entangled_worlds_save_path,
             get_app_settings_dir,
             open_workshop_item,
             save_settings,

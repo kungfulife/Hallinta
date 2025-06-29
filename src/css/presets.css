@@ -9,11 +9,14 @@
 }
 
 .preset-controls select {
+    cursor: pointer;
     background: var(--button-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
     color: var(--text-color);
     flex: 1;
+    font-weight: 500;
+    transition: all 0.2s;
     font-size: 1em;
     max-width: 200px;
     padding: 0.6em;
@@ -29,6 +32,17 @@
     min-width: 40px;
     padding: 0.6em 0.8em;
     transition: all 0.2s;
+}
+
+.preset-controls select:hover {
+    background: var(--button-hover);
+    border-color: var(--accent-color);
+}
+
+.preset-controls select:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+    outline: none;
 }
 
 .preset-controls button:hover {

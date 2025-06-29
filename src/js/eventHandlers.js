@@ -2,6 +2,7 @@ import {state} from './state.js';
 
 export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager) {
     window.changeDirectory = (type) => settingsManager.changeDirectory(type);
+    window.findDefaultDirectory = (type) => settingsManager.findDefaultDirectory(type);
     window.openDirectory = (type) => settingsManager.openDirectory(type);
     window.openAppSettingsFolder = () => settingsManager.openAppSettingsFolder();
     window.resetToDefaults = () => settingsManager.resetToDefaults();
