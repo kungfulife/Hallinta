@@ -80,3 +80,66 @@
     background: #0056b3 !important;
     border-color: #0056b3 !important;
 }
+
+/* Log Level Setting */
+.setting-item {
+    align-items: center;
+    display: flex;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.setting-item label {
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+.setting-item select {
+    background: var(--button-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 500;
+    padding: 0.6em 1em;
+    transition: all 0.2s;
+}
+
+.setting-item select:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+    outline: none;
+}
+
+.setting-item select:hover {
+    background: var(--button-hover);
+    border-color: var(--accent-color);
+}
+
+.setting-item select option[value="DEBUG"] {
+    color: #6c757d;
+}
+
+.setting-item select option[value="INFO"] {
+    color: var(--accent-color);
+}
+
+.setting-item select option[value="WARN"] {
+    color: #ffc107;
+}
+
+.setting-item select option[value="ERROR"] {
+    color: #dc3545;
+}
+
+/* Dark mode overrides */
+.dark-mode .setting-item select {
+    background: var(--button-bg);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.dark-mode .setting-item select:focus {
+    box-shadow: 0 0 0 2px rgba(77, 166, 255, 0.3);
+}

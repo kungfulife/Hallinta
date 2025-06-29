@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { deepCopyMods } from './state.js';
+
 export class SettingsManager {
     constructor(modManager, uiManager) {
         this.modManager = modManager;
@@ -51,12 +52,22 @@ export class SettingsManager {
                         auto_save: true
                     }
                 };
+
+                // Try to get default paths, log warnings if not found
                 try {
                     settings.noita_dir = await window.__TAURI__.core.invoke('get_noita_save_path');
                 } catch (pathError) {
-                    this.logAction('ERROR', `Could not get default Noita path: ${pathError.message}`);
+                    this.logAction('WARN', `Noita directory not found automatically: ${pathError.message}`);
                     settings.noita_dir = '';
                 }
+
+                try {
+                    settings.entangled_dir = await window.__TAURI__.core.invoke('get_entangled_worlds_config_path');
+                } catch (pathError) {
+                    this.logAction('WARN', `Entangled Worlds directory not found (optional): ${pathError.message}`);
+                    settings.entangled_dir = '';
+                }
+
                 presets = { "Default": [] };
                 await this.saveDefaults(settings, presets);
                 this.logAction('INFO', 'Created default configuration');
@@ -202,6 +213,41 @@ export class SettingsManager {
         }
     }
 
+    async findDefaultDirectory(type) {
+        try {
+            let defaultPath = '';
+            let commandName = '';
+
+            if (type === 'noita') {
+                commandName = 'get_noita_save_path';
+            } else if (type === 'entangled') {
+                commandName = 'get_entangled_worlds_config_path';
+            }
+
+            if (commandName) {
+                try {
+                    defaultPath = await window.__TAURI__.core.invoke(commandName);
+                    const dirElement = document.getElementById(`${type}-dir`);
+                    if (dirElement) dirElement.value = defaultPath;
+                    this.settings[`${type}_dir`] = defaultPath;
+                    this.logAction('INFO', `Found default ${type} directory: ${defaultPath}`);
+
+                    if (type === 'noita') {
+                        await this.modManager.loadModConfigFromDirectory(defaultPath);
+                    }
+                } catch (pathError) {
+                    if (type === 'entangled') {
+                        this.logAction('WARN', `Default Entangled Worlds directory not found (optional): ${pathError.message}`);
+                    } else {
+                        this.logAction('ERROR', `Default ${type} directory not found: ${pathError.message}`);
+                    }
+                }
+            }
+        } catch (error) {
+            this.logAction('ERROR', `Error finding default directory: ${error.message}`);
+        }
+    }
+
     async openDirectory(type) {
         const dirElement = document.getElementById(`${type}-dir`);
         const directory = dirElement ? dirElement.value : '';
@@ -233,16 +279,27 @@ export class SettingsManager {
             if (!window.__TAURI__?.core) {
                 throw new Error('Tauri is not initialized');
             }
-            let defaultNoitaDir;
+
+            let defaultNoitaDir = '';
+            let defaultEntangledDir = '';
+
+            // Try to get default Noita directory, log warning if not found
             try {
                 defaultNoitaDir = await window.__TAURI__.core.invoke('get_noita_save_path');
-            } catch {
-                this.logAction('ERROR', 'Failed to get Noita save path');
-                return;
+            } catch (pathError) {
+                this.logAction('WARN', `Default Noita directory not found: ${pathError.message}`);
             }
+
+            // Try to get default Entangled Worlds directory, log warning if not found (optional)
+            try {
+                defaultEntangledDir = await window.__TAURI__.core.invoke('get_entangled_worlds_config_path');
+            } catch (pathError) {
+                this.logAction('WARN', `Default Entangled Worlds directory not found (optional): ${pathError.message}`);
+            }
+
             this.settings = {
                 noita_dir: defaultNoitaDir,
-                entangled_dir: '',
+                entangled_dir: defaultEntangledDir,
                 dark_mode: false,
                 selected_preset: 'Default',
                 version: await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown'),
@@ -264,11 +321,14 @@ export class SettingsManager {
             const darkModeElement = document.getElementById('dark-mode-checkbox');
             const logLevelSelect = document.getElementById('log-level-select');
             if (noitaDirElement) noitaDirElement.value = defaultNoitaDir;
-            if (entangledDirElement) entangledDirElement.value = '';
+            if (entangledDirElement) entangledDirElement.value = defaultEntangledDir;
             if (darkModeElement) darkModeElement.checked = false;
             if (logLevelSelect) logLevelSelect.value = 'INFO';
             this.uiManager.applyDarkMode();
-            await this.modManager.loadModConfigFromDirectory(defaultNoitaDir);
+
+            if (defaultNoitaDir) {
+                await this.modManager.loadModConfigFromDirectory(defaultNoitaDir);
+            }
             this.logAction('INFO', 'Settings reset to defaults. Press Save & Close to apply.');
         } catch (error) {
             this.logAction('ERROR', `Error resetting defaults: ${error.message}`);

@@ -57,20 +57,20 @@
             </ul>
         </div>
 
-<!--        <div class="sidebar">-->
-<!--            <div class="split-button">-->
-<!--                <button class="split-btn-main" onclick="importRegular()">Import</button>-->
-<!--            </div>-->
-<!--            <button onclick="exportModList()">Export</button>-->
+        <!--        <div class="sidebar">-->
+        <!--            <div class="split-button">-->
+        <!--                <button class="split-btn-main" onclick="importRegular()">Import</button>-->
+        <!--            </div>-->
+        <!--            <button onclick="exportModList()">Export</button>-->
 
-<!--            <hr class="sidebar-separator">-->
+        <!--            <hr class="sidebar-separator">-->
 
-<!--            <button onclick="restoreBackup()">Restore Backup</button>-->
-<!--            <button onclick="createBackup()">Create Backup</button>-->
-<!--            <button onclick="backupMonitor()">-->
-<!--                <span id="backup-monitor-status">Back up Monitor</span>-->
-<!--            </button>-->
-<!--        </div>-->
+        <!--            <button onclick="restoreBackup()">Restore Backup</button>-->
+        <!--            <button onclick="createBackup()">Create Backup</button>-->
+        <!--            <button onclick="backupMonitor()">-->
+        <!--                <span id="backup-monitor-status">Back up Monitor</span>-->
+        <!--            </button>-->
+        <!--        </div>-->
     </div>
 
     <!-- Settings Page Section -->
@@ -78,14 +78,16 @@
         <h2>Noita Saved Data Directory</h2>
         <input type="text" id="noita-dir" placeholder="Enter Noita save directory (save00 folder)">
         <div class="button-group">
-            <button onclick="changeDirectory('noita')">Change</button>
+            <button onclick="changeDirectory('noita')">Browse</button>
+            <button onclick="findDefaultDirectory('noita')">Find Default</button>
             <button onclick="openDirectory('noita')">Open</button>
         </div>
 
         <h2>Entangled Worlds Directory</h2>
         <input type="text" id="entangled-dir" placeholder="Enter Entangled Worlds directory">
         <div class="button-group">
-            <button onclick="changeDirectory('entangled')">Change</button>
+            <button onclick="changeDirectory('entangled')">Browse</button>
+            <button onclick="findDefaultDirectory('entangled')">Find Default</button>
             <button onclick="openDirectory('entangled')">Open</button>
         </div>
 
