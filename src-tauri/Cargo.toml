@@ -1,6 +1,6 @@
 [package]
 name = "hallinta"
-version = "0.3.7"
+version = "0.3.8"
 description = "Hallinta - Noita Mod Manager"
 authors = ["kungfulife"]
 edition = "2021"
@@ -18,15 +18,15 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.3.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.6.2", features = [] }
-tauri-plugin-opener = "2.4.0"
-tauri-plugin-dialog = "2.3.0"
-tauri-plugin-shell = "2.3.0"
-tauri-runtime-wry = "2.7.1"
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.140"
+tauri = { version = "2.10.2", features = [] }
+tauri-plugin-opener = "2.5.3"
+tauri-plugin-dialog = "2.6.0"
+tauri-plugin-shell = "2.3.4"
+tauri-runtime-wry = "2.10.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
 dirs = "6.0.0"
-tokio = "1.45.1"
-chrono = "0.4.41"
-zip = "5.1.1"
+tokio = "1.49.0"
+chrono = "0.4.43"
+zip = "6.0.0"
 named-lock = "0.4.1"
