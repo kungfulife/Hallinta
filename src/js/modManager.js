@@ -1,5 +1,4 @@
 import {state} from './state.js';
-
 export class ModManager {
     constructor(uiManager) {
         this.uiManager = uiManager;
@@ -30,7 +29,8 @@ export class ModManager {
     }
 
     async checkPresetConsistency(directory, xmlContent) {
-        const currentPresetMods = state.currentPresets[state.selectedPreset] || [];
+        const currentPresetMods = state.currentPresets[state.selectedPreset] ||
+            [];
         const fileMods = this.parseModsFromXML(xmlContent);
 
         if (currentPresetMods.length === 0 && fileMods.length > 0) {
@@ -43,6 +43,7 @@ export class ModManager {
                     name: mod.name,
                     enabled: mod.enabled,
                     workshop_id: mod.workshopId || '0',
+
                     settings_fold_open: mod.settingsFoldOpen || false
                 }));
             });
@@ -51,27 +52,33 @@ export class ModManager {
         }
 
         const isDifferent = !this.areModsEqual(currentPresetMods, fileMods);
-
         if (isDifferent) {
             return new Promise((resolve) => {
                 this.uiManager.showConfirmModal(
                     `The mod_config.xml file in your Noita folder has changed and doesn't match the "${state.selectedPreset}" preset. How would you like to proceed?`, {
-                        confirmText: 'Load File',
+                        confirmText:
+                            'Load File',
                         cancelText: 'Load Preset',
                         onConfirm: async () => {
                             this.logAction('INFO', `Loading changes from mod_config.xml into preset '${state.selectedPreset}'.`);
+
                             state.currentMods = [...fileMods];
                             state.currentPresets[state.selectedPreset] = [...fileMods];
                             this.uiManager.renderModList();
+
                             this.uiManager.updateModCount();
 
                             const presetsForSave = {};
                             Object.keys(state.currentPresets).forEach(presetName => {
-                                presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
+                                presetsForSave[presetName]
+                                    = state.currentPresets[presetName].map(mod => ({
                                     name: mod.name,
                                     enabled: mod.enabled,
-                                    workshop_id: mod.workshopId || '0',
-                                    settings_fold_open: mod.settingsFoldOpen || false
+
+                                    workshop_id: mod.workshopId ||
+                                        '0',
+                                    settings_fold_open: mod.settingsFoldOpen ||
+                                        false
                                 }));
                             });
                             await window.__TAURI__.core.invoke('save_presets', {presets: presetsForSave});
@@ -99,6 +106,7 @@ export class ModManager {
                     presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
                         name: mod.name,
                         enabled: mod.enabled,
+
                         workshop_id: mod.workshopId || '0',
                         settings_fold_open: mod.settingsFoldOpen || false
                     }));
@@ -137,6 +145,7 @@ export class ModManager {
                 workshopId: mod.getAttribute('workshop_item_id') || '0',
                 settingsFoldOpen: mod.getAttribute('settings_fold_open') === '1',
                 index: index
+
             }));
         } catch (error) {
             this.logAction('ERROR', `Error parsing XML: ${error.message}`);
@@ -241,7 +250,37 @@ export class ModManager {
     }
 
     async exportModList() {
-        this.logAction('DEBUG', 'Export mod list requested');
+        this.logAction('DEBUG', 'Exporting enabled mods...');
+        try {
+            const enabledMods = state.currentMods
+                .filter(mod => mod.enabled)
+                .map(mod => ({
+                    name: mod.name,
+                    workshopId: mod.workshopId
+                }));
+
+            if (enabledMods.length === 0) {
+                this.uiManager.logAction('WARN', 'No enabled mods to export.');
+                return;
+            }
+
+            const filePath = await window.__TAURI__.dialog.save({
+                title: 'Export Enabled Mods',
+                defaultPath: `${state.selectedPreset}-mod-list.json`,
+                filters: [{name: 'JSON', extensions: ['json']}]
+            });
+
+            if (filePath) {
+                const content = JSON.stringify(enabledMods, null, 2);
+                await window.__TAURI__.core.invoke('write_file', {path: filePath, content});
+                this.uiManager.logAction('INFO', `Successfully exported ${enabledMods.length} mods.`);
+            } else {
+                this.uiManager.logAction('INFO', 'Mod export cancelled.');
+            }
+
+        } catch (error) {
+            this.uiManager.logAction('ERROR', `Failed to export mod list: ${error.message}`);
+        }
     }
 
     async restoreBackup() {
@@ -257,6 +296,78 @@ export class ModManager {
     }
 
     async importRegular() {
-        this.logAction('DEBUG', 'Import regular requested');
+        this.logAction('DEBUG', 'Import mod list requested');
+        try {
+            const selectedPath = await window.__TAURI__.dialog.open({
+                title: 'Import Mod List',
+                multiple: false,
+                filters: [{name: 'JSON', extensions: ['json']}]
+            });
+
+            if (!selectedPath) {
+                this.uiManager.logAction('INFO', 'Mod import cancelled.');
+                return;
+            }
+
+            const path = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
+
+            const content = await window.__TAURI__.core.invoke('read_file', {path: path});
+            const importedMods = JSON.parse(content);
+
+            if (!Array.isArray(importedMods)) {
+                throw new Error("Import file is not a valid mod list.");
+            }
+
+            const allUserMods = state.currentMods;
+            const missingMods = [];
+            const foundModsInOrder = [];
+
+            const userModsLookup = new Map();
+            allUserMods.forEach(m => {
+                const key = m.workshopId && m.workshopId !== '0' ? m.workshopId : m.name;
+                userModsLookup.set(key, m);
+            });
+
+            for (const importedMod of importedMods) {
+                const key = importedMod.workshopId && importedMod.workshopId !== '0' ? importedMod.workshopId : importedMod.name;
+                if (userModsLookup.has(key)) {
+                    foundModsInOrder.push(userModsLookup.get(key));
+                } else {
+                    missingMods.push(importedMod);
+                }
+            }
+
+            const proceedWithImport = () => {
+                if (foundModsInOrder.length === 0 && missingMods.length > 0) {
+                    this.uiManager.logAction('WARN', 'No mods from the import list were found in your current mod list. Aborting.');
+                    return;
+                }
+
+                const foundModsSet = new Set(foundModsInOrder);
+                const otherMods = allUserMods.filter(m => !foundModsSet.has(m));
+
+                foundModsInOrder.forEach(m => m.enabled = true);
+                otherMods.forEach(m => m.enabled = false);
+
+                state.currentMods = [...foundModsInOrder, ...otherMods];
+
+                this.logAction('INFO', `Imported and reordered ${foundModsInOrder.length} mods. ${otherMods.length} other mods disabled.`);
+                this.uiManager.renderModList();
+                this.saveModConfigToFile();
+                this.saveSelectedPreset();
+            };
+
+            if (missingMods.length > 0) {
+                this.uiManager.showMissingModsModal(missingMods, () => {
+                    this.logAction('INFO', 'User chose to continue import despite missing mods.');
+                    proceedWithImport();
+                });
+            } else {
+                proceedWithImport();
+            }
+
+        } catch (error) {
+            this.uiManager.logAction('ERROR', `Failed to import mod list: ${error.message}`);
+        }
     }
 }

@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hallinta - Noita Mod Manager</title>
 
-    <!-- CSS Files in Order of Dependency -->
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/header.css">
@@ -14,13 +13,12 @@
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/settings.css">
     <link rel="stylesheet" href="css/components.css">
+
     <link rel="stylesheet" href="css/status-bar.css">
     <link rel="stylesheet" href="css/animations.css">
 
-    <!-- External Dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
-    <!-- Application Scripts -->
     <script type="module" src="js/phraseManager.js"></script>
     <script type="module" src="js/state.js"></script>
     <script type="module" src="js/modManager.js"></script>
@@ -32,9 +30,9 @@
 </head>
 <body>
 <div class="container">
-    <!-- Header Section -->
     <h1>Hallinta</h1>
     <div id="app-header" class="header">
+
         <input id="search-bar" type="text" class="search-bar" placeholder="Filter Mods by name..." oninput="filterMods()">
 
         <div id="preset-controls" class="preset-controls">
@@ -45,16 +43,16 @@
 
         <div class="header-buttons">
             <button id="header-combined-button" class="header-combined-button settings-state" onclick="toggleSettingsView()">Settings</button>
+
         </div>
     </div>
 
-    <!-- Main Content Section -->
     <div class="main-content" id="main-page">
         <div class="mod-list">
             <div class="mod-count" id="mod-count">Total Mods: 0</div>
             <ul id="mod-list">
-                <!-- Mods will be dynamically loaded here -->
             </ul>
+
         </div>
 
         <!--        <div class="sidebar">-->
@@ -71,12 +69,20 @@
         <!--                <span id="backup-monitor-status">Back up Monitor</span>-->
         <!--            </button>-->
         <!--        </div>-->
+
+        <div class="sidebar">
+            <div class="split-button">
+                <button class="split-btn-main" onclick="importRegular()">Import</button>
+            </div>
+            <button onclick="exportModList()">Export</button>
+
+        </div>
     </div>
 
-    <!-- Settings Page Section -->
     <div class="settings-page" id="settings-page">
         <h2>Noita Saved Data Directory</h2>
-        <input type="text" id="noita-dir" placeholder="Enter Noita save directory (save00 folder)">
+        <input type="text" id="noita-dir" placeholder="Enter Noita save
+ directory (save00 folder)">
         <div class="button-group">
             <button onclick="changeDirectory('noita')">Browse</button>
             <button onclick="findDefaultDirectory('noita')">Find Default</button>
@@ -86,6 +92,7 @@
         <h2>Entangled Worlds Directory</h2>
         <input type="text" id="entangled-dir" placeholder="Enter Entangled Worlds directory">
         <div class="button-group">
+
             <button onclick="changeDirectory('entangled')">Browse</button>
             <button onclick="findDefaultDirectory('entangled')">Find Default</button>
             <button onclick="openDirectory('entangled')">Open</button>
@@ -96,6 +103,7 @@
             <button onclick="openAppSettingsFolder()">Open Settings Folder</button>
         </div>
         <div class="setting-item">
+
             <label for="log-level-select">Log Level:</label>
             <select id="log-level-select">
                 <option value="DEBUG">Debug</option>
@@ -103,6 +111,7 @@
                 <option value="WARN">Warn</option>
                 <option value="ERROR">Error</option>
             </select>
+
         </div>
 
         <h2>Appearance</h2>
@@ -111,7 +120,8 @@
                 <input type="checkbox" id="dark-mode-checkbox" onchange="toggleDarkMode()">
                 <span class="slider">
                         <span class="toggle-text">🌙</span>
-                        <span class="toggle-text">☀️</span>
+
+                         <span class="toggle-text">☀️</span>
                     </span>
             </label>
             <span class="toggle-label">Dark Mode</span>
@@ -119,6 +129,7 @@
 
         <h2>Application Info</h2>
         <div class="app-info">
+
             <p>Version: <span id="app-version">Loading...</span></p>
         </div>
 
@@ -129,24 +140,26 @@
         <button id="save-close-btn" onclick="saveAndClose()">Save & Close</button>
     </div>
 
-    <!-- Context Menu -->
     <div id="mod-context-menu" class="mod-context-menu">
         <button onclick="toggleMod()">Toggle</button>
         <button onclick="reorderMod()">Reorder</button>
+
         <button onclick="deleteMod()">Delete</button>
         <button id="open-workshop-link" onclick="openWorkshop()">Open Workshop Link</button>
         <button id="copy-workshop-link" onclick="copyWorkshopLink()">Copy Workshop Link</button>
     </div>
 
-    <!-- Log Window Modal -->
     <div id="log-modal" class="custom-modal" style="display: none;">
-        <div class="modal-content" style="max-width: 800px; max-height: 600px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div class="modal-content" style="max-width: 800px;
+ max-height: 600px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;
+ margin-bottom: 1rem;">
                 <h3>Application Logs</h3>
                 <div>
                     <button onclick="refreshLogs()">Refresh</button>
                     <button onclick="clearLogs()">Clear</button>
                     <button onclick="saveLogs()">Save</button>
+
                     <button onclick="closeLogs()">Close</button>
                 </div>
             </div>
@@ -154,7 +167,6 @@
         </div>
     </div>
 
-    <!-- Status Bar -->
     <button class="status-bar" id="status-bar" onclick="openLogs()">Ready - Loaded from Noita XML file</button>
 </div>
 </body>

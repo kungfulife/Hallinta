@@ -34,7 +34,8 @@ pub struct LogSettings {
 pub struct ModPreset {
     pub name: String,
     pub enabled: bool,
-    pub workshop_id: String,
+    pub
+    workshop_id: String,
     pub settings_fold_open: bool,
 }
 
@@ -49,7 +50,6 @@ pub struct LogEntry {
 static LOG_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
 static LOG_FILE_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
 static MAX_BUFFER_SIZE: usize = 1000;
-
 fn get_data_dir() -> Result<PathBuf, String> {
     let data_dir = dirs::data_local_dir()
         .ok_or_else(|| "Could not find local data directory.".to_string())?
@@ -94,9 +94,19 @@ fn read_mod_config(directory: String) -> Result<String, String> {
 #[tauri::command]
 fn write_mod_config(directory: String, content: String) -> Result<(), String> {
     let config_path = PathBuf::from(directory).join("mod_config.xml");
-
     fs::write(config_path, content).map_err(|e| format!("Failed to write mod_config.xml: {}", e))
 }
+
+#[tauri::command]
+fn write_file(path: String, content: String) -> Result<(), String> {
+    fs::write(path, content).map_err(|e| format!("Failed to write to file: {}", e))
+}
+
+#[tauri::command]
+fn read_file(path: String) -> Result<String, String> {
+    fs::read_to_string(path).map_err(|e| format!("Failed to read file: {}", e))
+}
+
 
 #[tauri::command]
 fn check_file_exists(path: String) -> Result<bool, String> {
@@ -112,6 +122,7 @@ fn get_exe_dir() -> Result<String, String> {
                 Ok(parent.to_string_lossy().to_string())
             } else {
                 Err("Could not get parent directory.".to_string())
+
             }
         }
         Err(e) => Err(format!("Could not get executable path: {}", e)),
@@ -129,7 +140,6 @@ fn get_noita_save_path() -> Result<String, String> {
             .join("LocalLow")
             .join("Nolla_Games_Noita")
             .join("save00");
-
         if noita_path.exists() {
             Ok(noita_path.to_string_lossy().to_string())
         } else {
@@ -147,13 +157,13 @@ fn get_noita_save_path() -> Result<String, String> {
 fn get_entangled_worlds_config_path() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
+
         let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory.".to_string())?;
         let ew_path = home_dir
             .join("AppData")
             .join("Roaming")
             .join("quant")
             .join("entangledworlds");
-
         if ew_path.exists() {
             Ok(ew_path.to_string_lossy().to_string())
         } else {
@@ -181,6 +191,7 @@ fn get_entangled_worlds_config_path() -> Result<String, String> {
 
 #[tauri::command]
 fn get_entangled_worlds_save_path() -> Result<String, String> {
+
     #[cfg(target_os = "windows")]
     {
         let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory.".to_string())?;
@@ -190,7 +201,6 @@ fn get_entangled_worlds_save_path() -> Result<String, String> {
             .join("quant")
             .join("entangledworlds")
             .join("data");
-
         if ew_path.exists() {
             Ok(ew_path.to_string_lossy().to_string())
         } else {
@@ -205,7 +215,6 @@ fn get_entangled_worlds_save_path() -> Result<String, String> {
             .join(".local")
             .join("share")
             .join("entangledworlds");
-
         if save_path.exists() {
             Ok(save_path.to_string_lossy().to_string())
         } else {
@@ -221,7 +230,8 @@ fn get_entangled_worlds_save_path() -> Result<String, String> {
 
 #[tauri::command]
 async fn open_directory(directory: String) -> Result<(), String> {
-    let path = Path::new(&directory);
+    let
+        path = Path::new(&directory);
     if !path.exists() {
         return Err("Directory does not exist".to_string());
     }
@@ -281,11 +291,9 @@ async fn check_file_modified(file_path: String, last_modified: u64) -> Result<bo
     let metadata = tokio_fs::metadata(&file_path)
         .await
         .map_err(|e| format!("Failed to get file metadata: {}", e))?;
-
     let modified = metadata
         .modified()
         .map_err(|e| format!("Failed to get modification time: {}", e))?;
-
     let current_time = modified
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_err(|e| format!("Failed to convert time: {}", e))?
@@ -304,11 +312,9 @@ async fn get_file_modified_time(file_path: String) -> Result<u64, String> {
     let metadata = tokio_fs::metadata(&file_path)
         .await
         .map_err(|e| format!("Failed to get file metadata: {}", e))?;
-
     let modified = metadata
         .modified()
         .map_err(|e| format!("Failed to get modification time: {}", e))?;
-
     let current_time = modified
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_err(|e| format!("Failed to convert time: {}", e))?
@@ -335,12 +341,10 @@ async fn create_upgrade_backup(
         "upgrade_backup_from_v{}_to_v{}_{}.zip",
         old_version, new_version, timestamp
     ));
-
     let settings_json = serde_json::to_string_pretty(&settings)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
     let presets_json = serde_json::to_string_pretty(&presets)
         .map_err(|e| format!("Failed to serialize presets: {}", e))?;
-
     let zip_file_path_clone = zip_file_path.clone();
     tokio::task::spawn_blocking(move || {
         let file = std::fs::File::create(&zip_file_path_clone)
@@ -350,7 +354,8 @@ async fn create_upgrade_backup(
             FileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
         zip.start_file("settings.json", options)
-            .map_err(|e| format!("Failed to start file in zip: {}", e))?;
+            .map_err(|e| format!("Failed to start file in zip: {}",
+                                 e))?;
         zip.write_all(settings_json.as_bytes())
             .map_err(|e| format!("Failed to write settings to zip: {}", e))?;
 
@@ -360,18 +365,21 @@ async fn create_upgrade_backup(
             .map_err(|e| format!("Failed to write presets to zip: {}", e))?;
 
         zip.finish()
+
             .map_err(|e| format!("Failed to finish zip: {}", e))?;
         Ok::<(), String>(())
     })
         .await
-        .map_err(|e| format!("Failed to create upgrade backup: {}", e))??;
+        .map_err(|e|
+            format!("Failed to create upgrade backup: {}", e))??;
 
     Ok(())
 }
 
 #[tauri::command]
 fn add_log_entry(level: String, message: String, module: String) -> Result<(), String> {
-    let normalized_level = level.to_uppercase(); // Normalize to uppercase
+    let normalized_level = level.to_uppercase();
+    // Normalize to uppercase
     let timestamp = Utc::now().to_rfc3339();
     let entry = LogEntry {
         timestamp,
@@ -379,7 +387,6 @@ fn add_log_entry(level: String, message: String, module: String) -> Result<(), S
         message: message.clone(),
         module,
     };
-
     let mut buffer = LOG_BUFFER
         .lock()
         .map_err(|e| format!("Failed to lock log buffer: {}", e))?;
@@ -387,7 +394,6 @@ fn add_log_entry(level: String, message: String, module: String) -> Result<(), S
         buffer.pop_front();
     }
     buffer.push_back(entry.clone());
-
     let mut file_buffer = LOG_FILE_BUFFER
         .lock()
         .map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
@@ -436,7 +442,6 @@ async fn flush_log_buffer() -> Result<(), String> {
         }
         file_buffer.drain(..).collect::<Vec<_>>()
     };
-
     let mut logs_by_date: std::collections::HashMap<String, Vec<LogEntry>> =
         std::collections::HashMap::new();
     for entry in logs {
@@ -463,7 +468,6 @@ async fn flush_log_buffer() -> Result<(), String> {
             .append(true)
             .open(&log_file)
             .map_err(|e| format!("Failed to open log file {}: {}", log_file.display(), e))?;
-
         for entry in entries {
             let log_line = format!(
                 "[{}] [{}] [{}] {}\n",
@@ -485,10 +489,8 @@ fn save_settings(settings: AppSettings) -> Result<(), String> {
 
     let json_content = serde_json::to_string_pretty(&settings)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
-
     fs::write(settings_path, json_content)
         .map_err(|e| format!("Failed to write settings file: {}", e))?;
-
     Ok(())
 }
 
@@ -496,17 +498,16 @@ fn save_settings(settings: AppSettings) -> Result<(), String> {
 async fn load_settings() -> Result<AppSettings, String> {
     let data_dir = get_data_dir()?;
     let settings_path = data_dir.join("settings.json");
-
     if !settings_path.exists() {
         // Get default paths, log warnings if not found instead of errors
         let noita_dir = match get_noita_save_path() {
             Ok(path) => path,
             Err(_) => {
                 // Log that Noita directory was not found, but continue
+
                 String::new()
             }
         };
-
         let entangled_dir = match get_entangled_worlds_config_path() {
             Ok(path) => path,
             Err(_) => {
@@ -514,7 +515,6 @@ async fn load_settings() -> Result<AppSettings, String> {
                 String::new()
             }
         };
-
         let default_settings = AppSettings {
             noita_dir,
             entangled_dir,
@@ -523,6 +523,7 @@ async fn load_settings() -> Result<AppSettings, String> {
             version: get_version(),
             log_settings: LogSettings {
                 max_log_files: 50,
+
                 max_log_size_mb: 10,
                 log_level: "INFO".to_string(),
                 auto_save: true,
@@ -534,10 +535,8 @@ async fn load_settings() -> Result<AppSettings, String> {
 
     let content = fs::read_to_string(&settings_path)
         .map_err(|e| format!("Failed to read settings file: {}", e))?;
-
     let mut settings: AppSettings =
         serde_json::from_str(&content).map_err(|e| format!("Failed to parse settings: {}", e))?;
-
     if settings.version != get_version() {
         let old_version = settings.version.clone();
         let new_version = get_version();
@@ -570,10 +569,8 @@ fn save_presets(presets: std::collections::HashMap<String, Vec<ModPreset>>) -> R
 
     let json_content = serde_json::to_string_pretty(&presets)
         .map_err(|e| format!("Failed to serialize presets: {}", e))?;
-
     fs::write(presets_path, json_content)
         .map_err(|e| format!("Failed to write presets file: {}", e))?;
-
     Ok(())
 }
 
@@ -581,7 +578,6 @@ fn save_presets(presets: std::collections::HashMap<String, Vec<ModPreset>>) -> R
 fn load_presets() -> Result<std::collections::HashMap<String, Vec<ModPreset>>, String> {
     let data_dir = get_data_dir()?;
     let presets_path = data_dir.join("presets.json");
-
     if !presets_path.exists() {
         let mut default_presets = std::collections::HashMap::new();
         default_presets.insert("Default".to_string(), Vec::new());
@@ -591,16 +587,15 @@ fn load_presets() -> Result<std::collections::HashMap<String, Vec<ModPreset>>, S
 
     let content = fs::read_to_string(&presets_path)
         .map_err(|e| format!("Failed to read presets file: {}", e))?;
-
     let presets: std::collections::HashMap<String, Vec<ModPreset>> =
         serde_json::from_str(&content).map_err(|e| format!("Failed to parse presets: {}", e))?;
-
     Ok(presets)
 }
 
 #[tauri::command]
 fn open_workshop_item(workshop_id: String) -> Result<(), String> {
-    if workshop_id == "0" || workshop_id.is_empty() {
+    if workshop_id == "0" ||
+        workshop_id.is_empty() {
         return Err("No workshop ID provided.".to_string());
     }
 
@@ -608,7 +603,6 @@ fn open_workshop_item(workshop_id: String) -> Result<(), String> {
         "https://steamcommunity.com/sharedfiles/filedetails/?id={}",
         workshop_id
     );
-
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("cmd")
@@ -647,7 +641,7 @@ pub fn run() {
             get_noita_save_path,
             get_entangled_worlds_config_path,
             get_entangled_worlds_save_path,
-            get_app_settings_dir,
+             get_app_settings_dir,
             open_workshop_item,
             save_settings,
             load_settings,
@@ -664,7 +658,10 @@ pub fn run() {
             get_log_entries,
             clear_log_buffer,
             flush_log_buffer,
-            check_file_exists
+            write_file,
+            read_file,
+
+                     check_file_exists
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
