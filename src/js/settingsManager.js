@@ -93,7 +93,7 @@ export class SettingsManager {
             this._isDevBuild = await window.__TAURI__.core.invoke('is_dev_build');
             if (this._isDevBuild) {
                 try {
-                    const devDir = await window.__TAURI__.core.invoke('get_dev_data_dir', {
+                    const devDir = await window.__TAURI__.core.invoke('get_dev_save_dir', {
                         sourceNoitaDir: settings.noita_dir
                     });
                     this._realNoitaDir = settings.noita_dir;
@@ -207,7 +207,10 @@ export class SettingsManager {
                 }
             }
 
-            // TOOD: Semi duplicate code
+            // Detect if noita directory changed while in settings
+            const previousNoitaDir = this.previousSettings?.noita_dir || '';
+            const directoryChanged = this.settings.noita_dir && this.settings.noita_dir !== previousNoitaDir;
+
             if (window.__TAURI__?.core) {
                 const presetsForSave = {};
                 Object.keys(state.currentPresets).forEach(presetName => {
@@ -222,7 +225,15 @@ export class SettingsManager {
                 const settingsToSave = this.getSettingsForPersistence();
                 await window.__TAURI__.core.invoke('save_settings', { settings: settingsToSave });
                 await window.__TAURI__.core.invoke('save_presets', { presets: presetsForSave });
-                await this.modManager.saveModConfigToFile();
+
+                if (directoryChanged) {
+                    // Directory changed — load mods from new directory instead of
+                    // writing old mods to it (which would overwrite the new file)
+                    await this.modManager.loadModConfigFromDirectory(this.settings.noita_dir);
+                    this.logAction('INFO', `Noita directory changed, loaded mods from: ${this.settings.noita_dir}`);
+                } else {
+                    await this.modManager.saveModConfigToFile();
+                }
                 this.logAction('INFO', 'Configuration saved successfully');
             }
 

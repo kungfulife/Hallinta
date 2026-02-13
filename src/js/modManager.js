@@ -152,10 +152,10 @@ export class ModManager {
         }
     }
 
-    parseModConfig(xmlContent, isInitialLoad = false) {
+    parseModConfig(xmlContent, syncToPreset = false) {
         const mods = this.parseModsFromXML(xmlContent);
         state.currentMods = mods;
-        if (isInitialLoad) {
+        if (syncToPreset) {
             state.lastKnownModOrder = [...state.currentMods];
             state.currentPresets[state.selectedPreset] = [...state.currentMods];
         }
@@ -229,15 +229,13 @@ export class ModManager {
         });
         this.uiManager.renderModList();
         this.uiManager.updateModCount();
-        this.saveModConfigToFile();
-        this.saveSelectedPreset();
         state.pendingReorder = true;
         this.logAction('DEBUG', `Reordered mod from position ${oldIndex + 1} to ${newIndex + 1}`);
     }
 
     async finishReordering() {
+        state.isReordering = false;
         if (state.pendingReorder) {
-            state.isReordering = false;
             state.pendingReorder = false;
             await this.saveModConfigToFile();
             await this.saveSelectedPreset();
