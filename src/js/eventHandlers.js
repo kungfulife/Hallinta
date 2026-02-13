@@ -27,14 +27,12 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     // --- Log Viewer ---
 
     let logAutoRefreshInterval = null;
+    let logViewMode = 'closed'; // 'closed', 'modal', 'fullscreen'
 
     const startLogAutoRefresh = () => {
         stopLogAutoRefresh();
         logAutoRefreshInterval = setInterval(() => {
-            const autoRefreshCheckbox = document.getElementById('log-auto-refresh');
-            if (autoRefreshCheckbox && autoRefreshCheckbox.checked) {
-                refreshLogs();
-            }
+            refreshLogs();
         }, 1500);
     };
 
@@ -43,6 +41,46 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             clearInterval(logAutoRefreshInterval);
             logAutoRefreshInterval = null;
         }
+    };
+
+    // Get the active log content element based on current view mode
+    const getActiveLogElements = () => {
+        if (logViewMode === 'fullscreen') {
+            return {
+                content: document.getElementById('log-fs-content'),
+                filterDebug: document.getElementById('log-fs-filter-debug'),
+                filterInfo: document.getElementById('log-fs-filter-info'),
+                filterWarn: document.getElementById('log-fs-filter-warn'),
+                filterError: document.getElementById('log-fs-filter-error'),
+                search: document.getElementById('log-fs-search'),
+            };
+        }
+        return {
+            content: document.getElementById('log-content'),
+            filterDebug: document.getElementById('log-filter-debug'),
+            filterInfo: document.getElementById('log-filter-info'),
+            filterWarn: document.getElementById('log-filter-warn'),
+            filterError: document.getElementById('log-filter-error'),
+            search: document.getElementById('log-search'),
+        };
+    };
+
+    // Sync filter states between modal and fullscreen panels
+    const syncFilters = (fromMode) => {
+        const modalIds = ['log-filter-debug', 'log-filter-info', 'log-filter-warn', 'log-filter-error'];
+        const fsIds = ['log-fs-filter-debug', 'log-fs-filter-info', 'log-fs-filter-warn', 'log-fs-filter-error'];
+        const src = fromMode === 'modal' ? modalIds : fsIds;
+        const dst = fromMode === 'modal' ? fsIds : modalIds;
+
+        for (let i = 0; i < src.length; i++) {
+            const srcEl = document.getElementById(src[i]);
+            const dstEl = document.getElementById(dst[i]);
+            if (srcEl && dstEl) dstEl.checked = srcEl.checked;
+        }
+
+        const srcSearch = document.getElementById(fromMode === 'modal' ? 'log-search' : 'log-fs-search');
+        const dstSearch = document.getElementById(fromMode === 'modal' ? 'log-fs-search' : 'log-search');
+        if (srcSearch && dstSearch) dstSearch.value = srcSearch.value;
     };
 
     window.openLogs = () => {
@@ -54,6 +92,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
         const modal = document.getElementById('log-modal');
         if (modal) {
+            logViewMode = 'modal';
             modal.style.display = 'flex';
             refreshLogs();
             startLogAutoRefresh();
@@ -63,35 +102,89 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     window.closeLogs = () => {
+        uiManager.logAction('DEBUG', 'Closing logs', 'EventHandler');
         const modal = document.getElementById('log-modal');
-        if (modal) {
-            uiManager.logAction('DEBUG', 'Closing logs modal', 'EventHandler');
-            modal.style.display = 'none';
-            stopLogAutoRefresh();
+        const fullscreen = document.getElementById('log-fullscreen');
+        if (modal) modal.style.display = 'none';
+        if (fullscreen) fullscreen.style.display = 'none';
+        logViewMode = 'closed';
+        stopLogAutoRefresh();
+    };
+
+    window.toggleLogFullscreen = () => {
+        const modal = document.getElementById('log-modal');
+        const fullscreen = document.getElementById('log-fullscreen');
+
+        if (logViewMode === 'modal') {
+            syncFilters('modal');
+            if (modal) modal.style.display = 'none';
+            if (fullscreen) fullscreen.style.display = 'block';
+            logViewMode = 'fullscreen';
+            uiManager.logAction('DEBUG', 'Switched to fullscreen log view', 'EventHandler');
+        } else if (logViewMode === 'fullscreen') {
+            syncFilters('fullscreen');
+            if (fullscreen) fullscreen.style.display = 'none';
+            if (modal) modal.style.display = 'flex';
+            logViewMode = 'modal';
+            uiManager.logAction('DEBUG', 'Switched to modal log view', 'EventHandler');
+        }
+        refreshLogs();
+    };
+
+    window.openLogWindow = async () => {
+        uiManager.logAction('DEBUG', 'Opening separate log window', 'EventHandler');
+        try {
+            const WebviewWindow = window.__TAURI__.webviewWindow.WebviewWindow;
+            const logWin = new WebviewWindow('log-window', {
+                url: 'log-window.html',
+                title: 'Hallinta - Application Logs',
+                width: 900,
+                height: 600,
+                center: true,
+                resizable: true,
+                decorations: true,
+            });
+            logWin.once('tauri://error', (e) => {
+                uiManager.logAction('ERROR', `Failed to open log window: ${e}`, 'EventHandler');
+            });
+        } catch (error) {
+            uiManager.logAction('ERROR', `Error opening log window: ${error}`, 'EventHandler');
         }
     };
 
-    let lastLogCount = 0;
+    window.copyLogs = async () => {
+        const els = getActiveLogElements();
+        if (!els.content) return;
+
+        const logLines = els.content.querySelectorAll('.log-line');
+        const text = Array.from(logLines).map(line => line.textContent).join('\n');
+
+        try {
+            await navigator.clipboard.writeText(text);
+            uiManager.logAction('INFO', 'Logs copied to clipboard', 'EventHandler');
+        } catch (error) {
+            uiManager.logAction('ERROR', `Error copying logs: ${error}`, 'EventHandler');
+        }
+    };
 
     const refreshLogs = async () => {
         try {
             const logs = await window.__TAURI__.core.invoke('get_log_entries');
-            const logContent = document.getElementById('log-content');
+            const els = getActiveLogElements();
 
-            if (!logContent) return;
+            if (!els.content) return;
 
             if (logs.length === 0) {
-                logContent.innerHTML = '<div class="log-line log-info">No logs available.</div>';
-                lastLogCount = 0;
+                els.content.innerHTML = '<div class="log-line log-info"><span class="log-msg">No logs available.</span></div>';
                 return;
             }
 
             // Get filter states
-            const showDebug = document.getElementById('log-filter-debug')?.checked ?? true;
-            const showInfo = document.getElementById('log-filter-info')?.checked ?? true;
-            const showWarn = document.getElementById('log-filter-warn')?.checked ?? true;
-            const showError = document.getElementById('log-filter-error')?.checked ?? true;
-            const searchText = (document.getElementById('log-search')?.value || '').toLowerCase();
+            const showDebug = els.filterDebug?.checked ?? true;
+            const showInfo = els.filterInfo?.checked ?? true;
+            const showWarn = els.filterWarn?.checked ?? true;
+            const showError = els.filterError?.checked ?? true;
+            const searchText = (els.search?.value || '').toLowerCase();
 
             // Filter logs
             const filteredLogs = logs.filter(log => {
@@ -107,52 +200,39 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 return true;
             });
 
-            // Build log HTML
+            // Smart scroll: check if user is near bottom before updating
+            const isNearBottom = els.content.scrollTop + els.content.clientHeight >= els.content.scrollHeight - 30;
+
+            // Build log HTML with structured spans
             const logHTML = filteredLogs.map(log => {
                 const levelClass = `log-${log.level.toLowerCase()}`;
                 const timestamp = log.timestamp.replace('T', ' ').replace(/\.\d+.*$/, '');
-                return `<div class="log-line ${levelClass}">[${timestamp}] [${log.level}] [${log.module}] ${log.message}</div>`;
+                return `<div class="log-line ${levelClass}"><span class="log-meta">[${timestamp}] [${log.level}] [${log.module}] </span><span class="log-msg">${escapeHtml(log.message)}</span></div>`;
             }).join('');
 
-            logContent.innerHTML = logHTML || '<div class="log-line log-info">No matching logs.</div>';
+            els.content.innerHTML = logHTML || '<div class="log-line log-info"><span class="log-msg">No matching logs.</span></div>';
 
-            // Auto-scroll to bottom
-            logContent.scrollTop = logContent.scrollHeight;
-            lastLogCount = logs.length;
+            // Smart scroll: only auto-scroll if user was near bottom
+            if (isNearBottom) {
+                els.content.scrollTop = els.content.scrollHeight;
+            }
         } catch (error) {
             uiManager.logAction('ERROR', `Error refreshing logs: ${error}`, 'EventHandler');
-            const logContent = document.getElementById('log-content');
-            if (logContent) {
-                logContent.innerHTML = '<div class="log-line log-error">Error loading logs.</div>';
+            const els = getActiveLogElements();
+            if (els.content) {
+                els.content.innerHTML = '<div class="log-line log-error"><span class="log-msg">Error loading logs.</span></div>';
             }
         }
+    };
+
+    // HTML escape utility for log messages
+    const escapeHtml = (text) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     };
 
     window.refreshLogs = refreshLogs;
-
-    window.clearLogs = async () => {
-        uiManager.logAction('DEBUG', 'Clearing logs', 'EventHandler');
-        try {
-            await window.__TAURI__.core.invoke('clear_log_buffer');
-            const logContent = document.getElementById('log-content');
-            if (logContent) {
-                logContent.innerHTML = '<div class="log-line log-info">Logs cleared.</div>';
-                uiManager.logAction('INFO', 'Logs cleared', 'EventHandler');
-            }
-        } catch (error) {
-            uiManager.logAction('ERROR', `Error clearing logs: ${error}`, 'EventHandler');
-        }
-    };
-
-    window.saveLogs = async () => {
-        uiManager.logAction('DEBUG', 'Saving logs', 'EventHandler');
-        try {
-            await window.__TAURI__.core.invoke('flush_log_buffer');
-            uiManager.logAction('INFO', 'Logs flushed to log file', 'EventHandler');
-        } catch (error) {
-            uiManager.logAction('ERROR', `Error flushing logs: ${error}`, 'EventHandler');
-        }
-    };
 
     window.cancelSettings = () => uiManager.changeView('main');
 
@@ -332,13 +412,15 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             }
         });
 
-        // TODO: Confirm that there are no memory leaks when closing Logs/Settings via Escape Key.
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 const logModal = document.getElementById('log-modal');
+                const logFullscreen = document.getElementById('log-fullscreen');
                 const settingsPage = document.getElementById('settings-page');
 
-                if (logModal && logModal.style.display !== 'none') {
+                if (logFullscreen && logFullscreen.style.display !== 'none') {
+                    closeLogs();
+                } else if (logModal && logModal.style.display !== 'none') {
                     closeLogs();
                 } else if (settingsPage && settingsPage.style.display === 'block') {
                     settingsManager.restorePreviousSettings();
@@ -373,16 +455,17 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             backupManager.startAutoBackup(backupInterval);
         }
 
-        // Log filter event listeners
-        ['log-filter-debug', 'log-filter-info', 'log-filter-warn', 'log-filter-error'].forEach(id => {
+        // Log filter event listeners (modal + fullscreen)
+        ['log-filter-debug', 'log-filter-info', 'log-filter-warn', 'log-filter-error',
+         'log-fs-filter-debug', 'log-fs-filter-info', 'log-fs-filter-warn', 'log-fs-filter-error'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', refreshLogs);
         });
 
-        const logSearchEl = document.getElementById('log-search');
-        if (logSearchEl) {
-            logSearchEl.addEventListener('input', refreshLogs);
-        }
+        ['log-search', 'log-fs-search'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', refreshLogs);
+        });
 
         setTimeout(() => {
             if (state.phraseManager) {

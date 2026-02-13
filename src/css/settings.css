@@ -133,6 +133,46 @@
     color: #dc3545;
 }
 
+/* Inline setting item (label [input] unit on one line) */
+.setting-item-inline {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+    margin: 0.75rem 0;
+}
+
+.setting-item-inline span {
+    color: var(--text-color);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.setting-item-inline input[type="number"] {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-color);
+    font-size: 1em;
+    padding: 0.4em 0.6em;
+    width: 70px;
+    margin: 0;
+    text-align: center;
+}
+
+.setting-item-inline input[type="number"]:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+    outline: none;
+}
+
+/* Dev mode info text */
+.dev-info-text {
+    color: var(--text-color);
+    opacity: 0.6;
+    font-size: 0.85em;
+    margin: -0.5rem 0 1rem;
+}
+
 /* Dark mode overrides */
 .dark-mode .setting-item select {
     background: var(--button-bg);

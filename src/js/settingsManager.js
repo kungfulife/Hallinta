@@ -259,14 +259,33 @@ export class SettingsManager {
         const autoDeleteDaysInput = document.getElementById('auto-delete-days');
         const backupIntervalInput = document.getElementById('backup-interval');
 
-        if (noitaDirElement) noitaDirElement.value = settings.noita_dir;
+        // In dev mode, show the real Noita path in the input field (not dev_data)
+        if (noitaDirElement) {
+            noitaDirElement.value = (this._isDevBuild && this._realNoitaDir) ? this._realNoitaDir : settings.noita_dir;
+        }
         if (entangledDirElement) entangledDirElement.value = settings.entangled_dir;
         if (darkModeElement) darkModeElement.checked = state.isDarkMode;
         if (logLevelSelect) logLevelSelect.value = settings.log_settings.log_level || 'INFO';
         if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings.auto_delete_days;
         if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings.backup_interval_minutes;
 
+        // Show/hide dev data directory section
+        this._updateDevDataSection();
+
         this.uiManager.applyDarkMode();
+    }
+
+    _updateDevDataSection() {
+        const devSection = document.getElementById('dev-data-section');
+        const devDirInput = document.getElementById('dev-data-dir');
+        if (devSection) {
+            if (this._isDevBuild && this._devSaveDir) {
+                devSection.style.display = 'block';
+                if (devDirInput) devDirInput.value = this._devSaveDir;
+            } else {
+                devSection.style.display = 'none';
+            }
+        }
     }
 
     async saveAndClose() {
@@ -347,6 +366,8 @@ export class SettingsManager {
                 if (selected) {
                     if (this._isDevBuild && type === 'noita' && this._devSaveDir) {
                         this._realNoitaDir = selected;
+                        const dirElement = document.getElementById('noita-dir');
+                        if (dirElement) dirElement.value = selected;
                         this.logAction('DEBUG', `DEV MODE: Updated production Noita directory to: ${selected}`);
                         this.logAction('DEBUG', `DEV MODE: Mod operations still use dev_data directory`);
                     } else {
@@ -382,6 +403,8 @@ export class SettingsManager {
 
                     if (this._isDevBuild && type === 'noita' && this._devSaveDir) {
                         this._realNoitaDir = defaultPath;
+                        const dirElement = document.getElementById('noita-dir');
+                        if (dirElement) dirElement.value = defaultPath;
                         this.logAction('DEBUG', `DEV MODE: Updated production Noita directory to: ${defaultPath}`);
                         this.logAction('DEBUG', `DEV MODE: Mod operations still use dev_data directory`);
                     } else {
@@ -408,8 +431,14 @@ export class SettingsManager {
     }
 
     async openDirectory(type) {
-        const dirElement = document.getElementById(`${type}-dir`);
-        const directory = dirElement ? dirElement.value : '';
+        let directory;
+        if (type === 'dev-data') {
+            directory = this._devSaveDir;
+        } else {
+            const dirElement = document.getElementById(`${type}-dir`);
+            directory = dirElement ? dirElement.value : '';
+        }
+
         if (!directory) {
             this.logAction('ERROR', `No ${type} directory set`);
             return;
@@ -493,7 +522,10 @@ export class SettingsManager {
             const logLevelSelect = document.getElementById('log-level-select');
             const autoDeleteDaysInput = document.getElementById('auto-delete-days');
             const backupIntervalInput = document.getElementById('backup-interval');
-            if (noitaDirElement) noitaDirElement.value = effectiveNoitaDir;
+            // In dev mode, show the real Noita path in the input field
+            if (noitaDirElement) {
+                noitaDirElement.value = (this._isDevBuild && this._devSaveDir) ? defaultNoitaDir : effectiveNoitaDir;
+            }
             if (entangledDirElement) entangledDirElement.value = defaultEntangledDir;
             if (darkModeElement) darkModeElement.checked = false;
             if (logLevelSelect) logLevelSelect.value = 'INFO';
@@ -525,7 +557,10 @@ export class SettingsManager {
             const entangledDirElement = document.getElementById('entangled-dir');
             const darkModeElement = document.getElementById('dark-mode-checkbox');
             const logLevelSelect = document.getElementById('log-level-select');
-            if (noitaDirElement) noitaDirElement.value = this.settings.noita_dir;
+            // In dev mode, show the real Noita path in the input field
+            if (noitaDirElement) {
+                noitaDirElement.value = (this._isDevBuild && this._realNoitaDir) ? this._realNoitaDir : this.settings.noita_dir;
+            }
             if (entangledDirElement) entangledDirElement.value = this.settings.entangled_dir;
             if (darkModeElement) darkModeElement.checked = state.isDarkMode;
             if (logLevelSelect) logLevelSelect.value = this.settings.log_settings.log_level;
