@@ -55,37 +55,36 @@ export class ModManager {
         if (isDifferent) {
             return new Promise((resolve) => {
                 this.uiManager.showConfirmModal(
-                    `The mod_config.xml file in your Noita folder has changed and doesn't match the "${state.selectedPreset}" preset. How would you like to proceed?`, {
-                        confirmText:
-                            'Load File',
-                        cancelText: 'Load Preset',
+                    `mod_config.xml was modified externally and no longer matches your "${state.selectedPreset}" preset.`, {
+                        confirmText: 'Accept External Changes',
+                        cancelText: 'Keep Current Preset',
                         onConfirm: async () => {
                             this.logAction('INFO', `Loading changes from mod_config.xml into preset '${state.selectedPreset}'.`);
 
                             state.currentMods = [...fileMods];
                             state.currentPresets[state.selectedPreset] = [...fileMods];
                             this.uiManager.renderModList();
-
                             this.uiManager.updateModCount();
 
                             const presetsForSave = {};
                             Object.keys(state.currentPresets).forEach(presetName => {
-                                presetsForSave[presetName]
-                                    = state.currentPresets[presetName].map(mod => ({
+                                presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
                                     name: mod.name,
                                     enabled: mod.enabled,
-
-                                    workshop_id: mod.workshopId ||
-                                        '0',
-                                    settings_fold_open: mod.settingsFoldOpen ||
-                                        false
+                                    workshop_id: mod.workshopId || '0',
+                                    settings_fold_open: mod.settingsFoldOpen || false
                                 }));
                             });
                             await window.__TAURI__.core.invoke('save_presets', {presets: presetsForSave});
                             resolve(false);
                         },
                         onCancel: async () => {
-                            state.isInitializeByPreset = true;
+                            this.logAction('INFO', `Keeping preset '${state.selectedPreset}' and restoring mod_config.xml.`);
+                            state.currentMods = state.currentPresets[state.selectedPreset].map(mod => ({...mod}));
+                            this.uiManager.renderModList();
+                            this.uiManager.updateModCount();
+                            await this.saveModConfigToFile();
+                            await this.saveSelectedPreset();
                             resolve(false);
                         },
                         isImportant: true

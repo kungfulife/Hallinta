@@ -150,8 +150,7 @@ export class PresetManager {
     async saveSelectedPreset() {
         try {
             if (window.__TAURI__ && window.__TAURI__.core && this.settingsManager) {
-                const settings = this.settingsManager.settings;
-                settings.selected_preset = state.selectedPreset || 'Default';
+                this.settingsManager.settings.selected_preset = state.selectedPreset || 'Default';
 
                 const presetsForSave = {};
                 Object.keys(state.currentPresets).forEach(presetName => {
@@ -162,7 +161,8 @@ export class PresetManager {
                         settings_fold_open: mod.settingsFoldOpen || false
                     }));
                 });
-                await window.__TAURI__.core.invoke('save_settings', { settings });
+                const settingsToSave = this.settingsManager.getSettingsForPersistence();
+                await window.__TAURI__.core.invoke('save_settings', { settings: settingsToSave });
                 await window.__TAURI__.core.invoke('save_presets', { presets: presetsForSave });
                 this.logAction('INFO', `Saved preset configuration for: ${state.selectedPreset}`);
             }

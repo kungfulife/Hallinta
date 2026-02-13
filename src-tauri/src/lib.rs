@@ -69,6 +69,40 @@ fn is_dev_build() -> bool {
 }
 
 #[tauri::command]
+fn get_dev_save_dir(source_noita_dir: String) -> Result<String, String> {
+    if !cfg!(debug_assertions) {
+        return Err("Not in dev mode".to_string());
+    }
+
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let dev_save = PathBuf::from(manifest_dir)
+        .parent()
+        .ok_or_else(|| "Could not get project root directory".to_string())?
+        .join("dev_save");
+
+    if !dev_save.exists() {
+        fs::create_dir_all(&dev_save)
+            .map_err(|e| format!("Failed to create dev_save directory: {}", e))?;
+    }
+
+    let config_path = dev_save.join("mod_config.xml");
+    if !config_path.exists() {
+        let source_config = PathBuf::from(&source_noita_dir).join("mod_config.xml");
+        if !source_noita_dir.is_empty() && source_config.exists() {
+            fs::copy(&source_config, &config_path)
+                .map_err(|e| format!("Failed to copy mod_config.xml to dev_save: {}", e))?;
+        } else {
+            let sample_config =
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Mods>\n</Mods>";
+            fs::write(&config_path, sample_config)
+                .map_err(|e| format!("Failed to create sample mod_config.xml: {}", e))?;
+        }
+    }
+
+    Ok(dev_save.to_string_lossy().to_string())
+}
+
+#[tauri::command]
 fn get_version() -> String {
     let context: tauri::Context<tauri_runtime_wry::Wry<tauri::EventLoopMessage>> =
         tauri::generate_context!();
@@ -660,8 +694,8 @@ pub fn run() {
             flush_log_buffer,
             write_file,
             read_file,
-
-                     check_file_exists
+            check_file_exists,
+            get_dev_save_dir
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

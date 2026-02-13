@@ -275,11 +275,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         await settingsManager.loadConfig();
         presetManager.loadPresets();
 
-        if (state.isInitializeByPreset) {
-            await presetManager.loadToSelectedPreset();
-            uiManager.logAction('INFO', `Initialized mod_config.xml with preset '${state.selectedPreset}'.`, 'DOMContentLoaded');
-        }
-
         if (settingsManager.settings.noita_dir) {
             const configPath = `${settingsManager.settings.noita_dir}/mod_config.xml`;
             try {
