@@ -85,16 +85,21 @@ export class SettingsManager {
                 this.logAction('INFO', 'Created default configuration');
             }
 
+            // Apply log level early so dev mode messages are filtered correctly
+            if (settings.log_settings?.log_level) {
+                this.settings.log_settings.log_level = settings.log_settings.log_level;
+            }
+
             this._isDevBuild = await window.__TAURI__.core.invoke('is_dev_build');
             if (this._isDevBuild) {
                 try {
-                    const devDir = await window.__TAURI__.core.invoke('get_dev_save_dir', {
+                    const devDir = await window.__TAURI__.core.invoke('get_dev_data_dir', {
                         sourceNoitaDir: settings.noita_dir
                     });
                     this._realNoitaDir = settings.noita_dir;
                     this._devSaveDir = devDir;
                     settings.noita_dir = devDir;
-                    this.logAction('DEBUG', `DEV MODE: Using dev_save directory for mod_config.xml: ${devDir}`);
+                    this.logAction('DEBUG', `DEV MODE: Using dev_data directory for mod_config.xml: ${devDir}`);
                     if (this._realNoitaDir) {
                         this.logAction('DEBUG', `DEV MODE: Real Noita directory preserved: ${this._realNoitaDir}`);
                     }
@@ -188,7 +193,7 @@ export class SettingsManager {
             if (logLevelSelect) this.settings.log_settings.log_level = logLevelSelect.value;
             this.settings.version = await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown');
 
-            // In dev mode, ensure we operate against dev_save regardless of DOM edits
+            // In dev mode, ensure we operate against dev_data regardless of DOM edits
             if (this._isDevBuild && this._devSaveDir) {
                 this.settings.noita_dir = this._devSaveDir;
             }
@@ -239,7 +244,7 @@ export class SettingsManager {
                     if (this._isDevBuild && type === 'noita' && this._devSaveDir) {
                         this._realNoitaDir = selected;
                         this.logAction('DEBUG', `DEV MODE: Updated production Noita directory to: ${selected}`);
-                        this.logAction('DEBUG', `DEV MODE: Mod operations still use dev_save directory`);
+                        this.logAction('DEBUG', `DEV MODE: Mod operations still use dev_data directory`);
                     } else {
                         const dirElement = document.getElementById(`${type}-dir`);
                         if (dirElement) dirElement.value = selected;
@@ -274,7 +279,7 @@ export class SettingsManager {
                     if (this._isDevBuild && type === 'noita' && this._devSaveDir) {
                         this._realNoitaDir = defaultPath;
                         this.logAction('DEBUG', `DEV MODE: Updated production Noita directory to: ${defaultPath}`);
-                        this.logAction('DEBUG', `DEV MODE: Mod operations still use dev_save directory`);
+                        this.logAction('DEBUG', `DEV MODE: Mod operations still use dev_data directory`);
                     } else {
                         const dirElement = document.getElementById(`${type}-dir`);
                         if (dirElement) dirElement.value = defaultPath;
@@ -347,7 +352,7 @@ export class SettingsManager {
                 this.logAction('WARN', `Default Entangled Worlds directory not found (optional): ${pathError.message}`);
             }
 
-            // In dev mode, update the real path but keep using dev_save
+            // In dev mode, update the real path but keep using dev_data
             let effectiveNoitaDir = defaultNoitaDir;
             if (this._isDevBuild && this._devSaveDir) {
                 this._realNoitaDir = defaultNoitaDir;
