@@ -16,6 +16,10 @@ export class SettingsManager {
                 max_log_size_mb: 10,
                 log_level: 'INFO',
                 auto_save: true
+            },
+            backup_settings: {
+                auto_delete_days: 30,
+                backup_interval_minutes: 0
             }
         };
         this.previousSettings = null;
@@ -62,6 +66,10 @@ export class SettingsManager {
                         max_log_size_mb: 10,
                         log_level: 'INFO',
                         auto_save: true
+                    },
+                    backup_settings: {
+                        auto_delete_days: 30,
+                        backup_interval_minutes: 0
                     }
                 };
 
@@ -91,6 +99,48 @@ export class SettingsManager {
             }
 
             this._isDevBuild = await window.__TAURI__.core.invoke('is_dev_build');
+
+            // Check for stale session lock (previous crash detection)
+            try {
+                const staleLock = await window.__TAURI__.core.invoke('check_session_lock');
+                if (staleLock && staleLock.dev_mode_active) {
+                    this.logAction('WARN', 'Stale session lock detected from previous session');
+                    const cacheExists = await window.__TAURI__.core.invoke('check_mod_config_cache_exists');
+                    if (cacheExists && staleLock.original_mod_config_path) {
+                        // Extract the directory from the cached path (it stores full path to mod_config.xml)
+                        const realDir = staleLock.original_mod_config_path.replace(/[/\\]mod_config\.xml$/, '');
+                        await new Promise((resolve) => {
+                            this.uiManager.showConfirmModal(
+                                'Previous session did not shut down cleanly. Revert mod_config.xml to original state?', {
+                                    confirmText: 'Revert to Original',
+                                    cancelText: 'Keep Current',
+                                    onConfirm: async () => {
+                                        try {
+                                            await window.__TAURI__.core.invoke('revert_mod_config', { realNoitaDir: realDir });
+                                            this.logAction('INFO', 'Reverted mod_config.xml to original state');
+                                        } catch (e) {
+                                            this.logAction('ERROR', `Failed to revert mod_config.xml: ${e}`);
+                                        }
+                                        resolve();
+                                    },
+                                    onCancel: () => {
+                                        this.logAction('INFO', 'Keeping current mod_config.xml');
+                                        resolve();
+                                    },
+                                    isImportant: true
+                                }
+                            );
+                        });
+                    }
+                    // Remove the stale lock regardless
+                    await window.__TAURI__.core.invoke('remove_session_lock');
+                } else if (staleLock) {
+                    await window.__TAURI__.core.invoke('remove_session_lock');
+                }
+            } catch (lockError) {
+                this.logAction('WARN', `Error checking session lock: ${lockError}`);
+            }
+
             if (this._isDevBuild) {
                 try {
                     const devDir = await window.__TAURI__.core.invoke('get_dev_save_dir', {
@@ -102,10 +152,35 @@ export class SettingsManager {
                     this.logAction('DEBUG', `DEV MODE: Using dev_data directory for mod_config.xml: ${devDir}`);
                     if (this._realNoitaDir) {
                         this.logAction('DEBUG', `DEV MODE: Real Noita directory preserved: ${this._realNoitaDir}`);
+
+                        // Cache and overwrite the real mod_config.xml with dev version
+                        try {
+                            await window.__TAURI__.core.invoke('cache_and_overwrite_mod_config', {
+                                realNoitaDir: this._realNoitaDir,
+                                devDataDir: devDir
+                            });
+                            this.logAction('DEBUG', 'DEV MODE: Cached original mod_config.xml and overwrote with dev version');
+                        } catch (overwriteError) {
+                            this.logAction('WARN', `DEV MODE: Could not overwrite mod_config.xml: ${overwriteError}`);
+                        }
                     }
                 } catch (devError) {
                     this.logAction('WARN', `Could not set up dev save directory: ${devError}`);
                 }
+            }
+
+            // Create session lock
+            try {
+                const originalConfigPath = this._isDevBuild && this._realNoitaDir
+                    ? `${this._realNoitaDir}/mod_config.xml`
+                    : '';
+                await window.__TAURI__.core.invoke('create_session_lock', {
+                    devModeActive: this._isDevBuild && !!this._devSaveDir,
+                    originalModConfigPath: originalConfigPath
+                });
+                this.logAction('DEBUG', 'Session lock created');
+            } catch (lockError) {
+                this.logAction('WARN', `Could not create session lock: ${lockError}`);
             }
 
             this.applyConfig(settings, presets);
@@ -118,6 +193,7 @@ export class SettingsManager {
                 const configPath = `${settings.noita_dir}/mod_config.xml`;
                 const fileExists = await window.__TAURI__.core.invoke('check_file_exists', { path: configPath });
                 if (fileExists) {
+                    state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', { filePath: configPath });
                     await this.modManager.loadModConfigFromDirectory(settings.noita_dir);
                 } else {
                     this.logAction('ERROR', 'Noita save directory does not contain mod_config.xml');
@@ -149,6 +225,14 @@ export class SettingsManager {
 
     applyConfig(settings, presets) {
         this.settings = settings;
+        // Ensure backup_settings defaults
+        if (!this.settings.backup_settings) {
+            this.settings.backup_settings = {
+                auto_delete_days: 30,
+                backup_interval_minutes: 0
+            };
+        }
+
         state.currentPresets = Object.keys(presets).reduce((acc, presetName) => {
             acc[presetName] = presets[presetName].map(mod => ({
                 name: mod.name,
@@ -172,11 +256,15 @@ export class SettingsManager {
         const entangledDirElement = document.getElementById('entangled-dir');
         const darkModeElement = document.getElementById('dark-mode-checkbox');
         const logLevelSelect = document.getElementById('log-level-select');
+        const autoDeleteDaysInput = document.getElementById('auto-delete-days');
+        const backupIntervalInput = document.getElementById('backup-interval');
 
         if (noitaDirElement) noitaDirElement.value = settings.noita_dir;
         if (entangledDirElement) entangledDirElement.value = settings.entangled_dir;
         if (darkModeElement) darkModeElement.checked = state.isDarkMode;
         if (logLevelSelect) logLevelSelect.value = settings.log_settings.log_level || 'INFO';
+        if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings.auto_delete_days;
+        if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings.backup_interval_minutes;
 
         this.uiManager.applyDarkMode();
     }
@@ -186,11 +274,16 @@ export class SettingsManager {
             const noitaDirElement = document.getElementById('noita-dir');
             const entangledDirElement = document.getElementById('entangled-dir');
             const logLevelSelect = document.getElementById('log-level-select');
+            const autoDeleteDaysInput = document.getElementById('auto-delete-days');
+            const backupIntervalInput = document.getElementById('backup-interval');
+
             this.settings.noita_dir = noitaDirElement ? noitaDirElement.value : '';
             this.settings.entangled_dir = entangledDirElement ? entangledDirElement.value : '';
             this.settings.dark_mode = state.isDarkMode;
             this.settings.selected_preset = state.selectedPreset;
             if (logLevelSelect) this.settings.log_settings.log_level = logLevelSelect.value;
+            if (autoDeleteDaysInput) this.settings.backup_settings.auto_delete_days = parseInt(autoDeleteDaysInput.value) || 30;
+            if (backupIntervalInput) this.settings.backup_settings.backup_interval_minutes = parseInt(backupIntervalInput.value) || 0;
             this.settings.version = await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown');
 
             // In dev mode, ensure we operate against dev_data regardless of DOM edits
@@ -382,6 +475,10 @@ export class SettingsManager {
                     max_log_size_mb: 10,
                     log_level: 'INFO',
                     auto_save: true
+                },
+                backup_settings: {
+                    auto_delete_days: 30,
+                    backup_interval_minutes: 0
                 }
             };
             state.isDarkMode = false;
@@ -394,10 +491,14 @@ export class SettingsManager {
             const entangledDirElement = document.getElementById('entangled-dir');
             const darkModeElement = document.getElementById('dark-mode-checkbox');
             const logLevelSelect = document.getElementById('log-level-select');
+            const autoDeleteDaysInput = document.getElementById('auto-delete-days');
+            const backupIntervalInput = document.getElementById('backup-interval');
             if (noitaDirElement) noitaDirElement.value = effectiveNoitaDir;
             if (entangledDirElement) entangledDirElement.value = defaultEntangledDir;
             if (darkModeElement) darkModeElement.checked = false;
             if (logLevelSelect) logLevelSelect.value = 'INFO';
+            if (autoDeleteDaysInput) autoDeleteDaysInput.value = 30;
+            if (backupIntervalInput) backupIntervalInput.value = 0;
             this.uiManager.applyDarkMode();
 
             if (effectiveNoitaDir) {

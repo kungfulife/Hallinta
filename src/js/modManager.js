@@ -7,6 +7,7 @@ export class ModManager {
     async loadModConfigFromDirectory(directory) {
         try {
             if (window.__TAURI__ && window.__TAURI__.core) {
+                this.logAction('DEBUG', `Loading mod_config.xml from: ${directory}`);
                 const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', {directory});
                 const wasConsistent = await this.checkPresetConsistency(directory, xmlContent);
 
@@ -16,6 +17,14 @@ export class ModManager {
                 }
 
                 this.uiManager.updateModCount();
+
+                // Update lastModifiedTime after loading
+                try {
+                    const configPath = `${directory}/mod_config.xml`;
+                    state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', {filePath: configPath});
+                } catch (timeError) {
+                    this.logAction('WARN', `Could not update last modified time after load: ${timeError.message}`);
+                }
             }
 
             this.logAction('DEBUG', 'Loaded Mod Config from directory');
@@ -171,6 +180,7 @@ export class ModManager {
                 throw new Error('Noita directory not set');
             }
 
+            this.logAction('DEBUG', `Saving mod_config.xml to: ${noitaDir}`);
             const xmlContent = this.generateModConfigXML();
             await window.__TAURI__.core.invoke('write_mod_config', {
                 directory: noitaDir,
@@ -230,7 +240,7 @@ export class ModManager {
         this.uiManager.renderModList();
         this.uiManager.updateModCount();
         state.pendingReorder = true;
-        this.logAction('DEBUG', `Reordered mod from position ${oldIndex + 1} to ${newIndex + 1}`);
+        this.logAction('DEBUG', `Reordered "${movedMod.name}" from position ${oldIndex + 1} to ${newIndex + 1}`);
     }
 
     async finishReordering() {
@@ -278,18 +288,6 @@ export class ModManager {
         } catch (error) {
             this.uiManager.logAction('ERROR', `Failed to export mod list: ${error.message}`);
         }
-    }
-
-    async restoreBackup() {
-        this.logAction('DEBUG', 'Restore backup requested');
-    }
-
-    async createBackup() {
-        this.logAction('DEBUG', 'Create backup requested');
-    }
-
-    async backupMonitor() {
-        this.logAction('DEBUG', 'Backup monitor requested');
     }
 
     async importRegular() {

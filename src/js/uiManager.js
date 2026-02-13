@@ -289,6 +289,86 @@ export class UIManager {
         document.addEventListener('keydown', escapeHandler);
     }
 
+    showChecklistModal(title, message, items, onConfirm, onCancel) {
+        if (state.isModalVisible) {
+            this.logAction('WARN', 'A modal is already open. New request ignored.');
+            return;
+        }
+        state.isModalVisible = true;
+
+        const modal = document.createElement('div');
+        modal.className = 'custom-modal';
+
+        const checkboxesHTML = items.map(item => {
+            return `<label style="display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0; cursor: pointer;">
+                <input type="checkbox" class="checklist-item" data-id="${item.id}" ${item.checked ? 'checked' : ''}>
+                <span>${item.label}</span>
+            </label>`;
+        }).join('');
+
+        modal.innerHTML = `
+            <div class="modal-content" style="text-align: left;">
+                <h3>${title}</h3>
+                <p>${message}</p>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-weight: bold; cursor: pointer;">
+                        <input type="checkbox" id="checklist-select-all" checked>
+                        <span>Select All</span>
+                    </label>
+                    <hr style="border-color: var(--border-color); margin: 0.3rem 0;">
+                    ${checkboxesHTML}
+                </div>
+                <div class="modal-buttons">
+                    <button id="modal-confirm">Confirm</button>
+                    <button id="modal-cancel">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const selectAllCheckbox = modal.querySelector('#checklist-select-all');
+        const itemCheckboxes = modal.querySelectorAll('.checklist-item');
+
+        selectAllCheckbox.addEventListener('change', () => {
+            itemCheckboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
+        });
+
+        itemCheckboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                selectAllCheckbox.checked = Array.from(itemCheckboxes).every(c => c.checked);
+            });
+        });
+
+        const closeModal = () => {
+            if (modal.parentNode) document.body.removeChild(modal);
+            document.removeEventListener('keydown', escapeHandler);
+            state.isModalVisible = false;
+        };
+
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                if (onCancel) onCancel();
+                closeModal();
+            }
+        };
+
+        modal.querySelector('#modal-confirm').addEventListener('click', () => {
+            const selected = Array.from(itemCheckboxes)
+                .filter(cb => cb.checked)
+                .map(cb => cb.dataset.id);
+            closeModal();
+            if (onConfirm) onConfirm(selected);
+        });
+
+        modal.querySelector('#modal-cancel').addEventListener('click', () => {
+            closeModal();
+            if (onCancel) onCancel();
+        });
+
+        document.addEventListener('keydown', escapeHandler);
+    }
+
     showMissingModsModal(missingMods, onContinue) {
         const modNames = missingMods.map(m => m.name).join(', ');
         this.showConfirmModal(

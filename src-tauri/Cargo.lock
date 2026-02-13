@@ -1449,7 +1449,7 @@ dependencies = [
 
 [[package]]
 name = "hallinta"
-version = "0.3.9"
+version = "0.4.0"
 dependencies = [
  "chrono",
  "dirs",
@@ -1463,6 +1463,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-runtime-wry",
  "tokio",
+ "walkdir",
  "zip",
 ]
 

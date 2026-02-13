@@ -16,5 +16,15 @@ export const state = {
     isReordering: false,
     pendingReorder: false,
     logger: null,
-    isModalVisible: false
+    isModalVisible: false,
+    backupInProgress: false,
+    isRestoring: false,
+    logAutoRefreshInterval: null,
+    logFilters: {
+        debug: true,
+        info: true,
+        warn: true,
+        error: true,
+        search: ''
+    }
 };
