@@ -61,7 +61,9 @@ export class PresetManager {
                     this.uiManager.logAction('INFO', newName === null ? 'Preset creation canceled' : 'Invalid preset name or preset already exists');
                 }
             } else if (state.currentPresets[selectedValue] && Array.isArray(state.currentPresets[selectedValue])) {
-                this.logAction('DEBUG', `Switching to preset: ${selectedValue}`);
+                const prevPreset = state.selectedPreset;
+                const newModCount = state.currentPresets[selectedValue].length;
+                this.logAction('DEBUG', `Switching from preset "${prevPreset}" to "${selectedValue}" (${newModCount} mods)`);
                 state.selectedPreset = selectedValue;
 
                 await this.loadToSelectedPreset();
@@ -169,6 +171,176 @@ export class PresetManager {
         } catch (error) {
             this.logAction('ERROR', `Failed to save selected preset: ${error.message}`);
             throw error;
+        }
+    }
+
+    async exportPresets() {
+        this.logAction('DEBUG', 'Export presets requested');
+        const presetNames = Object.keys(state.currentPresets);
+        if (presetNames.length === 0) {
+            this.logAction('WARN', 'No presets to export');
+            return;
+        }
+
+        const items = presetNames.map(name => ({
+            id: name,
+            label: `${name} (${state.currentPresets[name].length} mods)`,
+            checked: true
+        }));
+
+        this.uiManager.showChecklistModal(
+            'Export Presets',
+            'Select presets to export:',
+            items,
+            async (selected) => {
+                if (selected.length === 0) {
+                    this.logAction('INFO', 'No presets selected for export');
+                    return;
+                }
+
+                try {
+                    const exportData = {
+                        hallinta_export: 'presets',
+                        version: '0.4.0',
+                        presets: {}
+                    };
+
+                    selected.forEach(name => {
+                        exportData.presets[name] = state.currentPresets[name].map(mod => ({
+                            name: mod.name,
+                            enabled: mod.enabled,
+                            workshop_id: mod.workshopId || '0',
+                            settings_fold_open: mod.settingsFoldOpen || false
+                        }));
+                    });
+
+                    const filePath = await window.__TAURI__.dialog.save({
+                        title: 'Export Presets',
+                        defaultPath: 'hallinta-presets.json',
+                        filters: [{ name: 'JSON', extensions: ['json'] }]
+                    });
+
+                    if (filePath) {
+                        const content = JSON.stringify(exportData, null, 2);
+                        await window.__TAURI__.core.invoke('write_file', { path: filePath, content });
+                        this.logAction('INFO', `Exported ${selected.length} preset(s) to file`);
+                    } else {
+                        this.logAction('INFO', 'Preset export cancelled');
+                    }
+                } catch (error) {
+                    this.logAction('ERROR', `Failed to export presets: ${error.message}`);
+                }
+            },
+            () => {
+                this.logAction('INFO', 'Preset export cancelled');
+            }
+        );
+    }
+
+    async importPresets() {
+        this.logAction('DEBUG', 'Import presets requested');
+        try {
+            const selectedPath = await window.__TAURI__.dialog.open({
+                title: 'Import Presets',
+                multiple: false,
+                filters: [{ name: 'JSON', extensions: ['json'] }]
+            });
+
+            if (!selectedPath) {
+                this.logAction('INFO', 'Preset import cancelled');
+                return;
+            }
+
+            const path = Array.isArray(selectedPath) ? selectedPath[0] : selectedPath;
+            const content = await window.__TAURI__.core.invoke('read_file', { path });
+            const importData = JSON.parse(content);
+
+            if (importData.hallinta_export !== 'presets' || !importData.presets) {
+                this.logAction('ERROR', 'Invalid preset file format. Expected a Hallinta preset export.');
+                return;
+            }
+
+            const importedNames = Object.keys(importData.presets);
+            if (importedNames.length === 0) {
+                this.logAction('WARN', 'No presets found in file');
+                return;
+            }
+
+            const items = importedNames.map(name => ({
+                id: name,
+                label: `${name} (${importData.presets[name].length} mods)${state.currentPresets[name] ? ' - EXISTS' : ''}`,
+                checked: true
+            }));
+
+            this.uiManager.showChecklistModal(
+                'Import Presets',
+                'Select presets to import:',
+                items,
+                async (selected) => {
+                    if (selected.length === 0) {
+                        this.logAction('INFO', 'No presets selected for import');
+                        return;
+                    }
+
+                    // Check for conflicts
+                    const conflicts = selected.filter(name => state.currentPresets[name]);
+
+                    const doImport = async () => {
+                        let imported = 0;
+                        for (const name of selected) {
+                            let targetName = name;
+                            // If conflict exists and wasn't explicitly overwriting, add suffix
+                            if (state.currentPresets[name] && conflicts.length > 0 && !this._overwriteConflicts) {
+                                targetName = `${name} (imported)`;
+                                let counter = 2;
+                                while (state.currentPresets[targetName]) {
+                                    targetName = `${name} (imported ${counter})`;
+                                    counter++;
+                                }
+                            }
+
+                            state.currentPresets[targetName] = importData.presets[name].map(mod => ({
+                                name: mod.name,
+                                enabled: mod.enabled,
+                                workshopId: mod.workshop_id || '0',
+                                settingsFoldOpen: mod.settings_fold_open || false,
+                                index: 0
+                            }));
+                            imported++;
+                        }
+
+                        this._overwriteConflicts = false;
+                        await this.saveSelectedPreset();
+                        this.loadPresets();
+                        this.logAction('INFO', `Imported ${imported} preset(s)`);
+                    };
+
+                    if (conflicts.length > 0) {
+                        this.uiManager.showConfirmModal(
+                            `${conflicts.length} preset(s) already exist: ${conflicts.join(', ')}. Overwrite them?`,
+                            {
+                                confirmText: 'Overwrite',
+                                cancelText: 'Rename',
+                                onConfirm: async () => {
+                                    this._overwriteConflicts = true;
+                                    await doImport();
+                                },
+                                onCancel: async () => {
+                                    this._overwriteConflicts = false;
+                                    await doImport();
+                                }
+                            }
+                        );
+                    } else {
+                        await doImport();
+                    }
+                },
+                () => {
+                    this.logAction('INFO', 'Preset import cancelled');
+                }
+            );
+        } catch (error) {
+            this.logAction('ERROR', `Failed to import presets: ${error.message}`);
         }
     }
 

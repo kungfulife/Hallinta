@@ -25,6 +25,7 @@
     <script type="module" src="js/presetManager.js"></script>
     <script type="module" src="js/settingsManager.js"></script>
     <script type="module" src="js/uiManager.js"></script>
+    <script type="module" src="js/backupManager.js"></script>
     <script type="module" src="js/eventHandlers.js"></script>
     <script type="module" src="main.js"></script>
 </head>
@@ -55,34 +56,27 @@
 
         </div>
 
-        <!--        <div class="sidebar">-->
-        <!--            <div class="split-button">-->
-        <!--                <button class="split-btn-main" onclick="importRegular()">Import</button>-->
-        <!--            </div>-->
-        <!--            <button onclick="exportModList()">Export</button>-->
-
-        <!--            <hr class="sidebar-separator">-->
-
-        <!--            <button onclick="restoreBackup()">Restore Backup</button>-->
-        <!--            <button onclick="createBackup()">Create Backup</button>-->
-        <!--            <button onclick="backupMonitor()">-->
-        <!--                <span id="backup-monitor-status">Back up Monitor</span>-->
-        <!--            </button>-->
-        <!--        </div>-->
-
         <div class="sidebar">
             <div class="split-button">
                 <button class="split-btn-main" onclick="importRegular()">Import</button>
             </div>
             <button onclick="exportModList()">Export</button>
 
+            <hr class="sidebar-separator">
+
+            <button onclick="exportPresets()">Export Presets</button>
+            <button onclick="importPresets()">Import Presets</button>
+
+            <hr class="sidebar-separator">
+
+            <button onclick="createBackup()">Create Backup</button>
+            <button onclick="openRestoreUI()">Restore Backup</button>
         </div>
     </div>
 
     <div class="settings-page" id="settings-page">
         <h2>Noita Saved Data Directory</h2>
-        <input type="text" id="noita-dir" placeholder="Enter Noita save
- directory (save00 folder)">
+        <input type="text" id="noita-dir" placeholder="Enter Noita save directory (save00 folder)">
         <div class="button-group">
             <button onclick="changeDirectory('noita')">Browse</button>
             <button onclick="findDefaultDirectory('noita')">Find Default</button>
@@ -112,6 +106,16 @@
                 <option value="ERROR">Error</option>
             </select>
 
+        </div>
+
+        <h2>Backup Settings</h2>
+        <div class="setting-item">
+            <label for="auto-delete-days">Auto-delete backups after (days, 0 = never):</label>
+            <input type="number" id="auto-delete-days" min="0" max="365" value="30" style="width: 60px;">
+        </div>
+        <div class="setting-item">
+            <label for="backup-interval">Auto-backup interval (minutes, 0 = disabled):</label>
+            <input type="number" id="backup-interval" min="0" max="1440" value="0" style="width: 60px;">
         </div>
 
         <h2>Appearance</h2>
@@ -150,18 +154,23 @@
     </div>
 
     <div id="log-modal" class="custom-modal" style="display: none;">
-        <div class="modal-content" style="max-width: 800px;
- max-height: 600px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;
- margin-bottom: 1rem;">
+        <div class="log-modal-content">
+            <div class="log-header">
                 <h3>Application Logs</h3>
-                <div>
+                <div class="log-controls">
                     <button onclick="refreshLogs()">Refresh</button>
                     <button onclick="clearLogs()">Clear</button>
                     <button onclick="saveLogs()">Save</button>
-
                     <button onclick="closeLogs()">Close</button>
                 </div>
+            </div>
+            <div class="log-filters">
+                <label><input type="checkbox" id="log-filter-debug" checked> DEBUG</label>
+                <label><input type="checkbox" id="log-filter-info" checked> INFO</label>
+                <label><input type="checkbox" id="log-filter-warn" checked> WARN</label>
+                <label><input type="checkbox" id="log-filter-error" checked> ERROR</label>
+                <input type="text" id="log-search" placeholder="Search logs..." class="log-search-input">
+                <label style="margin-left: auto;"><input type="checkbox" id="log-auto-refresh" checked> Auto-refresh</label>
             </div>
             <div id="log-content"></div>
         </div>

@@ -1,6 +1,6 @@
 import {state} from './state.js';
 
-export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager) {
+export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager) {
     window.changeDirectory = (type) => settingsManager.changeDirectory(type);
     window.findDefaultDirectory = (type) => settingsManager.findDefaultDirectory(type);
     window.openDirectory = (type) => settingsManager.openDirectory(type);
@@ -14,14 +14,36 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     window.deleteCurrentPreset = () => presetManager.deleteCurrentPreset();
     window.importRegular = () => modManager.importRegular();
     window.exportModList = () => modManager.exportModList();
-    window.restoreBackup = () => modManager.restoreBackup();
-    window.createBackup = () => modManager.createBackup();
-    window.backupMonitor = () => modManager.backupMonitor();
+    window.createBackup = () => backupManager.createBackup();
+    window.openRestoreUI = () => backupManager.openRestoreUI();
+    window.exportPresets = () => presetManager.exportPresets();
+    window.importPresets = () => presetManager.importPresets();
     window.toggleMod = () => uiManager.toggleMod();
     window.reorderMod = () => uiManager.reorderMod();
     window.deleteMod = () => uiManager.deleteMod();
     window.openWorkshop = () => uiManager.openWorkshop();
     window.copyWorkshopLink = () => uiManager.copyWorkshopLink();
+
+    // --- Log Viewer ---
+
+    let logAutoRefreshInterval = null;
+
+    const startLogAutoRefresh = () => {
+        stopLogAutoRefresh();
+        logAutoRefreshInterval = setInterval(() => {
+            const autoRefreshCheckbox = document.getElementById('log-auto-refresh');
+            if (autoRefreshCheckbox && autoRefreshCheckbox.checked) {
+                refreshLogs();
+            }
+        }, 1500);
+    };
+
+    const stopLogAutoRefresh = () => {
+        if (logAutoRefreshInterval) {
+            clearInterval(logAutoRefreshInterval);
+            logAutoRefreshInterval = null;
+        }
+    };
 
     window.openLogs = () => {
         uiManager.logAction('DEBUG', 'Opening logs modal', 'EventHandler');
@@ -34,6 +56,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         if (modal) {
             modal.style.display = 'flex';
             refreshLogs();
+            startLogAutoRefresh();
         } else {
             uiManager.logAction('ERROR', 'Log modal not found', 'EventHandler');
         }
@@ -44,39 +67,68 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         if (modal) {
             uiManager.logAction('DEBUG', 'Closing logs modal', 'EventHandler');
             modal.style.display = 'none';
+            stopLogAutoRefresh();
         }
     };
 
-    window.refreshLogs = async () => {
-        uiManager.logAction('DEBUG', 'Refreshing logs', 'EventHandler');
+    let lastLogCount = 0;
+
+    const refreshLogs = async () => {
         try {
             const logs = await window.__TAURI__.core.invoke('get_log_entries');
             const logContent = document.getElementById('log-content');
 
-            if (!logContent) {
-                uiManager.logAction('ERROR', 'Log content element not found', 'EventHandler');
-                return;
-            }
+            if (!logContent) return;
 
             if (logs.length === 0) {
-                logContent.textContent = 'No logs available.';
+                logContent.innerHTML = '<div class="log-line log-info">No logs available.</div>';
+                lastLogCount = 0;
                 return;
             }
 
-            const logText = logs.map(log =>
-                `[${log.timestamp}] [${log.level}] [${log.module}] ${log.message}`
-            ).join('\n');
+            // Get filter states
+            const showDebug = document.getElementById('log-filter-debug')?.checked ?? true;
+            const showInfo = document.getElementById('log-filter-info')?.checked ?? true;
+            const showWarn = document.getElementById('log-filter-warn')?.checked ?? true;
+            const showError = document.getElementById('log-filter-error')?.checked ?? true;
+            const searchText = (document.getElementById('log-search')?.value || '').toLowerCase();
 
-            logContent.textContent = logText;
+            // Filter logs
+            const filteredLogs = logs.filter(log => {
+                const level = log.level.toUpperCase();
+                if (level === 'DEBUG' && !showDebug) return false;
+                if (level === 'INFO' && !showInfo) return false;
+                if (level === 'WARN' && !showWarn) return false;
+                if (level === 'ERROR' && !showError) return false;
+                if (searchText) {
+                    const text = `${log.message} ${log.module}`.toLowerCase();
+                    if (!text.includes(searchText)) return false;
+                }
+                return true;
+            });
+
+            // Build log HTML
+            const logHTML = filteredLogs.map(log => {
+                const levelClass = `log-${log.level.toLowerCase()}`;
+                const timestamp = log.timestamp.replace('T', ' ').replace(/\.\d+.*$/, '');
+                return `<div class="log-line ${levelClass}">[${timestamp}] [${log.level}] [${log.module}] ${log.message}</div>`;
+            }).join('');
+
+            logContent.innerHTML = logHTML || '<div class="log-line log-info">No matching logs.</div>';
+
+            // Auto-scroll to bottom
             logContent.scrollTop = logContent.scrollHeight;
+            lastLogCount = logs.length;
         } catch (error) {
             uiManager.logAction('ERROR', `Error refreshing logs: ${error}`, 'EventHandler');
             const logContent = document.getElementById('log-content');
             if (logContent) {
-                logContent.textContent = 'Error loading logs.';
+                logContent.innerHTML = '<div class="log-line log-error">Error loading logs.</div>';
             }
         }
     };
+
+    window.refreshLogs = refreshLogs;
 
     window.clearLogs = async () => {
         uiManager.logAction('DEBUG', 'Clearing logs', 'EventHandler');
@@ -84,7 +136,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             await window.__TAURI__.core.invoke('clear_log_buffer');
             const logContent = document.getElementById('log-content');
             if (logContent) {
-                logContent.textContent = 'Logs cleared.';
+                logContent.innerHTML = '<div class="log-line log-info">Logs cleared.</div>';
                 uiManager.logAction('INFO', 'Logs cleared', 'EventHandler');
             }
         } catch (error) {
@@ -132,7 +184,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
     const performFileCheck = async () => {
         if (fileCheckInProgress) return;
-        if (state.isModalVisible || state.isReordering || !settingsManager.settings.noita_dir) {
+        if (state.isModalVisible || state.isReordering || state.isRestoring || !settingsManager.settings.noita_dir) {
             return;
         }
 
@@ -182,6 +234,24 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
     window.addEventListener('blur', () => {
         state.isAppFocused = false;
+    });
+
+    // --- Clean shutdown handler ---
+    window.addEventListener('beforeunload', async () => {
+        try {
+            // Revert mod_config in dev mode
+            if (settingsManager._isDevBuild && settingsManager._realNoitaDir) {
+                await window.__TAURI__.core.invoke('revert_mod_config', {
+                    realNoitaDir: settingsManager._realNoitaDir
+                });
+            }
+            // Remove session lock
+            await window.__TAURI__.core.invoke('remove_session_lock');
+            // Flush logs
+            await window.__TAURI__.core.invoke('flush_log_buffer');
+        } catch (e) {
+            // Best effort cleanup
+        }
     });
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -293,6 +363,26 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
 
         startFileWatcher();
+
+        // Cleanup old backups on startup
+        backupManager.cleanupOldBackups();
+
+        // Start auto-backup if configured
+        const backupInterval = settingsManager.settings.backup_settings?.backup_interval_minutes || 0;
+        if (backupInterval > 0) {
+            backupManager.startAutoBackup(backupInterval);
+        }
+
+        // Log filter event listeners
+        ['log-filter-debug', 'log-filter-info', 'log-filter-warn', 'log-filter-error'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', refreshLogs);
+        });
+
+        const logSearchEl = document.getElementById('log-search');
+        if (logSearchEl) {
+            logSearchEl.addEventListener('input', refreshLogs);
+        }
 
         setTimeout(() => {
             if (state.phraseManager) {

@@ -182,19 +182,134 @@ input:checked + .slider:before {
 
 /* Log Modal Styles */
 
-.modal-content #log-content {
+.log-modal-content {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    max-width: 90vw;
+    max-height: 80vh;
+    min-width: 600px;
+    min-height: 400px;
+    padding: 1.5rem;
+    width: 800px;
+    height: 600px;
+    resize: both;
+    overflow: hidden;
+}
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    flex-shrink: 0;
+}
+
+.log-header h3 {
+    color: var(--text-color);
+    margin: 0;
+}
+
+.log-controls {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.log-controls button {
+    background: var(--button-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 0.85em;
+    padding: 0.3em 0.6em;
+    transition: all 0.2s;
+}
+
+.log-controls button:hover {
+    background: var(--button-hover);
+    border-color: var(--accent-color);
+}
+
+.log-filters {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.log-filters label {
+    color: var(--text-color);
+    font-size: 0.85em;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.log-search-input {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    background: var(--bg-color);
+    font-size: 0.85em;
+    padding: 0.3em 0.5em;
+    flex: 1;
+    min-width: 120px;
+}
+
+.log-search-input:focus {
+    border-color: var(--accent-color);
+    outline: none;
+}
+
+.log-modal-content #log-content {
     background: var(--bg-color);
     border: 1px solid var(--border-color);
     border-radius: 4px;
     color: var(--text-color);
     font-family: 'Courier New', monospace;
-    font-size: 0.85em;
-    height: 400px;
-    max-height: 400px;
+    font-size: 0.8em;
+    flex: 1;
     line-height: 1.4;
     overflow-y: auto;
-    padding: 1rem;
-    text-align: left;
+    padding: 0.75rem;
+    min-height: 0;
+}
+
+/* Log level colors */
+.log-line {
+    padding: 1px 0;
     white-space: pre-wrap;
     word-wrap: break-word;
+}
+
+.log-line.log-debug {
+    color: #888;
+}
+
+.log-line.log-info {
+    color: var(--text-color);
+}
+
+.log-line.log-warn {
+    color: #e6a817;
+}
+
+.log-line.log-error {
+    color: #e63946;
+    font-weight: bold;
+}
+
+/* Sidebar separator */
+.sidebar-separator {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 0.5rem 0;
 }
