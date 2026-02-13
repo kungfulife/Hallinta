@@ -96,7 +96,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         uiManager.logAction('DEBUG', 'Saving logs', 'EventHandler');
         try {
             await window.__TAURI__.core.invoke('flush_log_buffer');
-            uiManager.logAction('INFO', 'Logs flushed to daily log file', 'EventHandler');
+            uiManager.logAction('INFO', 'Logs flushed to log file', 'EventHandler');
         } catch (error) {
             uiManager.logAction('ERROR', `Error flushing logs: ${error}`, 'EventHandler');
         }
@@ -121,6 +121,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     let fileCheckInterval = null;
+    let fileCheckInProgress = false;
 
     const stopFileWatcher = () => {
         if (fileCheckInterval) {
@@ -130,10 +131,12 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     const performFileCheck = async () => {
+        if (fileCheckInProgress) return;
         if (state.isModalVisible || state.isReordering || !settingsManager.settings.noita_dir) {
             return;
         }
 
+        fileCheckInProgress = true;
         try {
             const configPath = `${settingsManager.settings.noita_dir}/mod_config.xml`;
             const fileExists = await window.__TAURI__.core.invoke('check_file_exists', {path: configPath});
@@ -158,6 +161,8 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             uiManager.logAction('ERROR', `Error during file check: ${error.message}`, 'EventHandler');
             stopFileWatcher();
             setTimeout(startFileWatcher, 5000);
+        } finally {
+            fileCheckInProgress = false;
         }
     };
 

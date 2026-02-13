@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local, Utc};
+use chrono::{Local, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::VecDeque;
@@ -50,6 +50,9 @@ pub struct LogEntry {
 static LOG_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
 static LOG_FILE_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
 static MAX_BUFFER_SIZE: usize = 1000;
+static INSTANCE_ID: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    Local::now().format("%Y%m%d_%H%M%S").to_string()
+});
 fn get_data_dir() -> Result<PathBuf, String> {
     let data_dir = if cfg!(debug_assertions) {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -474,41 +477,23 @@ async fn flush_log_buffer() -> Result<(), String> {
         }
         file_buffer.drain(..).collect::<Vec<_>>()
     };
-    let mut logs_by_date: std::collections::HashMap<String, Vec<LogEntry>> =
-        std::collections::HashMap::new();
-    for entry in logs {
-        let log_time: DateTime<Utc> = entry
-            .timestamp
-            .parse()
-            .map_err(|e| format!("Failed to parse timestamp: {}", e))?;
-        let local_date = log_time
-            .with_timezone(&Local)
-            .date_naive()
-            .format("%Y%m%d")
-            .to_string();
-        logs_by_date
-            .entry(local_date)
-            .or_insert(Vec::new())
-            .push(entry);
-    }
 
-    for (date, entries) in logs_by_date {
-        let version = get_version();
-        let log_file = logs_dir.join(format!("hallinta_v{}_{}.log", version, date));
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&log_file)
-            .map_err(|e| format!("Failed to open log file {}: {}", log_file.display(), e))?;
-        for entry in entries {
-            let log_line = format!(
-                "[{}] [{}] [{}] {}\n",
-                entry.timestamp, entry.level, entry.module, entry.message
-            );
-            file.write_all(log_line.as_bytes()).map_err(|e| {
-                format!("Failed to write to log file {}: {}", log_file.display(), e)
-            })?;
-        }
+    let version = get_version();
+    let instance_id = &*INSTANCE_ID;
+    let log_file = logs_dir.join(format!("hallinta_v{}_{}.log", version, instance_id));
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_file)
+        .map_err(|e| format!("Failed to open log file {}: {}", log_file.display(), e))?;
+    for entry in logs {
+        let log_line = format!(
+            "[{}] [{}] [{}] {}\n",
+            entry.timestamp, entry.level, entry.module, entry.message
+        );
+        file.write_all(log_line.as_bytes()).map_err(|e| {
+            format!("Failed to write to log file {}: {}", log_file.display(), e)
+        })?;
     }
 
     Ok(())

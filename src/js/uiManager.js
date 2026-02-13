@@ -338,12 +338,13 @@ export class UIManager {
             this.showInputModal(
                 `Enter new position for "${modName}" (1-${state.currentMods.length}):`,
                 state.contextMenuTarget + 1,
-                (input) => {
+                async (input) => {
                     const newIndex = parseInt(input) - 1;
                     if (isNaN(newIndex) || newIndex < 0 || newIndex >= state.currentMods.length) {
                         this.logAction('ERROR', `Invalid position for "${modName}"`);
                     } else {
                         this.modManager.reorderMod(state.contextMenuTarget, newIndex);
+                        await this.modManager.finishReordering();
                         this.logAction('DEBUG', `Moved "${modName}" to position ${newIndex + 1}`);
                     }
                     document.getElementById('mod-context-menu').style.display = 'none';
