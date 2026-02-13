@@ -51,9 +51,16 @@ static LOG_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
 static LOG_FILE_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
 static MAX_BUFFER_SIZE: usize = 1000;
 fn get_data_dir() -> Result<PathBuf, String> {
-    let data_dir = dirs::data_local_dir()
-        .ok_or_else(|| "Could not find local data directory.".to_string())?
-        .join("Hallinta");
+    let data_dir = if cfg!(debug_assertions) {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or_else(|| "Could not get project root directory".to_string())?
+            .join("dev_data")
+    } else {
+        dirs::data_local_dir()
+            .ok_or_else(|| "Could not find local data directory.".to_string())?
+            .join("Hallinta")
+    };
 
     if !data_dir.exists() {
         fs::create_dir_all(&data_dir)
@@ -74,23 +81,14 @@ fn get_dev_save_dir(source_noita_dir: String) -> Result<String, String> {
         return Err("Not in dev mode".to_string());
     }
 
-    let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let dev_save = PathBuf::from(manifest_dir)
-        .parent()
-        .ok_or_else(|| "Could not get project root directory".to_string())?
-        .join("dev_save");
+    let dev_data = get_data_dir()?;
 
-    if !dev_save.exists() {
-        fs::create_dir_all(&dev_save)
-            .map_err(|e| format!("Failed to create dev_save directory: {}", e))?;
-    }
-
-    let config_path = dev_save.join("mod_config.xml");
+    let config_path = dev_data.join("mod_config.xml");
     if !config_path.exists() {
         let source_config = PathBuf::from(&source_noita_dir).join("mod_config.xml");
         if !source_noita_dir.is_empty() && source_config.exists() {
             fs::copy(&source_config, &config_path)
-                .map_err(|e| format!("Failed to copy mod_config.xml to dev_save: {}", e))?;
+                .map_err(|e| format!("Failed to copy mod_config.xml to dev_data: {}", e))?;
         } else {
             let sample_config =
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Mods>\n</Mods>";
@@ -99,7 +97,7 @@ fn get_dev_save_dir(source_noita_dir: String) -> Result<String, String> {
         }
     }
 
-    Ok(dev_save.to_string_lossy().to_string())
+    Ok(dev_data.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -549,6 +547,11 @@ async fn load_settings() -> Result<AppSettings, String> {
                 String::new()
             }
         };
+        let default_log_level = if cfg!(debug_assertions) {
+            "DEBUG"
+        } else {
+            "INFO"
+        };
         let default_settings = AppSettings {
             noita_dir,
             entangled_dir,
@@ -557,9 +560,8 @@ async fn load_settings() -> Result<AppSettings, String> {
             version: get_version(),
             log_settings: LogSettings {
                 max_log_files: 50,
-
                 max_log_size_mb: 10,
-                log_level: "INFO".to_string(),
+                log_level: default_log_level.to_string(),
                 auto_save: true,
             },
         };

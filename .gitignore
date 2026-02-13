@@ -23,5 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 
-# Dev mode save directory
-dev_save/
+# Dev mode data directory (settings, presets, logs, mod_config.xml)
+dev_data/
