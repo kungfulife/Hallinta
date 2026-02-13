@@ -180,25 +180,7 @@ input:checked + .slider:before {
     border-color: #0056b3;
 }
 
-/* Log Modal Styles */
-
-.log-modal-content {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    display: flex;
-    flex-direction: column;
-    max-width: 90vw;
-    max-height: 80vh;
-    min-width: 600px;
-    min-height: 400px;
-    padding: 1.5rem;
-    width: 800px;
-    height: 600px;
-    resize: both;
-    overflow: hidden;
-}
+/* Log Viewer Shared Styles */
 
 .log-header {
     display: flex;
@@ -269,7 +251,46 @@ input:checked + .slider:before {
     outline: none;
 }
 
-.log-modal-content #log-content {
+/* Log Modal Mode */
+.log-modal-content {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    max-width: 90vw;
+    max-height: 80vh;
+    min-width: 500px;
+    min-height: 350px;
+    padding: 1.5rem;
+    width: 800px;
+    height: 600px;
+    resize: both;
+    overflow: hidden;
+}
+
+/* Log Fullscreen Panel Mode */
+.log-fullscreen-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: var(--bg-color);
+    z-index: 2000;
+}
+
+.log-fullscreen-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1.5rem;
+}
+
+/* Log content area (shared between modal and fullscreen) */
+.log-modal-content #log-content,
+.log-fullscreen-content #log-fs-content {
     background: var(--bg-color);
     border: 1px solid var(--border-color);
     border-radius: 4px;
@@ -277,34 +298,103 @@ input:checked + .slider:before {
     font-family: 'Courier New', monospace;
     font-size: 0.8em;
     flex: 1;
-    line-height: 1.4;
+    line-height: 1.6;
     overflow-y: auto;
-    padding: 0.75rem;
+    padding: 0.5rem 0;
     min-height: 0;
+    text-align: left;
 }
 
-/* Log level colors */
+/* Log level colors with left border */
 .log-line {
-    padding: 1px 0;
+    padding: 2px 0.75rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    border-left: 3px solid transparent;
+    display: flex;
+    gap: 0;
+}
+
+.log-meta {
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+.log-msg {
     white-space: pre-wrap;
     word-wrap: break-word;
 }
 
 .log-line.log-debug {
-    color: #888;
+    color: #9e9e9e;
+    border-left-color: #9e9e9e;
 }
 
 .log-line.log-info {
     color: var(--text-color);
+    border-left-color: var(--accent-color);
 }
 
 .log-line.log-warn {
-    color: #e6a817;
+    color: #f0ad4e;
+    border-left-color: #f0ad4e;
 }
 
 .log-line.log-error {
     color: #e63946;
     font-weight: bold;
+    border-left-color: #e63946;
+}
+
+.log-line.log-debug .log-msg { color: #9e9e9e; }
+.log-line.log-info .log-msg { color: var(--text-color); }
+.log-line.log-warn .log-msg { color: #f0ad4e; }
+.log-line.log-error .log-msg { color: #e63946; }
+
+/* Checklist modal alignment */
+.modal-content-checklist {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    max-width: 400px;
+    padding: 1.5rem;
+    text-align: left;
+    width: 90%;
+}
+
+.modal-content-checklist h3 {
+    color: var(--text-color);
+    margin: 0 0 1rem;
+}
+
+.modal-content-checklist p {
+    color: var(--text-color);
+    font-size: 1em;
+    margin: 0 0 1rem;
+}
+
+.checklist-items-container {
+    margin-bottom: 1rem;
+}
+
+.checklist-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.4rem 0;
+    cursor: pointer;
+}
+
+.checklist-select-all-label {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.checklist-separator {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 0.3rem 0;
 }
 
 /* Sidebar separator */

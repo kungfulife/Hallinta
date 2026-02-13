@@ -300,22 +300,22 @@ export class UIManager {
         modal.className = 'custom-modal';
 
         const checkboxesHTML = items.map(item => {
-            return `<label style="display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0; cursor: pointer;">
+            return `<label class="checklist-label">
                 <input type="checkbox" class="checklist-item" data-id="${item.id}" ${item.checked ? 'checked' : ''}>
                 <span>${item.label}</span>
             </label>`;
         }).join('');
 
         modal.innerHTML = `
-            <div class="modal-content" style="text-align: left;">
+            <div class="modal-content-checklist">
                 <h3>${title}</h3>
                 <p>${message}</p>
-                <div style="margin-bottom: 1rem;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-weight: bold; cursor: pointer;">
+                <div class="checklist-items-container">
+                    <label class="checklist-label checklist-select-all-label">
                         <input type="checkbox" id="checklist-select-all" checked>
                         <span>Select All</span>
                     </label>
-                    <hr style="border-color: var(--border-color); margin: 0.3rem 0;">
+                    <hr class="checklist-separator">
                     ${checkboxesHTML}
                 </div>
                 <div class="modal-buttons">

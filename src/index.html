@@ -83,6 +83,15 @@
             <button onclick="openDirectory('noita')">Open</button>
         </div>
 
+        <div id="dev-data-section" style="display: none;">
+            <h2>Dev Data Directory</h2>
+            <input type="text" id="dev-data-dir" readonly placeholder="Not in dev mode">
+            <div class="button-group">
+                <button onclick="openDirectory('dev-data')">Open</button>
+            </div>
+            <p class="dev-info-text">Mod operations use this directory in dev mode</p>
+        </div>
+
         <h2>Entangled Worlds Directory</h2>
         <input type="text" id="entangled-dir" placeholder="Enter Entangled Worlds directory">
         <div class="button-group">
@@ -109,13 +118,15 @@
         </div>
 
         <h2>Backup Settings</h2>
-        <div class="setting-item">
-            <label for="auto-delete-days">Auto-delete backups after (days, 0 = never):</label>
-            <input type="number" id="auto-delete-days" min="0" max="365" value="30" style="width: 60px;">
+        <div class="setting-item-inline">
+            <span>Delete backups older than</span>
+            <input type="number" id="auto-delete-days" min="0" max="365" value="30" placeholder="0 = keep all">
+            <span>days</span>
         </div>
-        <div class="setting-item">
-            <label for="backup-interval">Auto-backup interval (minutes, 0 = disabled):</label>
-            <input type="number" id="backup-interval" min="0" max="1440" value="0" style="width: 60px;">
+        <div class="setting-item-inline">
+            <span>Auto-backup every</span>
+            <input type="number" id="backup-interval" min="0" max="1440" value="0" placeholder="0 = off">
+            <span>minutes</span>
         </div>
 
         <h2>Appearance</h2>
@@ -158,9 +169,9 @@
             <div class="log-header">
                 <h3>Application Logs</h3>
                 <div class="log-controls">
-                    <button onclick="refreshLogs()">Refresh</button>
-                    <button onclick="clearLogs()">Clear</button>
-                    <button onclick="saveLogs()">Save</button>
+                    <button onclick="toggleLogFullscreen()" title="Toggle Fullscreen">⛶</button>
+                    <button onclick="openLogWindow()" title="Open in Separate Window">⧉</button>
+                    <button onclick="copyLogs()" title="Copy Logs">📋</button>
                     <button onclick="closeLogs()">Close</button>
                 </div>
             </div>
@@ -170,9 +181,30 @@
                 <label><input type="checkbox" id="log-filter-warn" checked> WARN</label>
                 <label><input type="checkbox" id="log-filter-error" checked> ERROR</label>
                 <input type="text" id="log-search" placeholder="Search logs..." class="log-search-input">
-                <label style="margin-left: auto;"><input type="checkbox" id="log-auto-refresh" checked> Auto-refresh</label>
             </div>
             <div id="log-content"></div>
+        </div>
+    </div>
+
+    <div id="log-fullscreen" class="log-fullscreen-panel" style="display: none;">
+        <div class="log-fullscreen-content">
+            <div class="log-header">
+                <h3>Application Logs</h3>
+                <div class="log-controls">
+                    <button onclick="toggleLogFullscreen()" title="Exit Fullscreen">⛶</button>
+                    <button onclick="openLogWindow()" title="Open in Separate Window">⧉</button>
+                    <button onclick="copyLogs()" title="Copy Logs">📋</button>
+                    <button onclick="closeLogs()">Close</button>
+                </div>
+            </div>
+            <div class="log-filters">
+                <label><input type="checkbox" id="log-fs-filter-debug" checked> DEBUG</label>
+                <label><input type="checkbox" id="log-fs-filter-info" checked> INFO</label>
+                <label><input type="checkbox" id="log-fs-filter-warn" checked> WARN</label>
+                <label><input type="checkbox" id="log-fs-filter-error" checked> ERROR</label>
+                <input type="text" id="log-fs-search" placeholder="Search logs..." class="log-search-input">
+            </div>
+            <div id="log-fs-content"></div>
         </div>
     </div>
 
