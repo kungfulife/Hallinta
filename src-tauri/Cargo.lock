@@ -1449,7 +1449,7 @@ dependencies = [
 
 [[package]]
 name = "hallinta"
-version = "0.4.0"
+version = "0.4.5"
 dependencies = [
  "chrono",
  "dirs",

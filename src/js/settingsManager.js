@@ -52,8 +52,7 @@ export class SettingsManager {
                 settings = await window.__TAURI__.core.invoke('load_settings');
                 presets = await window.__TAURI__.core.invoke('load_presets');
             } catch (error) {
-                this.logAction('ERROR', `Error loading configuration: ${error.message}. Using defaults.`)
-                this.logAction('ERROR', `Error loading config: ${error.message}`);
+                this.logAction('ERROR', `Error loading configuration: ${error.message}. Using defaults.`);
                 hasError = true;
                 settings = {
                     noita_dir: '',
@@ -301,8 +300,14 @@ export class SettingsManager {
             this.settings.dark_mode = state.isDarkMode;
             this.settings.selected_preset = state.selectedPreset;
             if (logLevelSelect) this.settings.log_settings.log_level = logLevelSelect.value;
-            if (autoDeleteDaysInput) this.settings.backup_settings.auto_delete_days = parseInt(autoDeleteDaysInput.value) || 30;
-            if (backupIntervalInput) this.settings.backup_settings.backup_interval_minutes = parseInt(backupIntervalInput.value) || 0;
+            if (autoDeleteDaysInput) {
+                const days = parseInt(autoDeleteDaysInput.value);
+                this.settings.backup_settings.auto_delete_days = isNaN(days) ? 30 : days;
+            }
+            if (backupIntervalInput) {
+                const mins = parseInt(backupIntervalInput.value);
+                this.settings.backup_settings.backup_interval_minutes = isNaN(mins) ? 0 : mins;
+            }
             this.settings.version = await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown');
 
             // In dev mode, ensure we operate against dev_data regardless of DOM edits
@@ -557,6 +562,8 @@ export class SettingsManager {
             const entangledDirElement = document.getElementById('entangled-dir');
             const darkModeElement = document.getElementById('dark-mode-checkbox');
             const logLevelSelect = document.getElementById('log-level-select');
+            const autoDeleteDaysInput = document.getElementById('auto-delete-days');
+            const backupIntervalInput = document.getElementById('backup-interval');
             // In dev mode, show the real Noita path in the input field
             if (noitaDirElement) {
                 noitaDirElement.value = (this._isDevBuild && this._realNoitaDir) ? this._realNoitaDir : this.settings.noita_dir;
@@ -564,6 +571,8 @@ export class SettingsManager {
             if (entangledDirElement) entangledDirElement.value = this.settings.entangled_dir;
             if (darkModeElement) darkModeElement.checked = state.isDarkMode;
             if (logLevelSelect) logLevelSelect.value = this.settings.log_settings.log_level;
+            if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings?.auto_delete_days ?? 30;
+            if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings?.backup_interval_minutes ?? 0;
             this.uiManager.applyDarkMode();
 
             this.logAction('DEBUG', 'Restored Previous Settings');

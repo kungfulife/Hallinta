@@ -251,7 +251,7 @@ input:checked + .slider:before {
     outline: none;
 }
 
-/* Log Modal Mode */
+/* Log Modal Mode — uses viewport-relative sizes for auto-scaling */
 .log-modal-content {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
@@ -259,13 +259,13 @@ input:checked + .slider:before {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     display: flex;
     flex-direction: column;
-    max-width: 90vw;
-    max-height: 80vh;
-    min-width: 500px;
-    min-height: 350px;
+    max-width: 92vw;
+    max-height: 82vh;
+    min-width: 450px;
+    min-height: 300px;
     padding: 1.5rem;
-    width: 800px;
-    height: 600px;
+    width: 80vw;
+    height: 70vh;
     resize: both;
     overflow: hidden;
 }
@@ -395,6 +395,30 @@ input:checked + .slider:before {
     border: none;
     border-top: 1px solid var(--border-color);
     margin: 0.3rem 0;
+}
+
+/* Backup selection modal */
+.backup-selection-modal {
+    max-width: 600px;
+}
+
+.backup-list-container {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+}
+
+.backup-item {
+    padding: 0.5rem;
+    margin: 0.3rem 0;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.backup-item:hover {
+    background: var(--button-hover);
 }
 
 /* Sidebar separator */
