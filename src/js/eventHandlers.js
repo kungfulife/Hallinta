@@ -27,7 +27,11 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     // --- Log Viewer ---
 
     let logAutoRefreshInterval = null;
-    let logViewMode = 'closed'; // 'closed', 'modal', 'fullscreen'
+    let logViewMode = 'closed'; // 'closed', 'modal', 'fullscreen', 'detached'
+    let logDetachedPreference = false; // sticky: once detached, clicking status bar reopens window
+    let logLastInAppMode = 'modal'; // tracks what in-app mode was used before detaching
+    let logAutoScale = true; // auto-scale modal with window resize
+    let logWindowRef = null; // reference to the separate WebviewWindow
 
     const startLogAutoRefresh = () => {
         stopLogAutoRefresh();
@@ -43,7 +47,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
 
-    // Get the active log content element based on current view mode
     const getActiveLogElements = () => {
         if (logViewMode === 'fullscreen') {
             return {
@@ -65,7 +68,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         };
     };
 
-    // Sync filter states between modal and fullscreen panels
     const syncFilters = (fromMode) => {
         const modalIds = ['log-filter-debug', 'log-filter-info', 'log-filter-warn', 'log-filter-error'];
         const fsIds = ['log-fs-filter-debug', 'log-fs-filter-info', 'log-fs-filter-warn', 'log-fs-filter-error'];
@@ -83,8 +85,61 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         if (srcSearch && dstSearch) dstSearch.value = srcSearch.value;
     };
 
+    const setStatusBarVisible = (visible) => {
+        const statusBar = document.getElementById('status-bar');
+        if (statusBar) {
+            statusBar.style.display = visible ? '' : 'none';
+        }
+    };
+
+    // Auto-scale modal size to 80% x 70% of window
+    const applyAutoScale = () => {
+        if (!logAutoScale) return;
+        const modalContent = document.querySelector('.log-modal-content');
+        if (!modalContent) return;
+        modalContent.style.width = '';
+        modalContent.style.height = '';
+    };
+
+    // Detect user manual resize of the modal
+    const setupModalResizeDetection = () => {
+        const modalContent = document.querySelector('.log-modal-content');
+        if (!modalContent || modalContent._resizeObserverAttached) return;
+
+        let isWindowResize = false;
+        window.addEventListener('resize', () => {
+            isWindowResize = true;
+            if (logAutoScale && logViewMode === 'modal') {
+                applyAutoScale();
+            } else if (!logAutoScale && logViewMode === 'modal') {
+                // Check if user's manual size exceeds viewport
+                const rect = modalContent.getBoundingClientRect();
+                if (rect.width > window.innerWidth * 0.92 || rect.height > window.innerHeight * 0.82) {
+                    logAutoScale = true;
+                    applyAutoScale();
+                }
+            }
+            requestAnimationFrame(() => { isWindowResize = false; });
+        });
+
+        const observer = new ResizeObserver(() => {
+            if (isWindowResize || logViewMode !== 'modal') return;
+            // User manually resized the modal
+            logAutoScale = false;
+        });
+        observer.observe(modalContent);
+        modalContent._resizeObserverAttached = true;
+    };
+
     window.openLogs = () => {
-        uiManager.logAction('DEBUG', 'Opening logs modal', 'EventHandler');
+        uiManager.logAction('DEBUG', 'Opening logs', 'EventHandler');
+
+        // If detached preference is active, reopen separate window
+        if (logDetachedPreference) {
+            openLogWindow();
+            return;
+        }
+
         if (state.isModalVisible) {
             uiManager.logAction('INFO', 'Cannot open logs while another modal is active.', 'EventHandler');
             return;
@@ -93,11 +148,12 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         const modal = document.getElementById('log-modal');
         if (modal) {
             logViewMode = 'modal';
+            logLastInAppMode = 'modal';
             modal.style.display = 'flex';
+            applyAutoScale();
+            setupModalResizeDetection();
             refreshLogs();
             startLogAutoRefresh();
-        } else {
-            uiManager.logAction('ERROR', 'Log modal not found', 'EventHandler');
         }
     };
 
@@ -107,6 +163,10 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         const fullscreen = document.getElementById('log-fullscreen');
         if (modal) modal.style.display = 'none';
         if (fullscreen) fullscreen.style.display = 'none';
+
+        if (logViewMode === 'modal' || logViewMode === 'fullscreen') {
+            logLastInAppMode = logViewMode;
+        }
         logViewMode = 'closed';
         stopLogAutoRefresh();
     };
@@ -120,22 +180,50 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             if (modal) modal.style.display = 'none';
             if (fullscreen) fullscreen.style.display = 'block';
             logViewMode = 'fullscreen';
+            logLastInAppMode = 'fullscreen';
             uiManager.logAction('DEBUG', 'Switched to fullscreen log view', 'EventHandler');
         } else if (logViewMode === 'fullscreen') {
             syncFilters('fullscreen');
             if (fullscreen) fullscreen.style.display = 'none';
             if (modal) modal.style.display = 'flex';
             logViewMode = 'modal';
+            logLastInAppMode = 'modal';
+            applyAutoScale();
             uiManager.logAction('DEBUG', 'Switched to modal log view', 'EventHandler');
         }
         refreshLogs();
     };
 
-    window.openLogWindow = async () => {
+    const openLogWindow = async () => {
         uiManager.logAction('DEBUG', 'Opening separate log window', 'EventHandler');
+
+        // If window already exists, try to focus it instead of creating a new one
+        if (logWindowRef) {
+            try {
+                await logWindowRef.setFocus();
+                logViewMode = 'detached';
+                setStatusBarVisible(false);
+                return;
+            } catch (e) {
+                // Window was destroyed, proceed to create new one
+                logWindowRef = null;
+            }
+        }
+
+        // Close any in-app log views first
+        const modal = document.getElementById('log-modal');
+        const fullscreen = document.getElementById('log-fullscreen');
+        if (modal) modal.style.display = 'none';
+        if (fullscreen) fullscreen.style.display = 'none';
+        stopLogAutoRefresh();
+
+        logViewMode = 'detached';
+        logDetachedPreference = true;
+        setStatusBarVisible(false);
+
         try {
             const WebviewWindow = window.__TAURI__.webviewWindow.WebviewWindow;
-            const logWin = new WebviewWindow('log-window', {
+            logWindowRef = new WebviewWindow('log-window', {
                 url: 'log-window.html',
                 title: 'Hallinta - Application Logs',
                 width: 900,
@@ -144,13 +232,72 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 resizable: true,
                 decorations: true,
             });
-            logWin.once('tauri://error', (e) => {
+
+            logWindowRef.once('tauri://error', (e) => {
                 uiManager.logAction('ERROR', `Failed to open log window: ${e}`, 'EventHandler');
+                logViewMode = 'closed';
+                setStatusBarVisible(true);
+            });
+
+            // Listen for window close (user closed via X button)
+            logWindowRef.once('tauri://destroyed', () => {
+                logWindowRef = null;
+                logViewMode = 'closed';
+                setStatusBarVisible(true);
+                // logDetachedPreference stays true — clicking status bar reopens window
             });
         } catch (error) {
             uiManager.logAction('ERROR', `Error opening log window: ${error}`, 'EventHandler');
+            logViewMode = 'closed';
+            setStatusBarVisible(true);
         }
     };
+    window.openLogWindow = openLogWindow;
+
+    // Called from separate window via Tauri event — return logs to in-app mode
+    const returnLogsToApp = async () => {
+        logDetachedPreference = false;
+        logViewMode = 'closed';
+
+        // Close the separate window if still open
+        if (logWindowRef) {
+            try {
+                await logWindowRef.close();
+            } catch (e) {
+                // Window may already be closed
+            }
+            logWindowRef = null;
+        }
+
+        setStatusBarVisible(true);
+
+        // Reopen in-app using last mode
+        if (logLastInAppMode === 'fullscreen') {
+            const fullscreen = document.getElementById('log-fullscreen');
+            if (fullscreen) {
+                logViewMode = 'fullscreen';
+                fullscreen.style.display = 'block';
+                refreshLogs();
+                startLogAutoRefresh();
+            }
+        } else {
+            const modalEl = document.getElementById('log-modal');
+            if (modalEl) {
+                logViewMode = 'modal';
+                modalEl.style.display = 'flex';
+                applyAutoScale();
+                refreshLogs();
+                startLogAutoRefresh();
+            }
+        }
+    };
+
+    // Listen for "return-to-app" event from the separate log window
+    if (window.__TAURI__?.event) {
+        window.__TAURI__.event.listen('log-return-to-app', () => {
+            returnLogsToApp();
+        });
+    }
 
     window.copyLogs = async () => {
         const els = getActiveLogElements();
@@ -168,6 +315,9 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     const refreshLogs = async () => {
+        // Don't refresh in-app views when detached to separate window
+        if (logViewMode === 'detached') return;
+
         try {
             const logs = await window.__TAURI__.core.invoke('get_log_entries');
             const els = getActiveLogElements();
@@ -179,14 +329,12 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 return;
             }
 
-            // Get filter states
             const showDebug = els.filterDebug?.checked ?? true;
             const showInfo = els.filterInfo?.checked ?? true;
             const showWarn = els.filterWarn?.checked ?? true;
             const showError = els.filterError?.checked ?? true;
             const searchText = (els.search?.value || '').toLowerCase();
 
-            // Filter logs
             const filteredLogs = logs.filter(log => {
                 const level = log.level.toUpperCase();
                 if (level === 'DEBUG' && !showDebug) return false;
@@ -203,7 +351,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             // Smart scroll: check if user is near bottom before updating
             const isNearBottom = els.content.scrollTop + els.content.clientHeight >= els.content.scrollHeight - 30;
 
-            // Build log HTML with structured spans
             const logHTML = filteredLogs.map(log => {
                 const levelClass = `log-${log.level.toLowerCase()}`;
                 const timestamp = log.timestamp.replace('T', ' ').replace(/\.\d+.*$/, '');
@@ -212,7 +359,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
             els.content.innerHTML = logHTML || '<div class="log-line log-info"><span class="log-msg">No matching logs.</span></div>';
 
-            // Smart scroll: only auto-scroll if user was near bottom
             if (isNearBottom) {
                 els.content.scrollTop = els.content.scrollHeight;
             }
@@ -225,7 +371,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
 
-    // HTML escape utility for log messages
     const escapeHtml = (text) => {
         const div = document.createElement('div');
         div.textContent = text;

@@ -428,6 +428,41 @@ async fn create_upgrade_backup(
         .await
         .map_err(|e| format!("Failed to create upgrade backup: {}", e))??;
 
+    // Auto-cleanup: keep only the last 5 upgrade backups
+    cleanup_old_upgrade_backups(&upgrade_backup_dir, 5)?;
+
+    Ok(())
+}
+
+fn cleanup_old_upgrade_backups(upgrade_backup_dir: &Path, keep_count: usize) -> Result<(), String> {
+    if !upgrade_backup_dir.exists() {
+        return Ok(());
+    }
+
+    let mut backups: Vec<_> = fs::read_dir(upgrade_backup_dir)
+        .map_err(|e| format!("Failed to read upgrade_backups directory: {}", e))?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| {
+            entry.path().extension().map_or(false, |ext| ext == "zip")
+        })
+        .collect();
+
+    if backups.len() <= keep_count {
+        return Ok(());
+    }
+
+    // Sort by modified time, newest first
+    backups.sort_by(|a, b| {
+        let time_a = a.metadata().and_then(|m| m.modified()).unwrap_or(SystemTime::UNIX_EPOCH);
+        let time_b = b.metadata().and_then(|m| m.modified()).unwrap_or(SystemTime::UNIX_EPOCH);
+        time_b.cmp(&time_a)
+    });
+
+    // Remove all but the newest `keep_count`
+    for old_backup in backups.into_iter().skip(keep_count) {
+        let _ = fs::remove_file(old_backup.path());
+    }
+
     Ok(())
 }
 

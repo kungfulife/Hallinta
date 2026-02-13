@@ -112,15 +112,15 @@ export class BackupManager {
         modal.className = 'custom-modal';
 
         let listHTML = items.map(item => {
-            return `<div class="backup-item" data-filename="${item.id}" style="padding: 0.5rem; margin: 0.3rem 0; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;">
+            return `<div class="backup-item" data-filename="${item.id}">
                 <span>${item.label}</span>
             </div>`;
         }).join('');
 
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 600px; text-align: left;">
+            <div class="modal-content-checklist backup-selection-modal">
                 <h3>Select Backup to Restore</h3>
-                <div style="max-height: 300px; overflow-y: auto; margin-bottom: 1rem;">
+                <div class="backup-list-container">
                     ${listHTML}
                 </div>
                 <div class="modal-buttons">
@@ -155,13 +155,6 @@ export class BackupManager {
                 }
             });
 
-            // Hover effect
-            el.addEventListener('mouseenter', () => {
-                el.style.background = 'var(--button-hover)';
-            });
-            el.addEventListener('mouseleave', () => {
-                el.style.background = '';
-            });
         });
     }
 

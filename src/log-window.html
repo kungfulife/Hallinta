@@ -41,6 +41,7 @@
         <h3>Application Logs</h3>
         <div class="log-controls">
             <button id="lw-copy-btn" title="Copy Logs">📋</button>
+            <button id="lw-return-btn" title="Return logs to main app window">Return to App</button>
         </div>
     </div>
     <div class="log-filters">
@@ -53,7 +54,6 @@
     <div id="lw-log-content"></div>
 </div>
 <script>
-    // Apply dark mode if parent window has it
     async function initLogWindow() {
         try {
             const settings = await window.__TAURI__.core.invoke('load_settings');
@@ -61,7 +61,7 @@
                 document.body.classList.add('dark-mode');
             }
         } catch (e) {
-            // Ignore - defaults to light mode
+            // Defaults to light mode
         }
 
         const escapeHtml = (text) => {
@@ -131,6 +131,18 @@
                 await navigator.clipboard.writeText(text);
             } catch (e) {
                 // Ignore clipboard errors
+            }
+        });
+
+        // Return to App button — emit event to main window, then close this window
+        document.getElementById('lw-return-btn').addEventListener('click', async () => {
+            try {
+                await window.__TAURI__.event.emit('log-return-to-app');
+                // The main window will close us after receiving the event
+            } catch (e) {
+                // If event fails, just close
+                const currentWindow = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
+                await currentWindow.close();
             }
         });
 
