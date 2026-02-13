@@ -289,6 +289,20 @@ export class UIManager {
         document.addEventListener('keydown', escapeHandler);
     }
 
+    showMissingModsModal(missingMods, onContinue) {
+        const modNames = missingMods.map(m => m.name).join(', ');
+        this.showConfirmModal(
+            `${missingMods.length} mod(s) from the import were not found in your mod list and will be skipped: ${modNames}`, {
+                confirmText: 'Continue Import',
+                cancelText: 'Cancel Import',
+                onConfirm: onContinue,
+                onCancel: () => {
+                    this.logAction('INFO', 'Import cancelled due to missing mods.');
+                }
+            }
+        );
+    }
+
     toggleMod() {
         if (state.contextMenuTarget !== null) {
             this.modManager.toggleMod(state.contextMenuTarget);

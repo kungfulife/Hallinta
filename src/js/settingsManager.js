@@ -20,6 +20,18 @@ export class SettingsManager {
         };
         this.previousSettings = null;
         this.previousIsDarkMode = false;
+        this._isDevBuild = false;
+        this._realNoitaDir = '';
+        this._devSaveDir = '';
+        this._previousRealNoitaDir = '';
+    }
+
+    getSettingsForPersistence() {
+        const settingsToSave = { ...this.settings };
+        if (this._isDevBuild && this._devSaveDir) {
+            settingsToSave.noita_dir = this._realNoitaDir;
+        }
+        return settingsToSave;
     }
 
     async loadConfig() {
@@ -71,6 +83,24 @@ export class SettingsManager {
                 presets = { "Default": [] };
                 await this.saveDefaults(settings, presets);
                 this.logAction('INFO', 'Created default configuration');
+            }
+
+            this._isDevBuild = await window.__TAURI__.core.invoke('is_dev_build');
+            if (this._isDevBuild) {
+                try {
+                    const devDir = await window.__TAURI__.core.invoke('get_dev_save_dir', {
+                        sourceNoitaDir: settings.noita_dir
+                    });
+                    this._realNoitaDir = settings.noita_dir;
+                    this._devSaveDir = devDir;
+                    settings.noita_dir = devDir;
+                    this.logAction('INFO', `DEV MODE: Using dev_save directory for mod_config.xml: ${devDir}`);
+                    if (this._realNoitaDir) {
+                        this.logAction('INFO', `DEV MODE: Real Noita directory preserved: ${this._realNoitaDir}`);
+                    }
+                } catch (devError) {
+                    this.logAction('WARN', `Could not set up dev save directory: ${devError}`);
+                }
             }
 
             this.applyConfig(settings, presets);
@@ -158,6 +188,11 @@ export class SettingsManager {
             if (logLevelSelect) this.settings.log_settings.log_level = logLevelSelect.value;
             this.settings.version = await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown');
 
+            // In dev mode, ensure we operate against dev_save regardless of DOM edits
+            if (this._isDevBuild && this._devSaveDir) {
+                this.settings.noita_dir = this._devSaveDir;
+            }
+
             if (this.settings.noita_dir) {
                 const configPath = `${this.settings.noita_dir}/mod_config.xml`;
                 const fileExists = await window.__TAURI__.core.invoke('check_file_exists', { path: configPath });
@@ -178,7 +213,9 @@ export class SettingsManager {
                         settings_fold_open: mod.settingsFoldOpen || false
                     }));
                 });
-                await window.__TAURI__.core.invoke('save_settings', { settings: this.settings });
+
+                const settingsToSave = this.getSettingsForPersistence();
+                await window.__TAURI__.core.invoke('save_settings', { settings: settingsToSave });
                 await window.__TAURI__.core.invoke('save_presets', { presets: presetsForSave });
                 await this.modManager.saveModConfigToFile();
                 this.logAction('INFO', 'Configuration saved successfully');
@@ -199,12 +236,18 @@ export class SettingsManager {
                     multiple: false
                 });
                 if (selected) {
-                    const dirElement = document.getElementById(`${type}-dir`);
-                    if (dirElement) dirElement.value = selected;
-                    this.settings[`${type}_dir`] = selected;
-                    this.logAction('DEBUG', `Selected directory for ${type}: ${selected}`);
-                    if (type === 'noita') {
-                        await this.modManager.loadModConfigFromDirectory(selected);
+                    if (this._isDevBuild && type === 'noita' && this._devSaveDir) {
+                        this._realNoitaDir = selected;
+                        this.logAction('INFO', `DEV MODE: Updated production Noita directory to: ${selected}`);
+                        this.logAction('INFO', `DEV MODE: Mod operations still use dev_save directory`);
+                    } else {
+                        const dirElement = document.getElementById(`${type}-dir`);
+                        if (dirElement) dirElement.value = selected;
+                        this.settings[`${type}_dir`] = selected;
+                        this.logAction('DEBUG', `Selected directory for ${type}: ${selected}`);
+                        if (type === 'noita') {
+                            await this.modManager.loadModConfigFromDirectory(selected);
+                        }
                     }
                 }
             }
@@ -227,13 +270,20 @@ export class SettingsManager {
             if (commandName) {
                 try {
                     defaultPath = await window.__TAURI__.core.invoke(commandName);
-                    const dirElement = document.getElementById(`${type}-dir`);
-                    if (dirElement) dirElement.value = defaultPath;
-                    this.settings[`${type}_dir`] = defaultPath;
-                    this.logAction('INFO', `Found default ${type} directory: ${defaultPath}`);
 
-                    if (type === 'noita') {
-                        await this.modManager.loadModConfigFromDirectory(defaultPath);
+                    if (this._isDevBuild && type === 'noita' && this._devSaveDir) {
+                        this._realNoitaDir = defaultPath;
+                        this.logAction('INFO', `DEV MODE: Updated production Noita directory to: ${defaultPath}`);
+                        this.logAction('INFO', `DEV MODE: Mod operations still use dev_save directory`);
+                    } else {
+                        const dirElement = document.getElementById(`${type}-dir`);
+                        if (dirElement) dirElement.value = defaultPath;
+                        this.settings[`${type}_dir`] = defaultPath;
+                        this.logAction('INFO', `Found default ${type} directory: ${defaultPath}`);
+
+                        if (type === 'noita') {
+                            await this.modManager.loadModConfigFromDirectory(defaultPath);
+                        }
                     }
                 } catch (pathError) {
                     if (type === 'entangled') {
@@ -297,8 +347,16 @@ export class SettingsManager {
                 this.logAction('WARN', `Default Entangled Worlds directory not found (optional): ${pathError.message}`);
             }
 
+            // In dev mode, update the real path but keep using dev_save
+            let effectiveNoitaDir = defaultNoitaDir;
+            if (this._isDevBuild && this._devSaveDir) {
+                this._realNoitaDir = defaultNoitaDir;
+                effectiveNoitaDir = this._devSaveDir;
+                this.logAction('INFO', `DEV MODE: Reset real Noita directory to: ${defaultNoitaDir}`);
+            }
+
             this.settings = {
-                noita_dir: defaultNoitaDir,
+                noita_dir: effectiveNoitaDir,
                 entangled_dir: defaultEntangledDir,
                 dark_mode: false,
                 selected_preset: 'Default',
@@ -320,14 +378,14 @@ export class SettingsManager {
             const entangledDirElement = document.getElementById('entangled-dir');
             const darkModeElement = document.getElementById('dark-mode-checkbox');
             const logLevelSelect = document.getElementById('log-level-select');
-            if (noitaDirElement) noitaDirElement.value = defaultNoitaDir;
+            if (noitaDirElement) noitaDirElement.value = effectiveNoitaDir;
             if (entangledDirElement) entangledDirElement.value = defaultEntangledDir;
             if (darkModeElement) darkModeElement.checked = false;
             if (logLevelSelect) logLevelSelect.value = 'INFO';
             this.uiManager.applyDarkMode();
 
-            if (defaultNoitaDir) {
-                await this.modManager.loadModConfigFromDirectory(defaultNoitaDir);
+            if (effectiveNoitaDir) {
+                await this.modManager.loadModConfigFromDirectory(effectiveNoitaDir);
             }
             this.logAction('INFO', 'Settings reset to defaults. Press Save & Close to apply.');
         } catch (error) {
@@ -338,12 +396,14 @@ export class SettingsManager {
     storeCurrentSettings() {
         this.previousSettings = { ...this.settings };
         this.previousIsDarkMode = state.isDarkMode;
+        this._previousRealNoitaDir = this._realNoitaDir;
     }
 
     restorePreviousSettings() {
         if (this.previousSettings) {
             this.settings = { ...this.previousSettings };
             state.isDarkMode = this.previousIsDarkMode;
+            this._realNoitaDir = this._previousRealNoitaDir;
             const noitaDirElement = document.getElementById('noita-dir');
             const entangledDirElement = document.getElementById('entangled-dir');
             const darkModeElement = document.getElementById('dark-mode-checkbox');
