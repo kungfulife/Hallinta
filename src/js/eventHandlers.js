@@ -657,6 +657,12 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 fallbackClass: 'sortable-fallback',
                 fallbackOnBody: true,
                 forceFallback: true,
+                // Reduce click/drag ambiguity:
+                // - delay prevents immediate drag capture on press
+                // - fallbackTolerance requires real pointer movement before drag starts
+                delay: 110,
+                fallbackTolerance: 7,
+                touchStartThreshold: 4,
                 onStart: () => {
                     uiManager.logAction('DEBUG', 'Starting mod reorder', 'EventHandler');
                     state.isReordering = true;

@@ -14,6 +14,13 @@ pub(crate) static MAX_BUFFER_SIZE: usize = 1000;
 pub(crate) static INSTANCE_ID: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
     Local::now().format("%Y%m%d_%H%M%S").to_string()
 });
+
+fn log_file_name(version: &str, instance_id: &str) -> String {
+    // Mark dev-build logs clearly so they are easy to separate from release logs.
+    let dev_tag = if cfg!(debug_assertions) { "_dev" } else { "" };
+    format!("hallinta_v{}{}_{}.log", version, dev_tag, instance_id)
+}
+
 #[tauri::command]
 pub(crate) fn add_log_entry(level: String, message: String, module: String) -> Result<(), String> {
     let normalized_level = level.to_uppercase();
@@ -82,7 +89,7 @@ pub(crate) async fn flush_log_buffer() -> Result<(), String> {
 
     let version = get_version();
     let instance_id = &*INSTANCE_ID;
-    let log_file = logs_dir.join(format!("hallinta_v{}_{}.log", version, instance_id));
+    let log_file = logs_dir.join(log_file_name(&version, instance_id));
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
@@ -120,7 +127,7 @@ pub(crate) fn flush_log_buffer_sync() -> Result<(), String> {
 
     let version = get_version();
     let instance_id = &*INSTANCE_ID;
-    let log_file = logs_dir.join(format!("hallinta_v{}_{}.log", version, instance_id));
+    let log_file = logs_dir.join(log_file_name(&version, instance_id));
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_file) {
         for entry in logs {
             let log_line = format!(

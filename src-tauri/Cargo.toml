@@ -1,6 +1,6 @@
 [package]
 name = "hallinta"
-version = "0.5.5"
+version = "0.5.6"
 description = "Hallinta - Noita Mod Manager"
 authors = ["kungfulife"]
 edition = "2024"
