@@ -1,6 +1,6 @@
 # Hallinta - Noita Mod Manager
 
-A mod manager for Noita with preset support, backup/restore, and a structured logging system. Built with Rust + Tauri 2.
+A mod manager for Noita with preset support, backup/restore, and a structured logging system. Built with Rust + Tauri.
 
 ## Features
 
