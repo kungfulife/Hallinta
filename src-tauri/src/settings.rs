@@ -187,6 +187,7 @@ pub(crate) async fn load_settings() -> Result<AppSettings, String> {
                 max_log_size_mb: 10,
                 log_level: default_log_level.to_string(),
                 auto_save: true,
+                collect_system_info: true,
             },
             backup_settings: BackupSettings::default(),
             save_monitor_settings: SaveMonitorSettings::default(),
@@ -253,4 +254,3 @@ pub(crate) fn load_presets() -> Result<std::collections::HashMap<String, Vec<Mod
         serde_json::from_str(&content).map_err(|e| format!("Failed to parse presets: {}", e))?;
     Ok(presets)
 }
-

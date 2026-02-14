@@ -48,9 +48,11 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 ### Settings & Configuration
 - Persistent settings stored in system data directories
 - Configurable log levels
+- Optional startup system diagnostics logging toggle
 - Backup scheduling and retention settings
 - Version upgrade detection with automatic backups
 - Settings validation and error recovery
+- System Information and Open Source Libraries credits panels
 
 ## Setup
 
@@ -98,12 +100,11 @@ cargo tauri build
 
 ## Latest Version
 
-Current version: **0.6.1**
+Current version: **0.6.2**
 
 Latest update highlights:
-- Fixed detached log window preventing application from closing fully
-- Fixed log level select color in settings to match the selected level
-- Added descriptive helper text for retention/cleanup settings
-- Removed redundant Data Directory from System Info panel
+- Clarified System Information labels and expanded diagnostics details
+- Added toggleable startup system-information logging
+- Added Open Source Libraries credits panel sourced from Cargo dependencies
 
 For older release notes, see `UPDATEHISTORY.md`.

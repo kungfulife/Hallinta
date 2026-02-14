@@ -357,19 +357,33 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
         try {
             const info = await window.__TAURI__.core.invoke('get_system_info');
+            const configuredNoitaDir = (settingsManager._isDevBuild && settingsManager._realNoitaDir)
+                ? settingsManager._realNoitaDir
+                : settingsManager.settings.noita_dir;
             const rows = [
                 ['App Version', info.app_version],
-                ['Build Mode', info.build_mode],
-                ['Rust Version', info.rust_version],
-                ['Cargo Version', info.cargo_version],
-                ['Target Triple', info.target_triple],
-                ['Tauri Version', info.tauri_version],
-                ['OS', info.os],
-                ['Architecture', info.arch]
+                ['Build Profile', info.build_profile],
+                ['Build Target Platform', info.build_target],
+                ['Runtime OS', info.os],
+                ['OS Family', info.os_family],
+                ['CPU Architecture', info.arch],
+                ['Logical CPU Cores', String(info.logical_cpu_cores ?? '')],
+                ['Rust Compiler', info.rust_version],
+                ['Cargo', info.cargo_version],
+                ['Tauri', info.tauri_version],
+                ['App Data Directory', info.app_data_dir],
+                ['Executable Directory', info.executable_dir],
+                ['Local Time', info.local_time],
+                ['UTC Time', info.utc_time],
+                ['Noita Save Directory (Configured)', configuredNoitaDir || '(not set)'],
+                ['Entangled Worlds Directory (Configured)', settingsManager.settings.entangled_dir || '(not set)'],
+                ['Startup System Logging', settingsManager.settings.log_settings?.collect_system_info ? 'Enabled' : 'Disabled']
             ];
             body.innerHTML = rows.map(([label, value]) => (
                 `<div class="system-info-row"><strong>${window.logUtils.escapeHtml(label)}</strong><span>${window.logUtils.escapeHtml(value || '')}</span></div>`
             )).join('');
+            const openSourcePanel = document.getElementById('open-source-panel');
+            if (openSourcePanel) openSourcePanel.style.display = 'none';
             panel.style.display = 'block';
             uiManager.logAction('DEBUG', 'Opened system info panel', 'EventHandler');
         } catch (error) {
@@ -379,6 +393,45 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
     window.closeSystemInfo = () => {
         const panel = document.getElementById('system-info-panel');
+        if (panel) panel.style.display = 'none';
+    };
+
+    window.openOpenSourceLibraries = async () => {
+        const panel = document.getElementById('open-source-panel');
+        const body = document.getElementById('open-source-body');
+        if (!panel || !body) return;
+
+        try {
+            const libraries = await window.__TAURI__.core.invoke('get_open_source_libraries');
+            if (!Array.isArray(libraries) || libraries.length === 0) {
+                body.innerHTML = '<div class="system-info-row"><strong>Libraries</strong><span>No library data available.</span></div>';
+            } else {
+                body.innerHTML = libraries.map((library) => {
+                    const name = window.logUtils.escapeHtml(library.name || 'Unknown');
+                    const version = window.logUtils.escapeHtml(library.version || 'Unknown');
+                    const purpose = window.logUtils.escapeHtml(library.purpose || '');
+                    const homepageText = window.logUtils.escapeHtml(library.homepage || '');
+                    const homepageHref = encodeURI(library.homepage || '');
+                    return (
+                        `<div class="system-info-row">` +
+                        `<strong>${name} v${version}</strong>` +
+                        `<span>${purpose}<br><a class="system-info-link" href="${homepageHref}" target="_blank" rel="noopener noreferrer">${homepageText}</a></span>` +
+                        `</div>`
+                    );
+                }).join('');
+            }
+
+            const systemInfoPanel = document.getElementById('system-info-panel');
+            if (systemInfoPanel) systemInfoPanel.style.display = 'none';
+            panel.style.display = 'block';
+            uiManager.logAction('DEBUG', 'Opened open source libraries panel', 'EventHandler');
+        } catch (error) {
+            uiManager.logAction('ERROR', `Failed to load open source libraries: ${error}`, 'EventHandler');
+        }
+    };
+
+    window.closeOpenSourceLibraries = () => {
+        const panel = document.getElementById('open-source-panel');
         if (panel) panel.style.display = 'none';
     };
 
@@ -602,6 +655,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 const logModal = document.getElementById('log-modal');
                 const logFullscreen = document.getElementById('log-fullscreen');
                 const systemInfoPanel = document.getElementById('system-info-panel');
+                const openSourcePanel = document.getElementById('open-source-panel');
                 const settingsPage = document.getElementById('settings-page');
 
                 if (logFullscreen && logFullscreen.style.display !== 'none') {
@@ -610,6 +664,8 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                     closeLogs();
                 } else if (systemInfoPanel && systemInfoPanel.style.display !== 'none') {
                     window.closeSystemInfo();
+                } else if (openSourcePanel && openSourcePanel.style.display !== 'none') {
+                    window.closeOpenSourceLibraries();
                 } else if (settingsPage && settingsPage.style.display === 'block') {
                     settingsManager.restorePreviousSettings();
                     uiManager.changeView('main');

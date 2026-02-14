@@ -2,6 +2,14 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.6.2
+- Clarified System Information terminology: replaced "Target Triple" wording with "Build Target Platform"
+- Expanded System Information details with runtime diagnostics (OS family, logical CPU cores, clock snapshot, app/exe directories, configured game paths)
+- Added a new `Collect system details in startup logs` toggle under Application Settings
+- Added startup diagnostics logging block (build/runtime/toolchain/path snapshot) when enabled
+- Added Open Source Libraries panel with direct Cargo dependency credits and crate links
+- Polished settings wording/UI labels for clarity (System Information button text and helper copy)
+
 ## 0.6.1
 - Fixed detached log window preventing application from closing fully (now handled at Tauri level)
 - Fixed log level select in settings not showing color for the selected value
