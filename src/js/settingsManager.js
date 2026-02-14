@@ -148,9 +148,9 @@ export class SettingsManager {
                     this._realNoitaDir = settings.noita_dir;
                     this._devSaveDir = devDir;
                     settings.noita_dir = devDir;
-                    this.logAction('DEBUG', `DEV MODE: Using dev_data directory for mod_config.xml: ${devDir}`);
+                    this.logAction('DEV', `Using dev_data directory for mod_config.xml: ${devDir}`);
                     if (this._realNoitaDir) {
-                        this.logAction('DEBUG', `DEV MODE: Real Noita directory preserved: ${this._realNoitaDir}`);
+                        this.logAction('DEV', `Real Noita directory preserved: ${this._realNoitaDir}`);
 
                         // Cache and overwrite the real mod_config.xml with dev version
                         try {
@@ -158,7 +158,7 @@ export class SettingsManager {
                                 realNoitaDir: this._realNoitaDir,
                                 devDataDir: devDir
                             });
-                            this.logAction('DEBUG', 'DEV MODE: Cached original mod_config.xml and overwrote with dev version');
+                            this.logAction('DEV', 'Cached original mod_config.xml and overwrote with dev version');
                         } catch (overwriteError) {
                             this.logAction('WARN', `DEV MODE: Could not overwrite mod_config.xml: ${overwriteError}`);
                         }
@@ -373,8 +373,8 @@ export class SettingsManager {
                         this._realNoitaDir = selected;
                         const dirElement = document.getElementById('noita-dir');
                         if (dirElement) dirElement.value = selected;
-                        this.logAction('DEBUG', `DEV MODE: Updated production Noita directory to: ${selected}`);
-                        this.logAction('DEBUG', `DEV MODE: Mod operations still use dev_data directory`);
+                        this.logAction('DEV', `Updated production Noita directory to: ${selected}`);
+                        this.logAction('DEV', `Mod operations still use dev_data directory`);
                     } else {
                         const dirElement = document.getElementById(`${type}-dir`);
                         if (dirElement) dirElement.value = selected;
@@ -410,8 +410,8 @@ export class SettingsManager {
                         this._realNoitaDir = defaultPath;
                         const dirElement = document.getElementById('noita-dir');
                         if (dirElement) dirElement.value = defaultPath;
-                        this.logAction('DEBUG', `DEV MODE: Updated production Noita directory to: ${defaultPath}`);
-                        this.logAction('DEBUG', `DEV MODE: Mod operations still use dev_data directory`);
+                        this.logAction('DEV', `Updated production Noita directory to: ${defaultPath}`);
+                        this.logAction('DEV', `Mod operations still use dev_data directory`);
                     } else {
                         const dirElement = document.getElementById(`${type}-dir`);
                         if (dirElement) dirElement.value = defaultPath;
@@ -495,7 +495,7 @@ export class SettingsManager {
             if (this._isDevBuild && this._devSaveDir) {
                 this._realNoitaDir = defaultNoitaDir;
                 effectiveNoitaDir = this._devSaveDir;
-                this.logAction('DEBUG', `DEV MODE: Reset real Noita directory to: ${defaultNoitaDir}`);
+                this.logAction('DEV', `Reset real Noita directory to: ${defaultNoitaDir}`);
             }
 
             this.settings = {
