@@ -5,6 +5,7 @@ import { SettingsManager } from './js/settingsManager.js';
 import { UIManager } from './js/uiManager.js';
 import { PhraseManager } from './js/phraseManager.js';
 import { BackupManager } from './js/backupManager.js';
+import { SaveMonitorManager } from './js/saveMonitorManager.js';
 import { setupEventHandlers } from './js/eventHandlers.js';
 
 // Instantiate managers
@@ -13,9 +14,10 @@ const modManager = new ModManager(uiManager);
 const settingsManager = new SettingsManager(modManager, uiManager);
 const presetManager = new PresetManager(uiManager, modManager, settingsManager);
 const backupManager = new BackupManager(uiManager, modManager, settingsManager, presetManager);
+const saveMonitorManager = new SaveMonitorManager(uiManager, settingsManager);
 
 // Set the circular dependency
 uiManager.setDependencies(modManager, settingsManager);
 
 state.phraseManager = new PhraseManager();
-setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager);
+setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager, saveMonitorManager);

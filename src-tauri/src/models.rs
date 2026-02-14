@@ -6,6 +6,23 @@ pub struct BackupSettings {
     pub backup_interval_minutes: u32,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SaveMonitorSettings {
+    pub interval_minutes: u32,
+    pub max_snapshots_per_preset: usize,
+    pub include_entangled: bool,
+}
+
+impl Default for SaveMonitorSettings {
+    fn default() -> Self {
+        SaveMonitorSettings {
+            interval_minutes: 15,
+            max_snapshots_per_preset: 10,
+            include_entangled: false,
+        }
+    }
+}
+
 impl Default for BackupSettings {
     fn default() -> Self {
         BackupSettings {
@@ -25,6 +42,8 @@ pub struct AppSettings {
     pub log_settings: LogSettings,
     #[serde(default)]
     pub backup_settings: BackupSettings,
+    #[serde(default)]
+    pub save_monitor_settings: SaveMonitorSettings,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -67,6 +86,8 @@ pub struct BackupInfo {
     pub contains_save00: bool,
     pub contains_save01: bool,
     pub contains_presets: bool,
+    #[serde(default)]
+    pub contains_entangled: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -74,6 +95,8 @@ pub struct RestoreOptions {
     pub restore_save00: bool,
     pub restore_save01: bool,
     pub restore_presets: bool,
+    #[serde(default)]
+    pub restore_entangled: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

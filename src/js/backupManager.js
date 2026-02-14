@@ -24,13 +24,21 @@ export class BackupManager {
             return;
         }
 
+        const checklistItems = [
+            { id: 'save01', label: 'Include save01 (modded save run)', checked: false },
+            { id: 'presets', label: 'Include presets', checked: true }
+        ];
+
+        // Offer Entangled Worlds inclusion if directory is configured
+        const entangledDir = this.settingsManager.settings.entangled_dir || '';
+        if (entangledDir) {
+            checklistItems.push({ id: 'entangled', label: 'Include Entangled Worlds data', checked: false });
+        }
+
         this.uiManager.showChecklistModal(
             'Create Backup',
             'Select what to include in the backup:',
-            [
-                { id: 'save01', label: 'Include save01 (modded save run)', checked: false },
-                { id: 'presets', label: 'Include presets', checked: true }
-            ],
+            checklistItems,
             async (selected) => {
                 state.backupInProgress = true;
                 this.logAction('DEBUG', 'Starting backup creation...');
@@ -39,11 +47,14 @@ export class BackupManager {
                 try {
                     const includeSave01 = selected.includes('save01');
                     const includePresets = selected.includes('presets');
+                    const includeEntangled = selected.includes('entangled');
 
                     const filename = await window.__TAURI__.core.invoke('create_backup', {
                         noitaDir,
                         includeSave01,
-                        includePresets
+                        includePresets,
+                        includeEntangled,
+                        entangledDir: includeEntangled ? entangledDir : ''
                     });
 
                     this.logAction('INFO', `Backup created successfully: ${filename}`);
@@ -86,6 +97,7 @@ export class BackupManager {
                 if (b.contains_save00) contents.push('save00');
                 if (b.contains_save01) contents.push('save01');
                 if (b.contains_presets) contents.push('presets');
+                if (b.contains_entangled) contents.push('entangled');
                 return {
                     id: b.filename,
                     label: `${date} (${sizeMB} MB) - ${contents.join(', ')}`,
@@ -169,6 +181,9 @@ export class BackupManager {
         if (backup.contains_presets) {
             checklistItems.push({ id: 'restore_presets', label: 'Restore presets', checked: true });
         }
+        if (backup.contains_entangled) {
+            checklistItems.push({ id: 'restore_entangled', label: 'Restore Entangled Worlds data', checked: true });
+        }
 
         if (checklistItems.length === 0) {
             this.logAction('ERROR', 'Backup appears to be empty');
@@ -177,13 +192,14 @@ export class BackupManager {
 
         this.uiManager.showChecklistModal(
             'Restore Options',
-            `Restoring from: ${new Date(backup.timestamp).toLocaleString()}`,
+            'Close Noita before restoring. Restoring from: ' + new Date(backup.timestamp).toLocaleString(),
             checklistItems,
             async (selected) => {
                 await this._performRestore(backup.filename, {
                     restore_save00: selected.includes('restore_save00'),
                     restore_save01: selected.includes('restore_save01'),
-                    restore_presets: selected.includes('restore_presets')
+                    restore_presets: selected.includes('restore_presets'),
+                    restore_entangled: selected.includes('restore_entangled')
                 }, selected.includes('restore_presets'));
             },
             () => {
@@ -202,10 +218,12 @@ export class BackupManager {
                 ? this.settingsManager._realNoitaDir
                 : this.settingsManager.settings.noita_dir;
 
+            const entangledDir = this.settingsManager.settings.entangled_dir || '';
             await window.__TAURI__.core.invoke('restore_backup', {
                 filename,
                 noitaDir,
-                options
+                options,
+                entangledDir: options.restore_entangled ? entangledDir : ''
             });
 
             this.logAction('INFO', `Backup restored successfully from: ${filename}`);

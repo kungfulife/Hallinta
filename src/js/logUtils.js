@@ -1,6 +1,23 @@
 (() => {
     const logLevelOrder = { DEV: -1, DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 };
 
+    const formatLocalTimestamp = (utcTimestamp) => {
+        if (!utcTimestamp) return '';
+        try {
+            const date = new Date(utcTimestamp);
+            if (isNaN(date.getTime())) return utcTimestamp;
+            const y = date.getFullYear();
+            const mo = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            const h = String(date.getHours()).padStart(2, '0');
+            const mi = String(date.getMinutes()).padStart(2, '0');
+            const s = String(date.getSeconds()).padStart(2, '0');
+            return `${y}-${mo}-${d} ${h}:${mi}:${s}`;
+        } catch {
+            return String(utcTimestamp).replace('T', ' ').replace(/\.\d+.*$/, '');
+        }
+    };
+
     const escapeHtml = (text) => {
         const div = document.createElement('div');
         div.textContent = text ?? '';
@@ -49,7 +66,7 @@
         return filteredLogs.map(log => {
             const level = String(log.level || 'INFO').toUpperCase();
             const levelClass = `log-${level.toLowerCase()}`;
-            const timestamp = String(log.timestamp || '').replace('T', ' ').replace(/\.\d+.*$/, '');
+            const timestamp = formatLocalTimestamp(log.timestamp);
             let msgHtml = escapeHtml(log.message || '');
             if (searchText) {
                 msgHtml = highlightText(msgHtml, searchText);

@@ -1,7 +1,7 @@
 import {deepCopyMods, state} from './state.js';
 import {updateDragVisualNumbersByDom} from './reorderUtils.js';
 
-export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager) {
+export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager, saveMonitorManager) {
     window.changeDirectory = (type) => settingsManager.changeDirectory(type);
     window.findDefaultDirectory = (type) => settingsManager.findDefaultDirectory(type);
     window.openDirectory = (type) => settingsManager.openDirectory(type);
@@ -17,6 +17,13 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     window.exportModList = () => modManager.exportModList();
     window.createBackup = () => backupManager.createBackup();
     window.openRestoreUI = () => backupManager.openRestoreUI();
+    window.toggleSaveMonitor = () => {
+        if (saveMonitorManager.isRunning) {
+            saveMonitorManager.stop();
+        } else {
+            saveMonitorManager.start();
+        }
+    };
     window.exportPresets = () => presetManager.exportPresets();
     window.importPresets = () => presetManager.importPresets();
     window.toggleMod = () => uiManager.toggleMod();
@@ -483,6 +490,23 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     // --- Clean shutdown handler ---
     window.addEventListener('beforeunload', async () => {
         try {
+            uiManager.logAction('INFO', 'Application closing', 'App');
+
+            // Stop Save Monitor if running
+            if (saveMonitorManager.isRunning) {
+                saveMonitorManager.stop();
+            }
+
+            // Close detached log window if open
+            if (logWindowRef) {
+                try {
+                    await logWindowRef.destroy();
+                } catch (e) {
+                    // Window may already be closed
+                }
+                logWindowRef = null;
+            }
+
             // Revert mod_config in dev mode
             if (settingsManager._isDevBuild && settingsManager._realNoitaDir) {
                 await window.__TAURI__.core.invoke('revert_mod_config', {
@@ -500,7 +524,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
     document.addEventListener('DOMContentLoaded', async () => {
 
-        uiManager.logAction('INFO', 'Setting up event handlers', 'DOMContentLoaded');
+        uiManager.logAction('INFO', 'Application starting', 'App');
         const isDev = window.__TAURI__ ? await window.__TAURI__.core.invoke('is_dev_build') : true;
 
         document.addEventListener('keydown', (e) => {
@@ -641,6 +665,8 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             if (el) el.addEventListener('input', refreshLogs);
         });
 
+        uiManager.logAction('INFO', 'Application ready', 'App');
+
         setTimeout(() => {
             if (state.phraseManager) {
                 state.phraseManager.startRandomPhrases();
@@ -658,10 +684,12 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 fallbackOnBody: true,
                 forceFallback: true,
                 // Reduce click/drag ambiguity:
-                // - delay prevents immediate drag capture on press
+                // - delay prevents immediate drag capture on press (lower = faster drag start)
                 // - fallbackTolerance requires real pointer movement before drag starts
-                delay: 110,
-                fallbackTolerance: 7,
+                // - delayOnTouchOnly limits delay to touch devices, keeping mouse drag snappy
+                delay: 80,
+                delayOnTouchOnly: true,
+                fallbackTolerance: 5,
                 touchStartThreshold: 4,
                 onStart: () => {
                     uiManager.logAction('DEBUG', 'Starting mod reorder', 'EventHandler');

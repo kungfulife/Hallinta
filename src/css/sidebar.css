@@ -84,3 +84,25 @@
 .download-missing:hover:not(.disabled) {
     background-color: #ff7700 !important;
 }
+
+/* Save Monitor */
+.save-monitor-btn.save-monitor-active {
+    background: #c62828 !important;
+    border-color: #c62828 !important;
+    color: white !important;
+}
+
+.save-monitor-btn.save-monitor-active:hover {
+    background: #b71c1c !important;
+}
+
+.save-monitor-status {
+    color: var(--text-secondary);
+    font-size: 0.85em;
+    text-align: center;
+}
+
+.save-monitor-status.active {
+    color: #4caf50;
+    font-weight: 600;
+}

@@ -2,6 +2,21 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.6.0
+- Added Save Monitor: start/stop save snapshot system with configurable interval and per-preset organization
+- Added Entangled Worlds inclusion flow for manual backups, Save Monitor, and upgrade backups
+- Expanded upgrade preflight backup to include save00, save01, and Entangled Worlds data (blocks on failure)
+- Added restore component selection for Entangled Worlds data in backup restore UI
+- Added mandatory close-game warning in restore flow
+- Added lifecycle logging: explicit startup/ready/closing events with session begin/end markers in log files
+- Fixed shutdown to always close detached log window on app exit
+- Added All/Enabled/Disabled mod filter dropdown alongside search bar
+- Improved log viewer readability with local time rendering (UTC storage preserved)
+- Hardened Save & Close directory-change path with confirmation prompt
+- Improved drag reliability: reduced delay, better mouse vs touch distinction
+- Added Save Monitor settings in settings page (snapshot interval, max snapshots per preset)
+- Polished System Info close button styling
+
 ## 0.5.6
 - Added `dev` tag in log filenames for dev builds (example: `hallinta_v0.5.6_dev_<instance>.log`)
 - Fixed mod-item hold behavior where chosen row could visually disappear before real drag movement
