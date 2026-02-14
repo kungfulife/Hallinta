@@ -291,6 +291,7 @@ export class SettingsManager {
         if (entangledDirElement) entangledDirElement.value = settings.entangled_dir;
         if (darkModeElement) darkModeElement.checked = state.isDarkMode;
         if (logLevelSelect) logLevelSelect.value = settings.log_settings.log_level || 'INFO';
+        this.updateLogLevelSelectColor();
         if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings.auto_delete_days;
         if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings.backup_interval_minutes;
         if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
@@ -602,6 +603,7 @@ export class SettingsManager {
             if (entangledDirElement) entangledDirElement.value = defaultEntangledDir;
             if (darkModeElement) darkModeElement.checked = false;
             if (logLevelSelect) logLevelSelect.value = 'INFO';
+            this.updateLogLevelSelectColor();
             if (autoDeleteDaysInput) autoDeleteDaysInput.value = 30;
             if (backupIntervalInput) backupIntervalInput.value = 0;
             const monitorIntervalInput = document.getElementById('monitor-interval');
@@ -645,6 +647,7 @@ export class SettingsManager {
             if (entangledDirElement) entangledDirElement.value = this.settings.entangled_dir;
             if (darkModeElement) darkModeElement.checked = state.isDarkMode;
             if (logLevelSelect) logLevelSelect.value = this.settings.log_settings.log_level;
+            this.updateLogLevelSelectColor();
             if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings?.auto_delete_days ?? 30;
             if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings?.backup_interval_minutes ?? 0;
             if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
@@ -653,6 +656,13 @@ export class SettingsManager {
 
             this.logAction('DEBUG', 'Restored Previous Settings');
         }
+    }
+
+    updateLogLevelSelectColor() {
+        const select = document.getElementById('log-level-select');
+        if (!select) return;
+        const colorMap = { DEBUG: '#adb5bd', INFO: 'var(--accent-color)', WARN: '#ffc107', ERROR: '#dc3545' };
+        select.style.color = colorMap[select.value] || '';
     }
 
     logAction(level, message) {

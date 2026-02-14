@@ -109,5 +109,4 @@ pub struct SystemInfo {
     pub tauri_version: String,
     pub os: String,
     pub arch: String,
-    pub data_dir: String,
 }

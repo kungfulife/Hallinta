@@ -98,14 +98,12 @@ cargo tauri build
 
 ## Latest Version
 
-Current version: **0.6.0**
+Current version: **0.6.1**
 
 Latest update highlights:
-- Save Monitor: automated save snapshots organized by preset with configurable interval
-- Entangled Worlds inclusion in backups, monitor snapshots, and upgrade preflight backups
-- Upgrade preflight backup now includes full save data (save00, save01, Entangled Worlds)
-- All/Enabled/Disabled mod filter dropdown for quick filtering
-- Log viewer timestamps now display in local time
-- Lifecycle logging with session markers for better diagnostics
+- Fixed detached log window preventing application from closing fully
+- Fixed log level select color in settings to match the selected level
+- Added descriptive helper text for retention/cleanup settings
+- Removed redundant Data Directory from System Info panel
 
 For older release notes, see `UPDATEHISTORY.md`.

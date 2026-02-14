@@ -233,7 +233,6 @@ pub(crate) fn open_workshop_item(workshop_id: String) -> Result<(), String> {
 
 #[tauri::command]
 pub(crate) fn get_system_info() -> Result<SystemInfo, String> {
-    let data_dir = get_data_dir()?.to_string_lossy().to_string();
     Ok(SystemInfo {
         app_version: get_version(),
         build_mode: env!("HALLINTA_PROFILE").to_string(),
@@ -243,6 +242,5 @@ pub(crate) fn get_system_info() -> Result<SystemInfo, String> {
         tauri_version: tauri::VERSION.to_string(),
         os: std::env::consts::OS.to_string(),
         arch: std::env::consts::ARCH.to_string(),
-        data_dir,
     })
 }
