@@ -182,6 +182,7 @@ export class SettingsManager {
             }
 
             this.applyConfig(settings, presets);
+            this.logAction('DEBUG', `Startup selected preset from settings: ${state.selectedPreset}`);
             const versionElement = document.getElementById('app-version');
             if (versionElement) {
                 versionElement.textContent = settings.version;
@@ -192,7 +193,7 @@ export class SettingsManager {
                 const fileExists = await window.__TAURI__.core.invoke('check_file_exists', { path: configPath });
                 if (fileExists) {
                     state.lastModifiedTime = await window.__TAURI__.core.invoke('get_file_modified_time', { filePath: configPath });
-                    await this.modManager.loadModConfigFromDirectory(settings.noita_dir);
+                    await this.modManager.loadModConfigFromDirectory(settings.noita_dir, { startupSync: true });
                 } else {
                     this.logAction('ERROR', 'Noita save directory does not contain mod_config.xml');
                     hasError = true;

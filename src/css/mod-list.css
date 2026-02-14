@@ -165,7 +165,56 @@
 
 /* Sortable Ghost Effect */
 .sortable-ghost {
-    background: #c8ebfb !important;
-    opacity: 0.4;
-    transform: rotate(1deg);
+    opacity: 0.22 !important;
+    background: var(--button-hover) !important;
+    border: 1px dashed var(--accent-color) !important;
+    box-shadow: none !important;
+    transform: none;
+}
+
+.sortable-chosen:not(.sortable-fallback) {
+    opacity: 0 !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+.sortable-drag {
+    opacity: 1 !important;
+    transform: scale(1.01);
+    transition: none !important;
+}
+
+.sortable-fallback {
+    opacity: 0.95 !important;
+    transform: scale(1.01);
+    pointer-events: none !important;
+    z-index: 1000 !important;
+    transition: none !important;
+    background: var(--card-bg) !important;
+    border: 1px solid var(--accent-color) !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2) !important;
+}
+
+.mod-item.sortable-ghost *,
+.mod-item.sortable-chosen:not(.sortable-fallback) * {
+    opacity: 0 !important;
+}
+
+.mod-item.sortable-ghost .mod-number {
+    opacity: 1 !important;
+    background: var(--accent-color) !important;
+    color: #fff !important;
+}
+
+.mod-item.sortable-ghost,
+.mod-item.sortable-chosen:not(.sortable-fallback),
+.mod-item.sortable-fallback {
+    transition: none !important;
+}
+
+.mod-item.sortable-fallback,
+.mod-item.sortable-fallback * {
+    opacity: 1 !important;
+    visibility: visible !important;
 }

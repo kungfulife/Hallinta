@@ -1,4 +1,4 @@
-import {deepCopyMods, state} from './state.js';
+import {buildPresetsForSave, deepCopyMods, state} from './state.js';
 
 export class PresetManager {
     constructor(uiManager, modManager, settingsManager) {
@@ -162,19 +162,12 @@ export class PresetManager {
             if (window.__TAURI__ && window.__TAURI__.core && this.settingsManager) {
                 this.settingsManager.settings.selected_preset = state.selectedPreset || 'Default';
 
-                const presetsForSave = {};
-                Object.keys(state.currentPresets).forEach(presetName => {
-                    presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
-                        name: mod.name,
-                        enabled: mod.enabled,
-                        workshop_id: mod.workshopId || '0',
-                        settings_fold_open: mod.settingsFoldOpen || false
-                    }));
-                });
+                const presetsForSave = buildPresetsForSave(state.currentPresets);
                 const settingsToSave = this.settingsManager.getSettingsForPersistence();
                 await window.__TAURI__.core.invoke('save_settings', { settings: settingsToSave });
                 await window.__TAURI__.core.invoke('save_presets', { presets: presetsForSave });
                 this.logAction('INFO', `Saved preset configuration for: ${state.selectedPreset}`);
+                this.logAction('DEBUG', `Persisted selected_preset in settings: ${this.settingsManager.settings.selected_preset}`);
             }
         } catch (error) {
             this.logAction('ERROR', `Failed to save selected preset: ${error.message}`);

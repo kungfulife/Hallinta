@@ -4,16 +4,37 @@ export class ModManager {
         this.uiManager = uiManager;
     }
 
-    async loadModConfigFromDirectory(directory) {
+    async loadModConfigFromDirectory(directory, options = {}) {
+        const { startupSync = false } = options;
         try {
             if (window.__TAURI__ && window.__TAURI__.core) {
                 this.logAction('DEBUG', `Loading mod_config.xml from: ${directory}`);
                 const xmlContent = await window.__TAURI__.core.invoke('read_mod_config', {directory});
-                const wasConsistent = await this.checkPresetConsistency(directory, xmlContent);
+                if (startupSync) {
+                    const fileMods = this.parseModsFromXML(xmlContent);
+                    const currentPreset = state.selectedPreset || 'Default';
+                    const existingPresetMods = state.currentPresets[currentPreset] || [];
+                    const isDifferent = !this.areModsEqual(existingPresetMods, fileMods);
 
-                if (wasConsistent) {
-                    this.parseModConfig(xmlContent, true);
-                    this.logAction('INFO', `Loaded ${state.currentMods.length} mods from mod_config.xml`);
+                    if (isDifferent) {
+                        this.logAction(
+                            'WARN',
+                            `Startup sync: mod_config.xml differed from preset '${currentPreset}' (${existingPresetMods.length} -> ${fileMods.length} mods). Auto-syncing preset to file.`
+                        );
+                    } else {
+                        this.logAction('DEBUG', `Startup sync: preset '${currentPreset}' already matches mod_config.xml.`);
+                    }
+
+                    state.currentPresets[currentPreset] = [...fileMods];
+                    this.parseModConfig(xmlContent, false);
+                    await this.saveSelectedPreset();
+                } else {
+                    const wasConsistent = await this.checkPresetConsistency(directory, xmlContent);
+
+                    if (wasConsistent) {
+                        this.parseModConfig(xmlContent, true);
+                        this.logAction('INFO', `Loaded ${state.currentMods.length} mods from mod_config.xml`);
+                    }
                 }
 
                 this.uiManager.updateModCount();
@@ -148,13 +169,16 @@ export class ModManager {
 
     async saveModConfigToFile() {
         try {
+            const devSection = document.getElementById('dev-data-section');
+            const devDirElement = document.getElementById('dev-data-dir');
             const noitaDirElement = document.getElementById('noita-dir');
-            const noitaDir = noitaDirElement ? noitaDirElement.value : '';
+            const isDevActive = !!(devSection && devSection.style.display !== 'none' && devDirElement?.value);
+            const noitaDir = isDevActive ? devDirElement.value : (noitaDirElement ? noitaDirElement.value : '');
             if (!noitaDir) {
                 throw new Error('Noita directory not set');
             }
 
-            this.logAction('DEBUG', `Saving mod_config.xml to: ${noitaDir}`);
+            this.logAction('DEBUG', `Saving mod_config.xml to: ${noitaDir}${isDevActive ? ' (dev runtime path)' : ''}`);
             const xmlContent = this.generateModConfigXML();
             await window.__TAURI__.core.invoke('write_mod_config', {
                 directory: noitaDir,
