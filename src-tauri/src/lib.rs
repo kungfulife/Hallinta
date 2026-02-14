@@ -7,6 +7,8 @@ mod save_monitor;
 mod session;
 mod settings;
 
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -59,16 +61,34 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|_app, event| {
-            if let tauri::RunEvent::Exit = event {
-                session::revert_mod_config_internal();
-                let _ = logging::add_log_entry(
-                    "INFO".to_string(),
-                    "Application shutting down".to_string(),
-                    "App".to_string(),
-                );
-                let _ = logging::flush_log_buffer_sync();
-                logging::write_session_end_marker();
+        .run(|app, event| {
+            match event {
+                tauri::RunEvent::WindowEvent {
+                    label,
+                    event: tauri::WindowEvent::CloseRequested { .. },
+                    ..
+                } => {
+                    if label == "main" {
+                        // Close all other windows (e.g. detached log window)
+                        // so the application can exit cleanly
+                        for (name, window) in app.webview_windows() {
+                            if name != "main" {
+                                let _ = window.close();
+                            }
+                        }
+                    }
+                }
+                tauri::RunEvent::Exit => {
+                    session::revert_mod_config_internal();
+                    let _ = logging::add_log_entry(
+                        "INFO".to_string(),
+                        "Application shutting down".to_string(),
+                        "App".to_string(),
+                    );
+                    let _ = logging::flush_log_buffer_sync();
+                    logging::write_session_end_marker();
+                }
+                _ => {}
             }
         });
 }

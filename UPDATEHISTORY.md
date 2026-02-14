@@ -2,6 +2,13 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.6.1
+- Fixed detached log window preventing application from closing fully (now handled at Tauri level)
+- Fixed log level select in settings not showing color for the selected value
+- Removed Data Directory from System Info panel (already viewable in settings)
+- Added descriptive helper text for retention settings (backup auto-delete, upgrade backups, save monitor snapshots)
+- Added "(0 = keep all)" and "(0 = off)" hints to backup settings inputs
+
 ## 0.6.0
 - Added Save Monitor: start/stop save snapshot system with configurable interval and per-preset organization
 - Added Entangled Worlds inclusion flow for manual backups, Save Monitor, and upgrade backups

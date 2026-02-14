@@ -24,6 +24,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             saveMonitorManager.start();
         }
     };
+    window.updateLogLevelColor = () => settingsManager.updateLogLevelSelectColor();
     window.exportPresets = () => presetManager.exportPresets();
     window.importPresets = () => presetManager.importPresets();
     window.toggleMod = () => uiManager.toggleMod();
@@ -364,8 +365,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 ['Target Triple', info.target_triple],
                 ['Tauri Version', info.tauri_version],
                 ['OS', info.os],
-                ['Architecture', info.arch],
-                ['Data Directory', info.data_dir]
+                ['Architecture', info.arch]
             ];
             body.innerHTML = rows.map(([label, value]) => (
                 `<div class="system-info-row"><strong>${window.logUtils.escapeHtml(label)}</strong><span>${window.logUtils.escapeHtml(value || '')}</span></div>`
@@ -495,16 +495,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             // Stop Save Monitor if running
             if (saveMonitorManager.isRunning) {
                 saveMonitorManager.stop();
-            }
-
-            // Close detached log window if open
-            if (logWindowRef) {
-                try {
-                    await logWindowRef.destroy();
-                } catch (e) {
-                    // Window may already be closed
-                }
-                logWindowRef = null;
             }
 
             // Revert mod_config in dev mode
