@@ -98,11 +98,14 @@ cargo tauri build
 
 ## Latest Version
 
-Current version: **0.5.6**
+Current version: **0.6.0**
 
 Latest update highlights:
-- Dev-build log files now include a `dev` marker in filename for quick identification
-- Drag hold no longer makes the selected mod row disappear before pointer movement
-- Drag-vs-click thresholds tuned to reduce accidental drags and missed single-click toggles
+- Save Monitor: automated save snapshots organized by preset with configurable interval
+- Entangled Worlds inclusion in backups, monitor snapshots, and upgrade preflight backups
+- Upgrade preflight backup now includes full save data (save00, save01, Entangled Worlds)
+- All/Enabled/Disabled mod filter dropdown for quick filtering
+- Log viewer timestamps now display in local time
+- Lifecycle logging with session markers for better diagnostics
 
 For older release notes, see `UPDATEHISTORY.md`.

@@ -19,6 +19,11 @@ export class SettingsManager {
             backup_settings: {
                 auto_delete_days: 30,
                 backup_interval_minutes: 0
+            },
+            save_monitor_settings: {
+                interval_minutes: 15,
+                max_snapshots_per_preset: 10,
+                include_entangled: false
             }
         };
         this.previousSettings = null;
@@ -51,7 +56,13 @@ export class SettingsManager {
                 settings = await window.__TAURI__.core.invoke('load_settings');
                 presets = await window.__TAURI__.core.invoke('load_presets');
             } catch (error) {
-                this.logAction('ERROR', `Error loading configuration: ${error.message}. Using defaults.`);
+                const errorMsg = error.message || error || 'Unknown error';
+                const isUpgradeError = errorMsg.includes('upgrade backup') || errorMsg.includes('Failed to create');
+                if (isUpgradeError) {
+                    this.logAction('ERROR', `Upgrade preflight backup failed: ${errorMsg}. Normal operations blocked until resolved.`);
+                } else {
+                    this.logAction('ERROR', `Error loading configuration: ${errorMsg}. Using defaults.`);
+                }
                 hasError = true;
                 settings = {
                     noita_dir: '',
@@ -68,6 +79,11 @@ export class SettingsManager {
                     backup_settings: {
                         auto_delete_days: 30,
                         backup_interval_minutes: 0
+                    },
+                    save_monitor_settings: {
+                        interval_minutes: 15,
+                        max_snapshots_per_preset: 10,
+                        include_entangled: false
                     }
                 };
 
@@ -231,6 +247,14 @@ export class SettingsManager {
                 backup_interval_minutes: 0
             };
         }
+        // Ensure save_monitor_settings defaults
+        if (!this.settings.save_monitor_settings) {
+            this.settings.save_monitor_settings = {
+                interval_minutes: 15,
+                max_snapshots_per_preset: 10,
+                include_entangled: false
+            };
+        }
 
         state.currentPresets = Object.keys(presets).reduce((acc, presetName) => {
             acc[presetName] = presets[presetName].map(mod => ({
@@ -257,6 +281,8 @@ export class SettingsManager {
         const logLevelSelect = document.getElementById('log-level-select');
         const autoDeleteDaysInput = document.getElementById('auto-delete-days');
         const backupIntervalInput = document.getElementById('backup-interval');
+        const monitorIntervalInput = document.getElementById('monitor-interval');
+        const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
 
         // In dev mode, show the real Noita path in the input field (not dev_data)
         if (noitaDirElement) {
@@ -267,6 +293,8 @@ export class SettingsManager {
         if (logLevelSelect) logLevelSelect.value = settings.log_settings.log_level || 'INFO';
         if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings.auto_delete_days;
         if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings.backup_interval_minutes;
+        if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
+        if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = this.settings.save_monitor_settings?.max_snapshots_per_preset ?? 10;
 
         // Show/hide dev data directory section
         this._updateDevDataSection();
@@ -294,6 +322,8 @@ export class SettingsManager {
             const logLevelSelect = document.getElementById('log-level-select');
             const autoDeleteDaysInput = document.getElementById('auto-delete-days');
             const backupIntervalInput = document.getElementById('backup-interval');
+            const monitorIntervalInput = document.getElementById('monitor-interval');
+            const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
 
             this.settings.noita_dir = noitaDirElement ? noitaDirElement.value : '';
             this.settings.entangled_dir = entangledDirElement ? entangledDirElement.value : '';
@@ -307,6 +337,17 @@ export class SettingsManager {
             if (backupIntervalInput) {
                 const mins = parseInt(backupIntervalInput.value);
                 this.settings.backup_settings.backup_interval_minutes = isNaN(mins) ? 0 : mins;
+            }
+            if (!this.settings.save_monitor_settings) {
+                this.settings.save_monitor_settings = {};
+            }
+            if (monitorIntervalInput) {
+                const val = parseInt(monitorIntervalInput.value);
+                this.settings.save_monitor_settings.interval_minutes = isNaN(val) || val < 1 ? 15 : val;
+            }
+            if (monitorMaxSnapshotsInput) {
+                const val = parseInt(monitorMaxSnapshotsInput.value);
+                this.settings.save_monitor_settings.max_snapshots_per_preset = isNaN(val) || val < 1 ? 10 : val;
             }
             this.settings.version = await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown');
 
@@ -329,6 +370,36 @@ export class SettingsManager {
             const directoryChanged = this.settings.noita_dir && this.settings.noita_dir !== previousNoitaDir;
 
             if (window.__TAURI__?.core) {
+                if (directoryChanged && previousNoitaDir) {
+                    // Confirm directory change with the user before proceeding
+                    const confirmed = await new Promise((resolve) => {
+                        this.uiManager.showConfirmModal(
+                            'Noita directory has changed. Current mod list will be replaced with mods from the new directory. Continue?', {
+                                confirmText: 'Switch Directory',
+                                cancelText: 'Cancel',
+                                onConfirm: () => resolve(true),
+                                onCancel: () => resolve(false)
+                            }
+                        );
+                    });
+
+                    if (!confirmed) {
+                        // Revert the directory change
+                        this.settings.noita_dir = previousNoitaDir;
+                        const noitaDirElement = document.getElementById('noita-dir');
+                        if (noitaDirElement) {
+                            noitaDirElement.value = (this._isDevBuild && this._realNoitaDir)
+                                ? this._previousRealNoitaDir
+                                : previousNoitaDir;
+                        }
+                        if (this._isDevBuild) {
+                            this._realNoitaDir = this._previousRealNoitaDir;
+                        }
+                        this.logAction('INFO', 'Directory change cancelled');
+                        return;
+                    }
+                }
+
                 const presetsForSave = buildPresetsForSave(state.currentPresets);
 
                 const settingsToSave = this.getSettingsForPersistence();
@@ -505,6 +576,11 @@ export class SettingsManager {
                 backup_settings: {
                     auto_delete_days: 30,
                     backup_interval_minutes: 0
+                },
+                save_monitor_settings: {
+                    interval_minutes: 15,
+                    max_snapshots_per_preset: 10,
+                    include_entangled: false
                 }
             };
             state.isDarkMode = false;
@@ -528,6 +604,10 @@ export class SettingsManager {
             if (logLevelSelect) logLevelSelect.value = 'INFO';
             if (autoDeleteDaysInput) autoDeleteDaysInput.value = 30;
             if (backupIntervalInput) backupIntervalInput.value = 0;
+            const monitorIntervalInput = document.getElementById('monitor-interval');
+            const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
+            if (monitorIntervalInput) monitorIntervalInput.value = 15;
+            if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = 10;
             this.uiManager.applyDarkMode();
 
             if (effectiveNoitaDir) {
@@ -556,6 +636,8 @@ export class SettingsManager {
             const logLevelSelect = document.getElementById('log-level-select');
             const autoDeleteDaysInput = document.getElementById('auto-delete-days');
             const backupIntervalInput = document.getElementById('backup-interval');
+            const monitorIntervalInput = document.getElementById('monitor-interval');
+            const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
             // In dev mode, show the real Noita path in the input field
             if (noitaDirElement) {
                 noitaDirElement.value = (this._isDevBuild && this._realNoitaDir) ? this._realNoitaDir : this.settings.noita_dir;
@@ -565,6 +647,8 @@ export class SettingsManager {
             if (logLevelSelect) logLevelSelect.value = this.settings.log_settings.log_level;
             if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings?.auto_delete_days ?? 30;
             if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings?.backup_interval_minutes ?? 0;
+            if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
+            if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = this.settings.save_monitor_settings?.max_snapshots_per_preset ?? 10;
             this.uiManager.applyDarkMode();
 
             this.logAction('DEBUG', 'Restored Previous Settings');

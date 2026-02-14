@@ -67,7 +67,13 @@ pub(crate) fn add_directory_to_zip(
 }
 
 #[tauri::command]
-pub(crate) async fn create_backup(noita_dir: String, include_save01: bool, include_presets: bool) -> Result<String, String> {
+pub(crate) async fn create_backup(
+    noita_dir: String,
+    include_save01: bool,
+    include_presets: bool,
+    #[allow(unused_variables)] include_entangled: Option<bool>,
+    #[allow(unused_variables)] entangled_dir: Option<String>,
+) -> Result<String, String> {
     let data_dir = get_data_dir()?;
     let backups_dir = data_dir.join("backups");
     if !backups_dir.exists() {
@@ -83,6 +89,8 @@ pub(crate) async fn create_backup(noita_dir: String, include_save01: bool, inclu
     let data_dir_clone = data_dir.clone();
     let zip_path_clone = zip_path.clone();
     let filename_clone = filename.clone();
+    let do_include_entangled = include_entangled.unwrap_or(false);
+    let ew_dir = entangled_dir.unwrap_or_default();
 
     tokio::task::spawn_blocking(move || {
         let file = std::fs::File::create(&zip_path_clone)
@@ -117,6 +125,14 @@ pub(crate) async fn create_backup(noita_dir: String, include_save01: bool, inclu
                     .map_err(|e| format!("Failed to read presets: {}", e))?;
                 zip.write_all(&data)
                     .map_err(|e| format!("Failed to write presets to zip: {}", e))?;
+            }
+        }
+
+        // Optionally include Entangled Worlds data
+        if do_include_entangled && !ew_dir.is_empty() {
+            let ew_path = PathBuf::from(&ew_dir);
+            if ew_path.exists() {
+                add_directory_to_zip(&mut zip, &ew_path, "entangled_worlds")?;
             }
         }
 
@@ -161,27 +177,29 @@ pub(crate) fn list_backups() -> Result<Vec<BackupInfo>, String> {
                 .unwrap_or_default();
 
             // Peek inside the zip to see what it contains
-            let (contains_save00, contains_save01, contains_presets) = match std::fs::File::open(&path) {
+            let (contains_save00, contains_save01, contains_presets, contains_entangled) = match std::fs::File::open(&path) {
                 Ok(file) => {
                     match zip::ZipArchive::new(file) {
                         Ok(mut archive) => {
                             let mut has_save00 = false;
                             let mut has_save01 = false;
                             let mut has_presets = false;
+                            let mut has_entangled = false;
                             for i in 0..archive.len() {
                                 if let Ok(entry) = archive.by_index(i) {
                                     let name = entry.name();
                                     if name.starts_with("save00/") { has_save00 = true; }
                                     if name.starts_with("save01/") { has_save01 = true; }
                                     if name == "presets.json" { has_presets = true; }
+                                    if name.starts_with("entangled_worlds/") { has_entangled = true; }
                                 }
                             }
-                            (has_save00, has_save01, has_presets)
+                            (has_save00, has_save01, has_presets, has_entangled)
                         }
-                        Err(_) => (false, false, false),
+                        Err(_) => (false, false, false, false),
                     }
                 }
-                Err(_) => (false, false, false),
+                Err(_) => (false, false, false, false),
             };
 
             backups.push(BackupInfo {
@@ -191,6 +209,7 @@ pub(crate) fn list_backups() -> Result<Vec<BackupInfo>, String> {
                 contains_save00,
                 contains_save01,
                 contains_presets,
+                contains_entangled,
             });
         }
     }
@@ -282,12 +301,14 @@ pub(crate) fn get_backup_contents(filename: String) -> Result<BackupInfo, String
     let mut has_save00 = false;
     let mut has_save01 = false;
     let mut has_presets = false;
+    let mut has_entangled = false;
     for i in 0..archive.len() {
         if let Ok(entry) = archive.by_index(i) {
             let name = entry.name();
             if name.starts_with("save00/") { has_save00 = true; }
             if name.starts_with("save01/") { has_save01 = true; }
             if name == "presets.json" { has_presets = true; }
+            if name.starts_with("entangled_worlds/") { has_entangled = true; }
         }
     }
 
@@ -298,11 +319,17 @@ pub(crate) fn get_backup_contents(filename: String) -> Result<BackupInfo, String
         contains_save00: has_save00,
         contains_save01: has_save01,
         contains_presets: has_presets,
+        contains_entangled: has_entangled,
     })
 }
 
 #[tauri::command]
-pub(crate) async fn restore_backup(filename: String, noita_dir: String, options: RestoreOptions) -> Result<(), String> {
+pub(crate) async fn restore_backup(
+    filename: String,
+    noita_dir: String,
+    options: RestoreOptions,
+    entangled_dir: Option<String>,
+) -> Result<(), String> {
     let data_dir = get_data_dir()?;
     let backup_path = data_dir.join("backups").join(&filename);
     if !backup_path.exists() {
@@ -312,6 +339,7 @@ pub(crate) async fn restore_backup(filename: String, noita_dir: String, options:
     let noita_dir_clone = noita_dir.clone();
     let data_dir_clone = data_dir.clone();
     let backup_path_clone = backup_path.clone();
+    let ew_dir = entangled_dir.unwrap_or_default();
 
     tokio::task::spawn_blocking(move || {
         let file = std::fs::File::open(&backup_path_clone)
@@ -340,6 +368,10 @@ pub(crate) async fn restore_backup(filename: String, noita_dir: String, options:
                 Some(save01_target.join(relative))
             } else if entry_name == "presets.json" && options.restore_presets {
                 Some(data_dir_clone.join("presets.json"))
+            } else if entry_name.starts_with("entangled_worlds/") && options.restore_entangled && !ew_dir.is_empty() {
+                let relative = entry_name.strip_prefix("entangled_worlds/").unwrap_or(&entry_name);
+                if relative.is_empty() { continue; }
+                Some(PathBuf::from(&ew_dir).join(relative))
             } else {
                 None
             };

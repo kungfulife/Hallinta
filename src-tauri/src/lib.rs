@@ -3,6 +3,7 @@ mod backup;
 mod files;
 mod logging;
 mod models;
+mod save_monitor;
 mod session;
 mod settings;
 
@@ -50,14 +51,24 @@ pub fn run() {
             backup::cleanup_old_backups,
             backup::get_backup_contents,
             backup::restore_backup,
-            app::get_system_info
+            app::get_system_info,
+            save_monitor::create_monitor_snapshot,
+            save_monitor::list_monitor_snapshots,
+            save_monitor::cleanup_monitor_snapshots,
+            save_monitor::clear_monitor_data
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app, event| {
             if let tauri::RunEvent::Exit = event {
                 session::revert_mod_config_internal();
+                let _ = logging::add_log_entry(
+                    "INFO".to_string(),
+                    "Application shutting down".to_string(),
+                    "App".to_string(),
+                );
                 let _ = logging::flush_log_buffer_sync();
+                logging::write_session_end_marker();
             }
         });
 }

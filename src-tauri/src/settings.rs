@@ -1,6 +1,7 @@
 use crate::app::{get_entangled_worlds_config_path, get_noita_save_path, get_version};
+use crate::backup::add_directory_to_zip;
 use crate::logging::add_log_entry;
-use crate::models::{AppSettings, BackupSettings, LogSettings, ModPreset};
+use crate::models::{AppSettings, BackupSettings, LogSettings, ModPreset, SaveMonitorSettings};
 use chrono::Utc;
 use serde_json;
 use std::fs;
@@ -52,6 +53,11 @@ pub(crate) async fn create_upgrade_backup(
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
     let presets_json = serde_json::to_string_pretty(&presets)
         .map_err(|e| format!("Failed to serialize presets: {}", e))?;
+
+    // Capture save paths from settings for full security backup
+    let noita_dir = settings.noita_dir.clone();
+    let entangled_dir = settings.entangled_dir.clone();
+
     let zip_file_path_clone = zip_file_path.clone();
     tokio::task::spawn_blocking(move || {
         let file = std::fs::File::create(&zip_file_path_clone)
@@ -60,6 +66,7 @@ pub(crate) async fn create_upgrade_backup(
         let options: FileOptions<()> =
             FileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
+        // App critical data
         zip.start_file("settings.json", options)
             .map_err(|e| format!("Failed to start file in zip: {}", e))?;
         zip.write_all(settings_json.as_bytes())
@@ -69,6 +76,30 @@ pub(crate) async fn create_upgrade_backup(
             .map_err(|e| format!("Failed to start file in zip: {}", e))?;
         zip.write_all(presets_json.as_bytes())
             .map_err(|e| format!("Failed to write presets to zip: {}", e))?;
+
+        // Save data — save00
+        if !noita_dir.is_empty() {
+            let save00_path = PathBuf::from(&noita_dir);
+            if save00_path.exists() {
+                add_directory_to_zip(&mut zip, &save00_path, "save00")?;
+            }
+
+            // save01 (sibling of save00)
+            if let Some(parent) = save00_path.parent() {
+                let save01_path = parent.join("save01");
+                if save01_path.exists() {
+                    add_directory_to_zip(&mut zip, &save01_path, "save01")?;
+                }
+            }
+        }
+
+        // Entangled Worlds data if configured
+        if !entangled_dir.is_empty() {
+            let ew_path = PathBuf::from(&entangled_dir);
+            if ew_path.exists() {
+                add_directory_to_zip(&mut zip, &ew_path, "entangled_worlds")?;
+            }
+        }
 
         zip.finish()
             .map_err(|e| format!("Failed to finish zip: {}", e))?;
@@ -158,6 +189,7 @@ pub(crate) async fn load_settings() -> Result<AppSettings, String> {
                 auto_save: true,
             },
             backup_settings: BackupSettings::default(),
+            save_monitor_settings: SaveMonitorSettings::default(),
         };
         save_settings(default_settings.clone())?;
         return Ok(default_settings);

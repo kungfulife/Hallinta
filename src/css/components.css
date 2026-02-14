@@ -503,3 +503,16 @@ input:checked + .slider:before {
     font-family: "Courier New", monospace;
     word-break: break-word;
 }
+
+.system-info-close-btn {
+    background: var(--accent-color) !important;
+    border-color: var(--accent-color) !important;
+    color: white !important;
+    font-weight: 500;
+    padding: 0.4em 1.2em !important;
+}
+
+.system-info-close-btn:hover {
+    background: #0056b3 !important;
+    border-color: #0056b3 !important;
+}

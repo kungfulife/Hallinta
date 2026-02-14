@@ -15,24 +15,28 @@ export class UIManager {
         const presetControls = document.getElementById('preset-controls');
         const combinedButton = document.getElementById('header-combined-button');
         const searchBar = document.getElementById('search-bar');
+        const modFilterSelect = document.getElementById('mod-filter-mode');
         const TRANSITION_DURATION_MS = 200;
 
         function cleanupAnimation(el) {
-            el.classList.remove('fade-in-fast', 'fade-out-fast');
+            if (el) el.classList.remove('fade-in-fast', 'fade-out-fast');
         }
 
         if (view === 'main') {
             cleanupAnimation(presetControls);
             cleanupAnimation(searchBar);
+            cleanupAnimation(modFilterSelect);
 
             presetControls.style.display = 'flex';
             searchBar.style.display = 'flex';
+            if (modFilterSelect) modFilterSelect.style.display = '';
 
             void presetControls.offsetWidth;
             void searchBar.offsetWidth;
 
             presetControls.classList.add('fade-in-fast');
             searchBar.classList.add('fade-in-fast');
+            if (modFilterSelect) modFilterSelect.classList.add('fade-in-fast');
 
             mainPage.style.display = 'flex';
             settingsPage.style.display = 'none';
@@ -41,15 +45,19 @@ export class UIManager {
         } else if (view === 'settings') {
             cleanupAnimation(presetControls);
             cleanupAnimation(searchBar);
+            cleanupAnimation(modFilterSelect);
 
             presetControls.classList.add('fade-out-fast');
             searchBar.classList.add('fade-out-fast');
+            if (modFilterSelect) modFilterSelect.classList.add('fade-out-fast');
 
             setTimeout(() => {
                 presetControls.style.display = 'none';
                 searchBar.style.display = 'none';
+                if (modFilterSelect) modFilterSelect.style.display = 'none';
                 cleanupAnimation(presetControls);
                 cleanupAnimation(searchBar);
+                cleanupAnimation(modFilterSelect);
             }, TRANSITION_DURATION_MS);
             mainPage.style.display = 'none';
             settingsPage.style.display = 'block';
@@ -136,11 +144,22 @@ export class UIManager {
     filterMods() {
         this.logAction('DEBUG', 'Filtering mods');
         const searchTerm = document.querySelector('.search-bar').value.toLowerCase();
+        const filterSelect = document.getElementById('mod-filter-mode');
+        const filterMode = filterSelect ? filterSelect.value : 'all';
         const modItems = document.querySelectorAll('.mod-item');
 
         modItems.forEach(item => {
             const modName = item.querySelector('.mod-name').textContent.toLowerCase();
-            item.style.display = modName.includes(searchTerm) ? 'flex' : 'none';
+            const matchesSearch = modName.includes(searchTerm);
+
+            let matchesFilter = true;
+            if (filterMode === 'enabled') {
+                matchesFilter = item.classList.contains('mod-enabled');
+            } else if (filterMode === 'disabled') {
+                matchesFilter = item.classList.contains('mod-disabled');
+            }
+
+            item.style.display = (matchesSearch && matchesFilter) ? 'flex' : 'none';
         });
     }
 

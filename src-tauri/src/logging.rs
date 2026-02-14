@@ -5,6 +5,7 @@ use chrono::{Local, Utc};
 use std::collections::VecDeque;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tokio::fs as tokio_fs;
 
@@ -14,11 +15,35 @@ pub(crate) static MAX_BUFFER_SIZE: usize = 1000;
 pub(crate) static INSTANCE_ID: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
     Local::now().format("%Y%m%d_%H%M%S").to_string()
 });
+static SESSION_STARTED: AtomicBool = AtomicBool::new(false);
 
 fn log_file_name(version: &str, instance_id: &str) -> String {
     // Mark dev-build logs clearly so they are easy to separate from release logs.
     let dev_tag = if cfg!(debug_assertions) { "_dev" } else { "" };
     format!("hallinta_v{}{}_{}.log", version, dev_tag, instance_id)
+}
+
+fn write_session_marker(file: &mut std::fs::File, marker: &str) {
+    let version = get_version();
+    let build_mode = if cfg!(debug_assertions) { "debug" } else { "release" };
+    let timestamp = Utc::now().to_rfc3339();
+    let line = format!(
+        "=== {} | Hallinta v{} ({}) | {} ===\n",
+        marker, version, build_mode, timestamp
+    );
+    let _ = file.write_all(line.as_bytes());
+}
+
+pub(crate) fn write_session_end_marker() {
+    if let Ok(data_dir) = get_data_dir() {
+        let logs_dir = data_dir.join("logs");
+        let version = get_version();
+        let instance_id = &*INSTANCE_ID;
+        let log_file = logs_dir.join(log_file_name(&version, instance_id));
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_file) {
+            write_session_marker(&mut file, "SESSION END");
+        }
+    }
 }
 
 #[tauri::command]
@@ -95,6 +120,12 @@ pub(crate) async fn flush_log_buffer() -> Result<(), String> {
         .append(true)
         .open(&log_file)
         .map_err(|e| format!("Failed to open log file {}: {}", log_file.display(), e))?;
+
+    // Write session begin marker on first flush
+    if !SESSION_STARTED.swap(true, Ordering::SeqCst) {
+        write_session_marker(&mut file, "SESSION BEGIN");
+    }
+
     for entry in logs {
         let log_line = format!(
             "[{}] [{}] [{}] {}\n",
@@ -129,6 +160,11 @@ pub(crate) fn flush_log_buffer_sync() -> Result<(), String> {
     let instance_id = &*INSTANCE_ID;
     let log_file = logs_dir.join(log_file_name(&version, instance_id));
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_file) {
+        // Write session begin marker on first flush
+        if !SESSION_STARTED.swap(true, Ordering::SeqCst) {
+            write_session_marker(&mut file, "SESSION BEGIN");
+        }
+
         for entry in logs {
             let log_line = format!(
                 "[{}] [{}] [{}] {}\n",

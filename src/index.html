@@ -27,6 +27,7 @@
     <script type="module" src="js/settingsManager.js"></script>
     <script type="module" src="js/uiManager.js"></script>
     <script type="module" src="js/backupManager.js"></script>
+    <script type="module" src="js/saveMonitorManager.js"></script>
     <script type="module" src="js/eventHandlers.js"></script>
     <script type="module" src="main.js"></script>
 </head>
@@ -36,6 +37,11 @@
     <div id="app-header" class="header">
 
         <input id="search-bar" type="text" class="search-bar" placeholder="Filter Mods by name..." oninput="filterMods()">
+        <select id="mod-filter-mode" class="mod-filter-select" onchange="filterMods()">
+            <option value="all">All</option>
+            <option value="enabled">Enabled</option>
+            <option value="disabled">Disabled</option>
+        </select>
 
         <div id="preset-controls" class="preset-controls">
             <select id="preset-dropdown" onchange="onPresetChange()"></select>
@@ -72,6 +78,11 @@
 
             <button onclick="createBackup()">Create Backup</button>
             <button onclick="openRestoreUI()">Restore Backup</button>
+
+            <hr class="sidebar-separator">
+
+            <button id="save-monitor-toggle" class="save-monitor-btn" onclick="toggleSaveMonitor()">Start Save Monitor</button>
+            <span id="save-monitor-status" class="save-monitor-status">Stopped</span>
         </div>
     </div>
 
@@ -128,6 +139,17 @@
             <span>Auto-backup every</span>
             <input type="number" id="backup-interval" min="0" max="1440" value="0" placeholder="0 = off">
             <span>minutes</span>
+        </div>
+
+        <h2>Save Monitor</h2>
+        <div class="setting-item-inline">
+            <span>Snapshot interval</span>
+            <input type="number" id="monitor-interval" min="1" max="1440" value="15">
+            <span>minutes</span>
+        </div>
+        <div class="setting-item-inline">
+            <span>Max snapshots per preset</span>
+            <input type="number" id="monitor-max-snapshots" min="1" max="100" value="10">
         </div>
 
         <h2>Appearance</h2>
@@ -221,7 +243,7 @@
             <div class="log-header">
                 <h3>System Info</h3>
                 <div class="log-controls">
-                    <button onclick="closeSystemInfo()">Close</button>
+                    <button class="system-info-close-btn" onclick="closeSystemInfo()">Close</button>
                 </div>
             </div>
             <div id="system-info-body" class="system-info-body"></div>
