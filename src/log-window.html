@@ -45,29 +45,53 @@
         </div>
     </div>
     <div class="log-filters">
-        <label><input type="checkbox" id="lw-filter-debug" checked> DEBUG</label>
-        <label><input type="checkbox" id="lw-filter-info" checked> INFO</label>
-        <label><input type="checkbox" id="lw-filter-warn" checked> WARN</label>
-        <label><input type="checkbox" id="lw-filter-error" checked> ERROR</label>
+        <label class="log-level-filter-label">Show:</label>
+        <select id="lw-filter-level" class="log-level-select">
+            <option value="DEBUG">All Levels (DEBUG+)</option>
+            <option value="INFO" selected>Info & Above (INFO+)</option>
+            <option value="WARN">Warnings & Errors (WARN+)</option>
+            <option value="ERROR">Errors Only</option>
+        </select>
         <input type="text" id="lw-search" placeholder="Search logs..." class="log-search-input">
     </div>
     <div id="lw-log-content"></div>
 </div>
 <script>
     async function initLogWindow() {
+        const logLevelOrder = { 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3 };
+        let currentLogLevel = 'INFO';
+
         try {
             const settings = await window.__TAURI__.core.invoke('load_settings');
             if (settings.dark_mode) {
                 document.body.classList.add('dark-mode');
             }
+            currentLogLevel = settings.log_settings?.log_level || 'INFO';
         } catch (e) {
-            // Defaults to light mode
+            // Defaults to light mode and INFO level
+        }
+
+        // Init dropdown: set default and disable irrelevant options
+        const filterSelect = document.getElementById('lw-filter-level');
+        if (filterSelect) {
+            const currentOrdinal = logLevelOrder[currentLogLevel] ?? 1;
+            filterSelect.value = currentLogLevel;
+            for (const option of filterSelect.options) {
+                option.disabled = (logLevelOrder[option.value] ?? 0) < currentOrdinal;
+            }
         }
 
         const escapeHtml = (text) => {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        };
+
+        const highlightText = (html, searchTerm) => {
+            if (!searchTerm) return html;
+            const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${escapedTerm})`, 'gi');
+            return html.replace(regex, '<mark class="log-highlight">$1</mark>');
         };
 
         const refreshLogs = async () => {
@@ -81,18 +105,13 @@
                     return;
                 }
 
-                const showDebug = document.getElementById('lw-filter-debug')?.checked ?? true;
-                const showInfo = document.getElementById('lw-filter-info')?.checked ?? true;
-                const showWarn = document.getElementById('lw-filter-warn')?.checked ?? true;
-                const showError = document.getElementById('lw-filter-error')?.checked ?? true;
+                const selectedLevel = document.getElementById('lw-filter-level')?.value || 'INFO';
+                const selectedOrdinal = logLevelOrder[selectedLevel] ?? 1;
                 const searchText = (document.getElementById('lw-search')?.value || '').toLowerCase();
 
                 const filteredLogs = logs.filter(log => {
                     const level = log.level.toUpperCase();
-                    if (level === 'DEBUG' && !showDebug) return false;
-                    if (level === 'INFO' && !showInfo) return false;
-                    if (level === 'WARN' && !showWarn) return false;
-                    if (level === 'ERROR' && !showError) return false;
+                    if ((logLevelOrder[level] ?? 0) < selectedOrdinal) return false;
                     if (searchText) {
                         const text = `${log.message} ${log.module}`.toLowerCase();
                         if (!text.includes(searchText)) return false;
@@ -102,10 +121,16 @@
 
                 const isNearBottom = logContent.scrollTop + logContent.clientHeight >= logContent.scrollHeight - 30;
 
+                const escapedSearch = searchText ? escapeHtml(document.getElementById('lw-search').value) : '';
+
                 const logHTML = filteredLogs.map(log => {
                     const levelClass = `log-${log.level.toLowerCase()}`;
                     const timestamp = log.timestamp.replace('T', ' ').replace(/\.\d+.*$/, '');
-                    return `<div class="log-line ${levelClass}"><span class="log-meta">[${timestamp}] [${log.level}] [${log.module}] </span><span class="log-msg">${escapeHtml(log.message)}</span></div>`;
+                    let msgHtml = escapeHtml(log.message);
+                    if (escapedSearch) {
+                        msgHtml = highlightText(msgHtml, escapedSearch);
+                    }
+                    return `<div class="log-line ${levelClass}"><span class="log-meta">[${timestamp}] [${log.level}] [${log.module}] </span><span class="log-msg">${msgHtml}</span></div>`;
                 }).join('');
 
                 logContent.innerHTML = logHTML || '<div class="log-line log-info"><span class="log-msg">No matching logs.</span></div>';
@@ -147,10 +172,8 @@
         });
 
         // Filter/search event listeners
-        ['lw-filter-debug', 'lw-filter-info', 'lw-filter-warn', 'lw-filter-error'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('change', refreshLogs);
-        });
+        const filterEl = document.getElementById('lw-filter-level');
+        if (filterEl) filterEl.addEventListener('change', refreshLogs);
 
         const searchEl = document.getElementById('lw-search');
         if (searchEl) searchEl.addEventListener('input', refreshLogs);

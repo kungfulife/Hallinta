@@ -176,10 +176,13 @@
                 </div>
             </div>
             <div class="log-filters">
-                <label><input type="checkbox" id="log-filter-debug" checked> DEBUG</label>
-                <label><input type="checkbox" id="log-filter-info" checked> INFO</label>
-                <label><input type="checkbox" id="log-filter-warn" checked> WARN</label>
-                <label><input type="checkbox" id="log-filter-error" checked> ERROR</label>
+                <label class="log-level-filter-label">Show:</label>
+                <select id="log-filter-level" class="log-level-select">
+                    <option value="DEBUG">All Levels (DEBUG+)</option>
+                    <option value="INFO" selected>Info & Above (INFO+)</option>
+                    <option value="WARN">Warnings & Errors (WARN+)</option>
+                    <option value="ERROR">Errors Only</option>
+                </select>
                 <input type="text" id="log-search" placeholder="Search logs..." class="log-search-input">
             </div>
             <div id="log-content"></div>
@@ -198,10 +201,13 @@
                 </div>
             </div>
             <div class="log-filters">
-                <label><input type="checkbox" id="log-fs-filter-debug" checked> DEBUG</label>
-                <label><input type="checkbox" id="log-fs-filter-info" checked> INFO</label>
-                <label><input type="checkbox" id="log-fs-filter-warn" checked> WARN</label>
-                <label><input type="checkbox" id="log-fs-filter-error" checked> ERROR</label>
+                <label class="log-level-filter-label">Show:</label>
+                <select id="log-fs-filter-level" class="log-level-select">
+                    <option value="DEBUG">All Levels (DEBUG+)</option>
+                    <option value="INFO" selected>Info & Above (INFO+)</option>
+                    <option value="WARN">Warnings & Errors (WARN+)</option>
+                    <option value="ERROR">Errors Only</option>
+                </select>
                 <input type="text" id="log-fs-search" placeholder="Search logs..." class="log-search-input">
             </div>
             <div id="log-fs-content"></div>
