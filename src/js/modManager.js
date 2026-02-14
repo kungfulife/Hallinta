@@ -1,4 +1,4 @@
-import {state} from './state.js';
+import {buildPresetsForSave, state} from './state.js';
 export class ModManager {
     constructor(uiManager) {
         this.uiManager = uiManager;
@@ -46,16 +46,7 @@ export class ModManager {
             this.logAction('INFO', `Populating empty preset '${state.selectedPreset}' from mod_config.xml.`);
             state.currentPresets[state.selectedPreset] = [...fileMods];
 
-            const presetsForSave = {};
-            Object.keys(state.currentPresets).forEach(presetName => {
-                presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
-                    name: mod.name,
-                    enabled: mod.enabled,
-                    workshop_id: mod.workshopId || '0',
-
-                    settings_fold_open: mod.settingsFoldOpen || false
-                }));
-            });
+            const presetsForSave = buildPresetsForSave(state.currentPresets);
             await window.__TAURI__.core.invoke('save_presets', {presets: presetsForSave});
             return true;
         }
@@ -75,15 +66,7 @@ export class ModManager {
                             this.uiManager.renderModList();
                             this.uiManager.updateModCount();
 
-                            const presetsForSave = {};
-                            Object.keys(state.currentPresets).forEach(presetName => {
-                                presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
-                                    name: mod.name,
-                                    enabled: mod.enabled,
-                                    workshop_id: mod.workshopId || '0',
-                                    settings_fold_open: mod.settingsFoldOpen || false
-                                }));
-                            });
+                            const presetsForSave = buildPresetsForSave(state.currentPresets);
                             await window.__TAURI__.core.invoke('save_presets', {presets: presetsForSave});
                             resolve(false);
                         },
@@ -109,16 +92,7 @@ export class ModManager {
     async saveSelectedPreset() {
         try {
             if (window.__TAURI__ && window.__TAURI__.core) {
-                const presetsForSave = {};
-                Object.keys(state.currentPresets).forEach(presetName => {
-                    presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
-                        name: mod.name,
-                        enabled: mod.enabled,
-
-                        workshop_id: mod.workshopId || '0',
-                        settings_fold_open: mod.settingsFoldOpen || false
-                    }));
-                });
+                const presetsForSave = buildPresetsForSave(state.currentPresets);
                 await window.__TAURI__.core.invoke('save_presets', { presets: presetsForSave });
                 this.logAction('INFO', `Saved preset configuration for: ${state.selectedPreset}`);
             }

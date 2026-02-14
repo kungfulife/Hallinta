@@ -11,8 +11,9 @@
 
 h1 {
     color: var(--text-color);
-    font-size: 2.2em;
+    font-size: 2.8em;
     font-weight: bold;
+    letter-spacing: 0.02em;
     margin: 0.5em 0;
     pointer-events: none; /* Makes it non-interactive with mouse */
     user-select: none; /* Prevents text selection */
