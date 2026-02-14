@@ -96,4 +96,14 @@ cargo tauri dev
 cargo tauri build
 ```
 
-Version 0.4.5
+## Latest Version
+
+Current version: **0.5.0**
+
+Latest update highlights:
+- Backend refactor: split monolithic `lib.rs` into focused Rust modules
+- New System Info panel in Settings (build/runtime metadata display)
+- Shared log utilities to reduce duplicate JS across log viewers
+- UI polish updates (title sizing, log/setting color touch-ups)
+
+For older release notes, see `UPDATEHISTORY.md`.
