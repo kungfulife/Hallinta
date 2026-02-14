@@ -235,6 +235,32 @@ input:checked + .slider:before {
     user-select: none;
 }
 
+.log-level-filter-label {
+    color: var(--text-color);
+    font-size: 0.85em;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.log-level-select {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-color);
+    background: var(--bg-color);
+    font-size: 0.85em;
+    padding: 0.3em 0.5em;
+    cursor: pointer;
+}
+
+.log-level-select:focus {
+    border-color: var(--accent-color);
+    outline: none;
+}
+
+.log-level-select option:disabled {
+    color: #aaa;
+}
+
 .log-search-input {
     border: 1px solid var(--border-color);
     border-radius: 4px;
@@ -350,6 +376,19 @@ input:checked + .slider:before {
 .log-line.log-info .log-msg { color: var(--text-color); }
 .log-line.log-warn .log-msg { color: #f0ad4e; }
 .log-line.log-error .log-msg { color: #e63946; }
+
+/* Search highlight */
+.log-highlight {
+    background: #ffd54f;
+    color: #333;
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+.dark-mode .log-highlight {
+    background: #b8860b;
+    color: #fff;
+}
 
 /* Checklist modal alignment */
 .modal-content-checklist {

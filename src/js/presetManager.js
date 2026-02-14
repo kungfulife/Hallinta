@@ -49,17 +49,25 @@ export class PresetManager {
         try {
             if (selectedValue === 'createnew') {
                 this.logAction('DEBUG', 'Creating new preset');
-                const newName = prompt('Enter name for new preset:', `Preset ${Object.keys(state.currentPresets).length + 1}`);
-                if (newName && newName.trim() !== '' && !state.currentPresets[newName]) {
-                    state.currentPresets[newName] = [...state.currentMods];
-                    state.selectedPreset = newName;
-                    await this.saveSelectedPreset();
-                    this.loadPresets();
-                    this.uiManager.logAction('INFO', `Created new preset: ${newName}`);
-                } else {
-                    selector.value = state.selectedPreset;
-                    this.uiManager.logAction('INFO', newName === null ? 'Preset creation canceled' : 'Invalid preset name or preset already exists');
-                }
+                selector.value = state.selectedPreset;
+                this.uiManager.showInputModal(
+                    'Enter name for new preset:',
+                    `Preset ${Object.keys(state.currentPresets).length + 1}`,
+                    async (newName) => {
+                        if (newName && newName.trim() !== '' && !state.currentPresets[newName]) {
+                            state.currentPresets[newName] = [...state.currentMods];
+                            state.selectedPreset = newName;
+                            await this.saveSelectedPreset();
+                            this.loadPresets();
+                            this.uiManager.logAction('INFO', `Created new preset: ${newName}`);
+                        } else {
+                            this.uiManager.logAction('INFO', 'Invalid preset name or preset already exists');
+                        }
+                    },
+                    () => {
+                        this.uiManager.logAction('INFO', 'Preset creation canceled');
+                    }
+                );
             } else if (state.currentPresets[selectedValue] && Array.isArray(state.currentPresets[selectedValue])) {
                 const prevPreset = state.selectedPreset;
                 const newModCount = state.currentPresets[selectedValue].length;

@@ -47,38 +47,29 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
 
+    const logLevelOrder = { 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3 };
+
     const getActiveLogElements = () => {
         if (logViewMode === 'fullscreen') {
             return {
                 content: document.getElementById('log-fs-content'),
-                filterDebug: document.getElementById('log-fs-filter-debug'),
-                filterInfo: document.getElementById('log-fs-filter-info'),
-                filterWarn: document.getElementById('log-fs-filter-warn'),
-                filterError: document.getElementById('log-fs-filter-error'),
+                filterLevel: document.getElementById('log-fs-filter-level'),
                 search: document.getElementById('log-fs-search'),
             };
         }
         return {
             content: document.getElementById('log-content'),
-            filterDebug: document.getElementById('log-filter-debug'),
-            filterInfo: document.getElementById('log-filter-info'),
-            filterWarn: document.getElementById('log-filter-warn'),
-            filterError: document.getElementById('log-filter-error'),
+            filterLevel: document.getElementById('log-filter-level'),
             search: document.getElementById('log-search'),
         };
     };
 
     const syncFilters = (fromMode) => {
-        const modalIds = ['log-filter-debug', 'log-filter-info', 'log-filter-warn', 'log-filter-error'];
-        const fsIds = ['log-fs-filter-debug', 'log-fs-filter-info', 'log-fs-filter-warn', 'log-fs-filter-error'];
-        const src = fromMode === 'modal' ? modalIds : fsIds;
-        const dst = fromMode === 'modal' ? fsIds : modalIds;
-
-        for (let i = 0; i < src.length; i++) {
-            const srcEl = document.getElementById(src[i]);
-            const dstEl = document.getElementById(dst[i]);
-            if (srcEl && dstEl) dstEl.checked = srcEl.checked;
-        }
+        const srcLevelId = fromMode === 'modal' ? 'log-filter-level' : 'log-fs-filter-level';
+        const dstLevelId = fromMode === 'modal' ? 'log-fs-filter-level' : 'log-filter-level';
+        const srcLevel = document.getElementById(srcLevelId);
+        const dstLevel = document.getElementById(dstLevelId);
+        if (srcLevel && dstLevel) dstLevel.value = srcLevel.value;
 
         const srcSearch = document.getElementById(fromMode === 'modal' ? 'log-search' : 'log-fs-search');
         const dstSearch = document.getElementById(fromMode === 'modal' ? 'log-fs-search' : 'log-search');
@@ -150,6 +141,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             logViewMode = 'modal';
             logLastInAppMode = 'modal';
             modal.style.display = 'flex';
+            initLogFilterDropdown();
             applyAutoScale();
             setupModalResizeDetection();
             refreshLogs();
@@ -272,6 +264,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         setStatusBarVisible(true);
 
         // Reopen in-app using last mode
+        initLogFilterDropdown();
         if (logLastInAppMode === 'fullscreen') {
             const fullscreen = document.getElementById('log-fullscreen');
             if (fullscreen) {
@@ -314,6 +307,13 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
 
+    const highlightText = (html, searchTerm) => {
+        if (!searchTerm) return html;
+        const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escapedTerm})`, 'gi');
+        return html.replace(regex, '<mark class="log-highlight">$1</mark>');
+    };
+
     const refreshLogs = async () => {
         // Don't refresh in-app views when detached to separate window
         if (logViewMode === 'detached') return;
@@ -329,18 +329,13 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 return;
             }
 
-            const showDebug = els.filterDebug?.checked ?? true;
-            const showInfo = els.filterInfo?.checked ?? true;
-            const showWarn = els.filterWarn?.checked ?? true;
-            const showError = els.filterError?.checked ?? true;
+            const selectedLevel = els.filterLevel?.value || 'INFO';
+            const selectedOrdinal = logLevelOrder[selectedLevel] ?? 1;
             const searchText = (els.search?.value || '').toLowerCase();
 
             const filteredLogs = logs.filter(log => {
                 const level = log.level.toUpperCase();
-                if (level === 'DEBUG' && !showDebug) return false;
-                if (level === 'INFO' && !showInfo) return false;
-                if (level === 'WARN' && !showWarn) return false;
-                if (level === 'ERROR' && !showError) return false;
+                if ((logLevelOrder[level] ?? 0) < selectedOrdinal) return false;
                 if (searchText) {
                     const text = `${log.message} ${log.module}`.toLowerCase();
                     if (!text.includes(searchText)) return false;
@@ -351,10 +346,16 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             // Smart scroll: check if user is near bottom before updating
             const isNearBottom = els.content.scrollTop + els.content.clientHeight >= els.content.scrollHeight - 30;
 
+            const escapedSearch = searchText ? escapeHtml(els.search.value) : '';
+
             const logHTML = filteredLogs.map(log => {
                 const levelClass = `log-${log.level.toLowerCase()}`;
                 const timestamp = log.timestamp.replace('T', ' ').replace(/\.\d+.*$/, '');
-                return `<div class="log-line ${levelClass}"><span class="log-meta">[${timestamp}] [${log.level}] [${log.module}] </span><span class="log-msg">${escapeHtml(log.message)}</span></div>`;
+                let msgHtml = escapeHtml(log.message);
+                if (escapedSearch) {
+                    msgHtml = highlightText(msgHtml, escapedSearch);
+                }
+                return `<div class="log-line ${levelClass}"><span class="log-meta">[${timestamp}] [${log.level}] [${log.module}] </span><span class="log-msg">${msgHtml}</span></div>`;
             }).join('');
 
             els.content.innerHTML = logHTML || '<div class="log-line log-info"><span class="log-msg">No matching logs.</span></div>';
@@ -375,6 +376,22 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    };
+
+    const initLogFilterDropdown = () => {
+        const currentLogLevel = settingsManager.settings?.log_settings?.log_level || 'INFO';
+        const currentOrdinal = logLevelOrder[currentLogLevel] ?? 1;
+
+        ['log-filter-level', 'log-fs-filter-level'].forEach(id => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            // Set default to current log level
+            select.value = currentLogLevel;
+            // Disable options below current log level (no entries exist for them)
+            for (const option of select.options) {
+                option.disabled = (logLevelOrder[option.value] ?? 0) < currentOrdinal;
+            }
+        });
     };
 
     window.refreshLogs = refreshLogs;
@@ -576,6 +593,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
         await settingsManager.loadConfig();
         presetManager.loadPresets();
+        initLogFilterDropdown();
 
         if (settingsManager.settings.noita_dir) {
             const configPath = `${settingsManager.settings.noita_dir}/mod_config.xml`;
@@ -601,8 +619,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
 
         // Log filter event listeners (modal + fullscreen)
-        ['log-filter-debug', 'log-filter-info', 'log-filter-warn', 'log-filter-error',
-         'log-fs-filter-debug', 'log-fs-filter-info', 'log-fs-filter-warn', 'log-fs-filter-error'].forEach(id => {
+        ['log-filter-level', 'log-fs-filter-level'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', refreshLogs);
         });
