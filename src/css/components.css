@@ -504,6 +504,15 @@ input:checked + .slider:before {
     word-break: break-word;
 }
 
+.system-info-link {
+    color: var(--accent-color);
+    text-decoration: none;
+}
+
+.system-info-link:hover {
+    text-decoration: underline;
+}
+
 .system-info-close-btn {
     background: var(--accent-color) !important;
     border-color: var(--accent-color) !important;

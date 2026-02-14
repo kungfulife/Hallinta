@@ -39,11 +39,16 @@ pub struct AppSettings {
     pub dark_mode: bool,
     pub selected_preset: String,
     pub version: String,
+    #[serde(default)]
     pub log_settings: LogSettings,
     #[serde(default)]
     pub backup_settings: BackupSettings,
     #[serde(default)]
     pub save_monitor_settings: SaveMonitorSettings,
+}
+
+fn default_collect_system_info() -> bool {
+    true
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -52,6 +57,25 @@ pub struct LogSettings {
     pub max_log_size_mb: usize,
     pub log_level: String,
     pub auto_save: bool,
+    #[serde(default = "default_collect_system_info")]
+    pub collect_system_info: bool,
+}
+
+impl Default for LogSettings {
+    fn default() -> Self {
+        let default_log_level = if cfg!(debug_assertions) {
+            "DEBUG"
+        } else {
+            "INFO"
+        };
+        LogSettings {
+            max_log_files: 50,
+            max_log_size_mb: 10,
+            log_level: default_log_level.to_string(),
+            auto_save: true,
+            collect_system_info: true,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -102,11 +126,25 @@ pub struct RestoreOptions {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SystemInfo {
     pub app_version: String,
-    pub build_mode: String,
+    pub build_profile: String,
     pub rust_version: String,
     pub cargo_version: String,
-    pub target_triple: String,
+    pub build_target: String,
     pub tauri_version: String,
     pub os: String,
+    pub os_family: String,
     pub arch: String,
+    pub logical_cpu_cores: usize,
+    pub local_time: String,
+    pub utc_time: String,
+    pub executable_dir: String,
+    pub app_data_dir: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct OpenSourceLibrary {
+    pub name: String,
+    pub version: String,
+    pub purpose: String,
+    pub homepage: String,
 }

@@ -128,6 +128,11 @@
             </select>
 
         </div>
+        <div class="setting-item setting-item-checkbox">
+            <input type="checkbox" id="collect-system-info-checkbox">
+            <label for="collect-system-info-checkbox">Collect system details in startup logs</label>
+        </div>
+        <p class="dev-info-text">Adds a diagnostics block (build/runtime/path details) to logs each app start</p>
 
         <h2>Backup Settings</h2>
         <div class="setting-item-inline">
@@ -174,7 +179,8 @@
         </div>
 
         <div class="button-group">
-            <button onclick="openSystemInfo()">System Info</button>
+            <button onclick="openSystemInfo()">System Information</button>
+            <button onclick="openOpenSourceLibraries()">Open Source Libraries</button>
             <button onclick="resetToDefaults()">Reset to defaults</button>
         </div>
 
@@ -243,12 +249,24 @@
     <div id="system-info-panel" class="system-info-panel" style="display: none;">
         <div class="log-fullscreen-content">
             <div class="log-header">
-                <h3>System Info</h3>
+                <h3>System Information</h3>
                 <div class="log-controls">
                     <button class="system-info-close-btn" onclick="closeSystemInfo()">Close</button>
                 </div>
             </div>
             <div id="system-info-body" class="system-info-body"></div>
+        </div>
+    </div>
+
+    <div id="open-source-panel" class="system-info-panel" style="display: none;">
+        <div class="log-fullscreen-content">
+            <div class="log-header">
+                <h3>Open Source Libraries</h3>
+                <div class="log-controls">
+                    <button class="system-info-close-btn" onclick="closeOpenSourceLibraries()">Close</button>
+                </div>
+            </div>
+            <div id="open-source-body" class="system-info-body"></div>
         </div>
     </div>
 

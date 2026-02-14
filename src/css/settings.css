@@ -19,7 +19,7 @@
     margin-top: 0;
 }
 
-.settings-page input {
+.settings-page input:not([type="checkbox"]) {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
@@ -31,7 +31,7 @@
     width: 100%;
 }
 
-.settings-page input:focus {
+.settings-page input:not([type="checkbox"]):focus {
     border-color: var(--accent-color);
     box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
     outline: none;
@@ -92,6 +92,22 @@
 .setting-item label {
     color: var(--text-color);
     font-weight: 500;
+}
+
+.setting-item-checkbox {
+    gap: 0.6rem;
+}
+
+.setting-item-checkbox input[type="checkbox"] {
+    accent-color: var(--accent-color);
+    cursor: pointer;
+    height: 1rem;
+    margin: 0;
+    width: 1rem;
+}
+
+.setting-item-checkbox label {
+    cursor: pointer;
 }
 
 .setting-item select {

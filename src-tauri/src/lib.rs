@@ -54,6 +54,7 @@ pub fn run() {
             backup::get_backup_contents,
             backup::restore_backup,
             app::get_system_info,
+            app::get_open_source_libraries,
             save_monitor::create_monitor_snapshot,
             save_monitor::list_monitor_snapshots,
             save_monitor::cleanup_monitor_snapshots,

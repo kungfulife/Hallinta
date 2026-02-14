@@ -14,7 +14,8 @@ export class SettingsManager {
                 max_log_files: 50,
                 max_log_size_mb: 10,
                 log_level: 'INFO',
-                auto_save: true
+                auto_save: true,
+                collect_system_info: true
             },
             backup_settings: {
                 auto_delete_days: 30,
@@ -74,7 +75,8 @@ export class SettingsManager {
                         max_log_files: 50,
                         max_log_size_mb: 10,
                         log_level: 'INFO',
-                        auto_save: true
+                        auto_save: true,
+                        collect_system_info: true
                     },
                     backup_settings: {
                         auto_delete_days: 30,
@@ -198,6 +200,7 @@ export class SettingsManager {
             }
 
             this.applyConfig(settings, presets);
+            await this.logStartupSystemInfo();
             this.logAction('DEBUG', `Startup selected preset from settings: ${state.selectedPreset}`);
             const versionElement = document.getElementById('app-version');
             if (versionElement) {
@@ -240,6 +243,22 @@ export class SettingsManager {
 
     applyConfig(settings, presets) {
         this.settings = settings;
+        // Ensure log_settings defaults
+        if (!this.settings.log_settings) {
+            this.settings.log_settings = {
+                max_log_files: 50,
+                max_log_size_mb: 10,
+                log_level: 'INFO',
+                auto_save: true,
+                collect_system_info: true
+            };
+        }
+        if (!this.settings.log_settings.log_level) {
+            this.settings.log_settings.log_level = 'INFO';
+        }
+        if (typeof this.settings.log_settings.collect_system_info !== 'boolean') {
+            this.settings.log_settings.collect_system_info = true;
+        }
         // Ensure backup_settings defaults
         if (!this.settings.backup_settings) {
             this.settings.backup_settings = {
@@ -279,6 +298,7 @@ export class SettingsManager {
         const entangledDirElement = document.getElementById('entangled-dir');
         const darkModeElement = document.getElementById('dark-mode-checkbox');
         const logLevelSelect = document.getElementById('log-level-select');
+        const collectSystemInfoCheckbox = document.getElementById('collect-system-info-checkbox');
         const autoDeleteDaysInput = document.getElementById('auto-delete-days');
         const backupIntervalInput = document.getElementById('backup-interval');
         const monitorIntervalInput = document.getElementById('monitor-interval');
@@ -291,6 +311,9 @@ export class SettingsManager {
         if (entangledDirElement) entangledDirElement.value = settings.entangled_dir;
         if (darkModeElement) darkModeElement.checked = state.isDarkMode;
         if (logLevelSelect) logLevelSelect.value = settings.log_settings.log_level || 'INFO';
+        if (collectSystemInfoCheckbox) {
+            collectSystemInfoCheckbox.checked = this.settings.log_settings.collect_system_info !== false;
+        }
         this.updateLogLevelSelectColor();
         if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings.auto_delete_days;
         if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings.backup_interval_minutes;
@@ -321,6 +344,7 @@ export class SettingsManager {
             const noitaDirElement = document.getElementById('noita-dir');
             const entangledDirElement = document.getElementById('entangled-dir');
             const logLevelSelect = document.getElementById('log-level-select');
+            const collectSystemInfoCheckbox = document.getElementById('collect-system-info-checkbox');
             const autoDeleteDaysInput = document.getElementById('auto-delete-days');
             const backupIntervalInput = document.getElementById('backup-interval');
             const monitorIntervalInput = document.getElementById('monitor-interval');
@@ -330,7 +354,13 @@ export class SettingsManager {
             this.settings.entangled_dir = entangledDirElement ? entangledDirElement.value : '';
             this.settings.dark_mode = state.isDarkMode;
             this.settings.selected_preset = state.selectedPreset;
+            if (!this.settings.log_settings) {
+                this.settings.log_settings = {};
+            }
             if (logLevelSelect) this.settings.log_settings.log_level = logLevelSelect.value;
+            if (collectSystemInfoCheckbox) {
+                this.settings.log_settings.collect_system_info = !!collectSystemInfoCheckbox.checked;
+            }
             if (autoDeleteDaysInput) {
                 const days = parseInt(autoDeleteDaysInput.value);
                 this.settings.backup_settings.auto_delete_days = isNaN(days) ? 30 : days;
@@ -572,7 +602,8 @@ export class SettingsManager {
                     max_log_files: 50,
                     max_log_size_mb: 10,
                     log_level: 'INFO',
-                    auto_save: true
+                    auto_save: true,
+                    collect_system_info: true
                 },
                 backup_settings: {
                     auto_delete_days: 30,
@@ -594,6 +625,7 @@ export class SettingsManager {
             const entangledDirElement = document.getElementById('entangled-dir');
             const darkModeElement = document.getElementById('dark-mode-checkbox');
             const logLevelSelect = document.getElementById('log-level-select');
+            const collectSystemInfoCheckbox = document.getElementById('collect-system-info-checkbox');
             const autoDeleteDaysInput = document.getElementById('auto-delete-days');
             const backupIntervalInput = document.getElementById('backup-interval');
             // In dev mode, show the real Noita path in the input field
@@ -603,6 +635,7 @@ export class SettingsManager {
             if (entangledDirElement) entangledDirElement.value = defaultEntangledDir;
             if (darkModeElement) darkModeElement.checked = false;
             if (logLevelSelect) logLevelSelect.value = 'INFO';
+            if (collectSystemInfoCheckbox) collectSystemInfoCheckbox.checked = true;
             this.updateLogLevelSelectColor();
             if (autoDeleteDaysInput) autoDeleteDaysInput.value = 30;
             if (backupIntervalInput) backupIntervalInput.value = 0;
@@ -636,6 +669,7 @@ export class SettingsManager {
             const entangledDirElement = document.getElementById('entangled-dir');
             const darkModeElement = document.getElementById('dark-mode-checkbox');
             const logLevelSelect = document.getElementById('log-level-select');
+            const collectSystemInfoCheckbox = document.getElementById('collect-system-info-checkbox');
             const autoDeleteDaysInput = document.getElementById('auto-delete-days');
             const backupIntervalInput = document.getElementById('backup-interval');
             const monitorIntervalInput = document.getElementById('monitor-interval');
@@ -647,6 +681,9 @@ export class SettingsManager {
             if (entangledDirElement) entangledDirElement.value = this.settings.entangled_dir;
             if (darkModeElement) darkModeElement.checked = state.isDarkMode;
             if (logLevelSelect) logLevelSelect.value = this.settings.log_settings.log_level;
+            if (collectSystemInfoCheckbox) {
+                collectSystemInfoCheckbox.checked = this.settings.log_settings.collect_system_info !== false;
+            }
             this.updateLogLevelSelectColor();
             if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings?.auto_delete_days ?? 30;
             if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings?.backup_interval_minutes ?? 0;
@@ -663,6 +700,29 @@ export class SettingsManager {
         if (!select) return;
         const colorMap = { DEBUG: '#adb5bd', INFO: 'var(--accent-color)', WARN: '#ffc107', ERROR: '#dc3545' };
         select.style.color = colorMap[select.value] || '';
+    }
+
+    async logStartupSystemInfo() {
+        if (!this.settings.log_settings?.collect_system_info) {
+            return;
+        }
+
+        try {
+            const info = await window.__TAURI__.core.invoke('get_system_info');
+            this.logAction('INFO', 'System information logging enabled');
+            this.logAction('INFO', `Build profile: ${info.build_profile} | Build target: ${info.build_target}`);
+            this.logAction('INFO', `Runtime: ${info.os} (${info.os_family}) | ${info.arch} | ${info.logical_cpu_cores} logical CPU cores`);
+            this.logAction('INFO', `Toolchain: ${info.rust_version} | ${info.cargo_version} | Tauri ${info.tauri_version}`);
+            this.logAction('INFO', `App data directory: ${info.app_data_dir}`);
+            this.logAction('INFO', `Executable directory: ${info.executable_dir}`);
+            this.logAction('INFO', `Clock snapshot: local ${info.local_time} | utc ${info.utc_time}`);
+
+            const configuredNoitaDir = (this._isDevBuild && this._realNoitaDir) ? this._realNoitaDir : this.settings.noita_dir;
+            this.logAction('INFO', `Configured Noita save directory: ${configuredNoitaDir || '(not set)'}`);
+            this.logAction('INFO', `Configured Entangled Worlds directory: ${this.settings.entangled_dir || '(not set)'}`);
+        } catch (error) {
+            this.logAction('WARN', `Failed to collect startup system information: ${error.message || error}`);
+        }
     }
 
     logAction(level, message) {
