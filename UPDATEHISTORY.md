@@ -2,6 +2,14 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.5.3
+- Improved drag-and-drop reorder UX by removing confusing visible source ghost behavior during drag
+- Added `Esc` cancel during active drag to revert mod order back to the exact pre-drag snapshot
+- Prevented reorder persistence on canceled drags and no-op drags (no accidental save when nothing changed)
+- Fixed dev-mode mod save path mismatch so toggles/reorders persist correctly across restarts
+- Improved startup preset/mod_config synchronization behavior and added clearer startup diagnostics in logs
+- Note: Mod List move/reorder UI is still being worked on
+
 ## 0.5.0
 - Split backend `lib.rs` into modules: `app`, `settings`, `logging`, `files`, `session`, `backup`, `models`
 - Added compile-time build metadata in `build.rs` and new `get_system_info` Tauri command
