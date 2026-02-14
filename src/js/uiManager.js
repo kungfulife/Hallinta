@@ -471,27 +471,28 @@ export class UIManager {
 
     logAction(level, message, module = 'UIManager') {
         const normalizedLevel = level.toUpperCase(); // Normalize to uppercase
-        const logLevelOrder = {'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3};
+        const logLevelOrder = {'DEV': -1, 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3};
         const currentLogLevel = this.settingsManager?.settings.log_settings.log_level?.toUpperCase() || 'INFO';
         const currentLevelValue = logLevelOrder[currentLogLevel] ?? 1;
         const logLevelValue = logLevelOrder[normalizedLevel] ?? 0;
 
-        if (logLevelValue >= currentLevelValue) {
+        // DEV level always passes through regardless of log level setting
+        if (normalizedLevel === 'DEV' || logLevelValue >= currentLevelValue) {
 
-            // Print to browser console.
-            // console.log(`Logging: [${normalizedLevel}] ${message} (Current Level: ${currentLogLevel}, Log Value: ${logLevelValue}, Current Value: ${currentLevelValue})`);
-
-            const statusBar = document.getElementById('status-bar');
-            if (statusBar) {
-                if (normalizedLevel === 'ERROR') {
-                    statusBar.textContent = `Error: ${message}`;
-                    statusBar.classList.add('error');
-                    setTimeout(() => {
-                        statusBar.classList.remove('error');
-                    }, 5000);
-                } else {
-                    statusBar.textContent = message;
-                    statusBar.className = 'status-bar';
+            // DEV logs go straight to the buffer, skip status bar
+            if (normalizedLevel !== 'DEV') {
+                const statusBar = document.getElementById('status-bar');
+                if (statusBar) {
+                    if (normalizedLevel === 'ERROR') {
+                        statusBar.textContent = `Error: ${message}`;
+                        statusBar.classList.add('error');
+                        setTimeout(() => {
+                            statusBar.classList.remove('error');
+                        }, 5000);
+                    } else {
+                        statusBar.textContent = message;
+                        statusBar.className = 'status-bar';
+                    }
                 }
             }
             if (window.__TAURI__ && window.__TAURI__.core) {

@@ -47,7 +47,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
 
-    const logLevelOrder = { 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3 };
+    const logLevelOrder = { 'DEV': -1, 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3 };
 
     const getActiveLogElements = () => {
         if (logViewMode === 'fullscreen') {
@@ -335,7 +335,8 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
             const filteredLogs = logs.filter(log => {
                 const level = log.level.toUpperCase();
-                if ((logLevelOrder[level] ?? 0) < selectedOrdinal) return false;
+                // DEV level always passes through
+                if (level !== 'DEV' && (logLevelOrder[level] ?? 0) < selectedOrdinal) return false;
                 if (searchText) {
                     const text = `${log.message} ${log.module}`.toLowerCase();
                     if (!text.includes(searchText)) return false;
