@@ -2,6 +2,12 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.5.6
+- Added `dev` tag in log filenames for dev builds (example: `hallinta_v0.5.6_dev_<instance>.log`)
+- Fixed mod-item hold behavior where chosen row could visually disappear before real drag movement
+- Tuned drag/click interaction thresholds to reduce accidental drag-start on click and missed single-click toggles
+- Kept drag position-number sync behavior for fallback dragged element during reorder preview
+
 ## 0.5.5
 - Fixed main mod-list drag preview so the dragged item's number badge updates live to the predicted drop position
 - Fixed Sortable fallback clone behavior by explicitly syncing `.sortable-fallback .mod-number` during `onMove`

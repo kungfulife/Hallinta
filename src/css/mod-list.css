@@ -173,10 +173,11 @@
 }
 
 .sortable-chosen:not(.sortable-fallback) {
-    opacity: 0 !important;
-    background: transparent !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
+    /* Keep chosen item visible during hold so it does not "disappear" before drag actually moves. */
+    opacity: 0.96 !important;
+    background: var(--card-bg) !important;
+    border-color: var(--accent-color) !important;
+    box-shadow: 0 0 0 1px var(--accent-color) inset !important;
 }
 
 .sortable-drag {

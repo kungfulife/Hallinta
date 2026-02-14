@@ -98,11 +98,11 @@ cargo tauri build
 
 ## Latest Version
 
-Current version: **0.5.5**
+Current version: **0.5.6**
 
 Latest update highlights:
-- Fixed dragged mod number badge staying stuck at its original index during drag preview
-- Drag preview now updates the floating fallback clone number to match predicted drop position
-- Added target candidate highlighting while dragging for clearer placement feedback
+- Dev-build log files now include a `dev` marker in filename for quick identification
+- Drag hold no longer makes the selected mod row disappear before pointer movement
+- Drag-vs-click thresholds tuned to reduce accidental drags and missed single-click toggles
 
 For older release notes, see `UPDATEHISTORY.md`.
