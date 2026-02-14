@@ -1,4 +1,5 @@
 import {deepCopyMods, state} from './state.js';
+import {updateDragVisualNumbersByDom} from './reorderUtils.js';
 
 export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager) {
     window.changeDirectory = (type) => settingsManager.changeDirectory(type);
@@ -397,43 +398,25 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     let dragSnapshotMods = null;
     let dragCancelRequested = false;
     let dragStartIndex = null;
+    let dragTargetCandidate = null;
 
-    const updateDragVisualNumbers = (sourceIndex, targetIndex, draggedEl) => {
-        const listEl = document.getElementById('mod-list');
-        if (!listEl) return;
-
-        const visibleItems = Array.from(listEl.querySelectorAll('.mod-item'));
-        const listLength = visibleItems.length;
-        const boundedSource = Math.max(0, Math.min(sourceIndex ?? 0, listLength - 1));
-        const boundedTarget = Math.max(0, Math.min(targetIndex ?? boundedSource, listLength - 1));
-
-        const order = Array.from({ length: listLength }, (_, i) => i);
-        const [moved] = order.splice(boundedSource, 1);
-        order.splice(boundedTarget, 0, moved);
-
-        const positionByOriginalIndex = new Map();
-        order.forEach((originalIdx, newIdx) => {
-            positionByOriginalIndex.set(originalIdx, newIdx + 1);
-        });
-
-        visibleItems.forEach((item) => {
-            const badge = item.querySelector('.mod-number');
-            if (!badge) return;
-            const originalIdx = Number(item.dataset.index);
-            const next = Number.isFinite(originalIdx)
-                ? positionByOriginalIndex.get(originalIdx)
-                : undefined;
-            if (typeof next === 'number') {
-                badge.textContent = String(next);
-            }
-        });
-
-        if (draggedEl) {
-            const dragBadge = draggedEl.querySelector('.mod-number');
-            if (dragBadge && typeof boundedTarget === 'number') {
-                dragBadge.textContent = String(boundedTarget + 1);
-            }
+    const clearDragTargetCandidate = () => {
+        if (dragTargetCandidate) {
+            dragTargetCandidate.classList.remove('drag-target-candidate');
+            dragTargetCandidate = null;
         }
+    };
+
+    const resolveTargetIndex = (listEl, evt) => {
+        const childrenWithoutDragged = Array.from(listEl.children).filter((child) => child !== (evt.dragged || evt.item));
+        if (!evt.related) {
+            return childrenWithoutDragged.length;
+        }
+        const relatedIndex = childrenWithoutDragged.indexOf(evt.related);
+        if (relatedIndex < 0) {
+            return dragStartIndex ?? 0;
+        }
+        return evt.willInsertAfter ? relatedIndex + 1 : relatedIndex;
     };
 
     const stopFileWatcher = () => {
@@ -682,6 +665,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                     dragStartIndex = null;
                 },
                 onEnd: (evt) => {
+                    clearDragTargetCandidate();
                     if (dragCancelRequested && dragSnapshotMods) {
                         state.currentMods = deepCopyMods(dragSnapshotMods);
                         state.currentPresets[state.selectedPreset] = deepCopyMods(dragSnapshotMods);
@@ -712,18 +696,25 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 },
                 onChoose: (evt) => {
                     dragStartIndex = evt.oldIndex;
-                    updateDragVisualNumbers(evt.oldIndex, evt.oldIndex, evt.item);
+                    updateDragVisualNumbersByDom(list, evt.oldIndex, evt.oldIndex, evt.item);
                 },
                 onMove: (evt) => {
-                    const listEl = document.getElementById('mod-list');
                     let targetIndex = dragStartIndex ?? 0;
-                    if (listEl && evt.related) {
-                        const relatedIndex = Array.from(listEl.children).indexOf(evt.related);
-                        if (relatedIndex >= 0) {
-                            targetIndex = evt.willInsertAfter ? relatedIndex + 1 : relatedIndex;
-                        }
+                    if (list) {
+                        targetIndex = resolveTargetIndex(list, evt);
                     }
-                    updateDragVisualNumbers(evt.oldIndex ?? dragStartIndex ?? 0, targetIndex, evt.dragged || evt.item);
+
+                    clearDragTargetCandidate();
+                    if (evt.related && evt.related !== evt.dragged && evt.related !== evt.item) {
+                        dragTargetCandidate = evt.related;
+                        dragTargetCandidate.classList.add('drag-target-candidate');
+                    }
+                    updateDragVisualNumbersByDom(
+                        list,
+                        evt.oldIndex ?? dragStartIndex ?? 0,
+                        targetIndex,
+                        evt.dragged || evt.item
+                    );
                     return true;
                 },
             });

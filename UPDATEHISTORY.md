@@ -2,6 +2,13 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.5.5
+- Fixed main mod-list drag preview so the dragged item's number badge updates live to the predicted drop position
+- Fixed Sortable fallback clone behavior by explicitly syncing `.sortable-fallback .mod-number` during `onMove`
+- Added/kept inline comments in reorder logic to document why fallback clone syncing is required
+- Improved drag target clarity with candidate highlight feedback while hovering nearby rows
+- Removed the temporary reorder sandbox window/UI after findings were integrated into main mod-list behavior
+
 ## 0.5.3
 - Improved drag-and-drop reorder UX by removing confusing visible source ghost behavior during drag
 - Added `Esc` cancel during active drag to revert mod order back to the exact pre-drag snapshot

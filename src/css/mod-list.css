@@ -218,3 +218,8 @@
     opacity: 1 !important;
     visibility: visible !important;
 }
+
+.mod-item.drag-target-candidate {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 1px var(--accent-color) inset;
+}

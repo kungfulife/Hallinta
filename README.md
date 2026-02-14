@@ -98,13 +98,11 @@ cargo tauri build
 
 ## Latest Version
 
-Current version: **0.5.3**
+Current version: **0.5.5**
 
 Latest update highlights:
-- Drag-and-drop reorder UX improvement: no confusing visible source ghost while dragging
-- Press `Esc` during reorder to cancel and restore the list to the pre-drag order
-- Reorder persistence fixed in dev mode (save path now matches runtime mod_config source)
-- Startup preset/mod_config sync flow stabilized with clearer diagnostics in logs
-- Mod List move/reorder UI is still being actively worked on
+- Fixed dragged mod number badge staying stuck at its original index during drag preview
+- Drag preview now updates the floating fallback clone number to match predicted drop position
+- Added target candidate highlighting while dragging for clearer placement feedback
 
 For older release notes, see `UPDATEHISTORY.md`.
