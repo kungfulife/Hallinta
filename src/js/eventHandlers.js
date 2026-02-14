@@ -47,8 +47,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
 
-    const logLevelOrder = { 'DEV': -1, 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3 };
-
     const getActiveLogElements = () => {
         if (logViewMode === 'fullscreen') {
             return {
@@ -307,13 +305,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
 
-    const highlightText = (html, searchTerm) => {
-        if (!searchTerm) return html;
-        const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`(${escapedTerm})`, 'gi');
-        return html.replace(regex, '<mark class="log-highlight">$1</mark>');
-    };
-
     const refreshLogs = async () => {
         // Don't refresh in-app views when detached to separate window
         if (logViewMode === 'detached') return;
@@ -324,42 +315,13 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
             if (!els.content) return;
 
-            if (logs.length === 0) {
-                els.content.innerHTML = '<div class="log-line log-info"><span class="log-msg">No logs available.</span></div>';
-                return;
-            }
-
             const selectedLevel = els.filterLevel?.value || 'INFO';
-            const selectedOrdinal = logLevelOrder[selectedLevel] ?? 1;
-            const searchText = (els.search?.value || '').toLowerCase();
-
-            const filteredLogs = logs.filter(log => {
-                const level = log.level.toUpperCase();
-                // DEV level always passes through
-                if (level !== 'DEV' && (logLevelOrder[level] ?? 0) < selectedOrdinal) return false;
-                if (searchText) {
-                    const text = `${log.message} ${log.module}`.toLowerCase();
-                    if (!text.includes(searchText)) return false;
-                }
-                return true;
-            });
+            const searchText = els.search?.value || '';
 
             // Smart scroll: check if user is near bottom before updating
             const isNearBottom = els.content.scrollTop + els.content.clientHeight >= els.content.scrollHeight - 30;
 
-            const escapedSearch = searchText ? escapeHtml(els.search.value) : '';
-
-            const logHTML = filteredLogs.map(log => {
-                const levelClass = `log-${log.level.toLowerCase()}`;
-                const timestamp = log.timestamp.replace('T', ' ').replace(/\.\d+.*$/, '');
-                let msgHtml = escapeHtml(log.message);
-                if (escapedSearch) {
-                    msgHtml = highlightText(msgHtml, escapedSearch);
-                }
-                return `<div class="log-line ${levelClass}"><span class="log-meta">[${timestamp}] [${log.level}] [${log.module}] </span><span class="log-msg">${msgHtml}</span></div>`;
-            }).join('');
-
-            els.content.innerHTML = logHTML || '<div class="log-line log-info"><span class="log-msg">No matching logs.</span></div>';
+            els.content.innerHTML = window.logUtils.buildLogHTML(logs, selectedLevel, searchText);
 
             if (isNearBottom) {
                 els.content.scrollTop = els.content.scrollHeight;
@@ -373,29 +335,44 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
 
-    const escapeHtml = (text) => {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    };
-
     const initLogFilterDropdown = () => {
         const currentLogLevel = settingsManager.settings?.log_settings?.log_level || 'INFO';
-        const currentOrdinal = logLevelOrder[currentLogLevel] ?? 1;
-
-        ['log-filter-level', 'log-fs-filter-level'].forEach(id => {
-            const select = document.getElementById(id);
-            if (!select) return;
-            // Set default to current log level
-            select.value = currentLogLevel;
-            // Disable options below current log level (no entries exist for them)
-            for (const option of select.options) {
-                option.disabled = (logLevelOrder[option.value] ?? 0) < currentOrdinal;
-            }
-        });
+        window.logUtils.initLogFilterDropdown(['log-filter-level', 'log-fs-filter-level'], currentLogLevel);
     };
 
     window.refreshLogs = refreshLogs;
+    window.openSystemInfo = async () => {
+        const panel = document.getElementById('system-info-panel');
+        const body = document.getElementById('system-info-body');
+        if (!panel || !body) return;
+
+        try {
+            const info = await window.__TAURI__.core.invoke('get_system_info');
+            const rows = [
+                ['App Version', info.app_version],
+                ['Build Mode', info.build_mode],
+                ['Rust Version', info.rust_version],
+                ['Cargo Version', info.cargo_version],
+                ['Target Triple', info.target_triple],
+                ['Tauri Version', info.tauri_version],
+                ['OS', info.os],
+                ['Architecture', info.arch],
+                ['Data Directory', info.data_dir]
+            ];
+            body.innerHTML = rows.map(([label, value]) => (
+                `<div class="system-info-row"><strong>${window.logUtils.escapeHtml(label)}</strong><span>${window.logUtils.escapeHtml(value || '')}</span></div>`
+            )).join('');
+            panel.style.display = 'block';
+            uiManager.logAction('DEBUG', 'Opened system info panel', 'EventHandler');
+        } catch (error) {
+            uiManager.logAction('ERROR', `Failed to load system info: ${error}`, 'EventHandler');
+        }
+    };
+
+    window.closeSystemInfo = () => {
+        const panel = document.getElementById('system-info-panel');
+        if (panel) panel.style.display = 'none';
+    };
 
     window.cancelSettings = () => uiManager.changeView('main');
 
@@ -579,12 +556,15 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             if (e.key === 'Escape') {
                 const logModal = document.getElementById('log-modal');
                 const logFullscreen = document.getElementById('log-fullscreen');
+                const systemInfoPanel = document.getElementById('system-info-panel');
                 const settingsPage = document.getElementById('settings-page');
 
                 if (logFullscreen && logFullscreen.style.display !== 'none') {
                     closeLogs();
                 } else if (logModal && logModal.style.display !== 'none') {
                     closeLogs();
+                } else if (systemInfoPanel && systemInfoPanel.style.display !== 'none') {
+                    window.closeSystemInfo();
                 } else if (settingsPage && settingsPage.style.display === 'block') {
                     settingsManager.restorePreviousSettings();
                     uiManager.changeView('main');

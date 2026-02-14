@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="css/animations.css">
 
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="js/logUtils.js"></script>
 
     <script type="module" src="js/phraseManager.js"></script>
     <script type="module" src="js/state.js"></script>
@@ -149,6 +150,7 @@
         </div>
 
         <div class="button-group">
+            <button onclick="openSystemInfo()">System Info</button>
             <button onclick="resetToDefaults()">Reset to defaults</button>
         </div>
 
@@ -211,6 +213,18 @@
                 <input type="text" id="log-fs-search" placeholder="Search logs..." class="log-search-input">
             </div>
             <div id="log-fs-content"></div>
+        </div>
+    </div>
+
+    <div id="system-info-panel" class="system-info-panel" style="display: none;">
+        <div class="log-fullscreen-content">
+            <div class="log-header">
+                <h3>System Info</h3>
+                <div class="log-controls">
+                    <button onclick="closeSystemInfo()">Close</button>
+                </div>
+            </div>
+            <div id="system-info-body" class="system-info-body"></div>
         </div>
     </div>
 

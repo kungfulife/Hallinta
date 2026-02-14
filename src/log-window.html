@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/settings.css">
+    <script src="js/logUtils.js"></script>
     <style>
         body {
             overflow: hidden;
@@ -58,7 +59,6 @@
 </div>
 <script>
     async function initLogWindow() {
-        const logLevelOrder = { 'DEV': -1, 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3 };
         let currentLogLevel = 'INFO';
 
         try {
@@ -71,28 +71,7 @@
             // Defaults to light mode and INFO level
         }
 
-        // Init dropdown: set default and disable irrelevant options
-        const filterSelect = document.getElementById('lw-filter-level');
-        if (filterSelect) {
-            const currentOrdinal = logLevelOrder[currentLogLevel] ?? 1;
-            filterSelect.value = currentLogLevel;
-            for (const option of filterSelect.options) {
-                option.disabled = (logLevelOrder[option.value] ?? 0) < currentOrdinal;
-            }
-        }
-
-        const escapeHtml = (text) => {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        };
-
-        const highlightText = (html, searchTerm) => {
-            if (!searchTerm) return html;
-            const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`(${escapedTerm})`, 'gi');
-            return html.replace(regex, '<mark class="log-highlight">$1</mark>');
-        };
+        window.logUtils.initLogFilterDropdown(['lw-filter-level'], currentLogLevel);
 
         const refreshLogs = async () => {
             try {
@@ -100,41 +79,11 @@
                 const logContent = document.getElementById('lw-log-content');
                 if (!logContent) return;
 
-                if (logs.length === 0) {
-                    logContent.innerHTML = '<div class="log-line log-info"><span class="log-msg">No logs available.</span></div>';
-                    return;
-                }
-
                 const selectedLevel = document.getElementById('lw-filter-level')?.value || 'INFO';
-                const selectedOrdinal = logLevelOrder[selectedLevel] ?? 1;
-                const searchText = (document.getElementById('lw-search')?.value || '').toLowerCase();
-
-                const filteredLogs = logs.filter(log => {
-                    const level = log.level.toUpperCase();
-                    // DEV level always passes through
-                    if (level !== 'DEV' && (logLevelOrder[level] ?? 0) < selectedOrdinal) return false;
-                    if (searchText) {
-                        const text = `${log.message} ${log.module}`.toLowerCase();
-                        if (!text.includes(searchText)) return false;
-                    }
-                    return true;
-                });
+                const searchText = document.getElementById('lw-search')?.value || '';
 
                 const isNearBottom = logContent.scrollTop + logContent.clientHeight >= logContent.scrollHeight - 30;
-
-                const escapedSearch = searchText ? escapeHtml(document.getElementById('lw-search').value) : '';
-
-                const logHTML = filteredLogs.map(log => {
-                    const levelClass = `log-${log.level.toLowerCase()}`;
-                    const timestamp = log.timestamp.replace('T', ' ').replace(/\.\d+.*$/, '');
-                    let msgHtml = escapeHtml(log.message);
-                    if (escapedSearch) {
-                        msgHtml = highlightText(msgHtml, escapedSearch);
-                    }
-                    return `<div class="log-line ${levelClass}"><span class="log-meta">[${timestamp}] [${log.level}] [${log.module}] </span><span class="log-msg">${msgHtml}</span></div>`;
-                }).join('');
-
-                logContent.innerHTML = logHTML || '<div class="log-line log-info"><span class="log-msg">No matching logs.</span></div>';
+                logContent.innerHTML = window.logUtils.buildLogHTML(logs, selectedLevel, searchText);
 
                 if (isNearBottom) {
                     logContent.scrollTop = logContent.scrollHeight;

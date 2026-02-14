@@ -1,5 +1,4 @@
-import { state } from './state.js';
-import { deepCopyMods } from './state.js';
+import { buildPresetsForSave, deepCopyMods, state } from './state.js';
 
 export class SettingsManager {
     constructor(modManager, uiManager) {
@@ -329,15 +328,7 @@ export class SettingsManager {
             const directoryChanged = this.settings.noita_dir && this.settings.noita_dir !== previousNoitaDir;
 
             if (window.__TAURI__?.core) {
-                const presetsForSave = {};
-                Object.keys(state.currentPresets).forEach(presetName => {
-                    presetsForSave[presetName] = state.currentPresets[presetName].map(mod => ({
-                        name: mod.name,
-                        enabled: mod.enabled,
-                        workshop_id: mod.workshopId || '0',
-                        settings_fold_open: mod.settingsFoldOpen || false
-                    }));
-                });
+                const presetsForSave = buildPresetsForSave(state.currentPresets);
 
                 const settingsToSave = this.getSettingsForPersistence();
                 await window.__TAURI__.core.invoke('save_settings', { settings: settingsToSave });

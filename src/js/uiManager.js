@@ -471,7 +471,7 @@ export class UIManager {
 
     logAction(level, message, module = 'UIManager') {
         const normalizedLevel = level.toUpperCase(); // Normalize to uppercase
-        const logLevelOrder = {'DEV': -1, 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3};
+        const logLevelOrder = window.logUtils?.logLevelOrder || {'DEV': -1, 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3};
         const currentLogLevel = this.settingsManager?.settings.log_settings.log_level?.toUpperCase() || 'INFO';
         const currentLevelValue = logLevelOrder[currentLogLevel] ?? 1;
         const logLevelValue = logLevelOrder[normalizedLevel] ?? 0;
