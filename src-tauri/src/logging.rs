@@ -15,15 +15,23 @@ pub(crate) static MAX_BUFFER_SIZE: usize = 1000;
 pub(crate) static INSTANCE_ID: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
     Local::now().format("%Y%m%d_%H%M%S").to_string()
 });
-static LOGGING_ENABLED: AtomicBool = AtomicBool::new(false);
 static SESSION_STARTED: AtomicBool = AtomicBool::new(false);
 
-pub(crate) fn set_logging_enabled(enabled: bool) {
-    LOGGING_ENABLED.store(enabled, Ordering::SeqCst);
-}
-
-pub(crate) fn is_logging_enabled() -> bool {
-    LOGGING_ENABLED.load(Ordering::SeqCst)
+/// Eagerly creates the log file and writes the SESSION BEGIN marker on startup.
+pub(crate) fn init_log_session() {
+    if SESSION_STARTED.swap(true, Ordering::SeqCst) {
+        return; // Already initialized
+    }
+    if let Ok(data_dir) = get_data_dir() {
+        let logs_dir = data_dir.join("logs");
+        let _ = std::fs::create_dir_all(&logs_dir);
+        let version = get_version();
+        let instance_id = &*INSTANCE_ID;
+        let log_file = logs_dir.join(log_file_name(&version, instance_id));
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_file) {
+            write_session_marker(&mut file, "SESSION BEGIN");
+        }
+    }
 }
 
 fn log_file_name(version: &str, instance_id: &str) -> String {
@@ -44,9 +52,6 @@ fn write_session_marker(file: &mut std::fs::File, marker: &str) {
 }
 
 pub(crate) fn write_session_end_marker() {
-    if !is_logging_enabled() {
-        return;
-    }
     if let Ok(data_dir) = get_data_dir() {
         let logs_dir = data_dir.join("logs");
         let version = get_version();
@@ -60,10 +65,6 @@ pub(crate) fn write_session_end_marker() {
 
 #[tauri::command]
 pub(crate) fn add_log_entry(level: String, message: String, module: String) -> Result<(), String> {
-    if !is_logging_enabled() {
-        return Ok(());
-    }
-
     let normalized_level = level.to_uppercase();
     let timestamp = Utc::now().to_rfc3339();
     let entry = LogEntry {
@@ -110,14 +111,6 @@ pub(crate) fn clear_log_buffer() -> Result<(), String> {
 
 #[tauri::command]
 pub(crate) async fn flush_log_buffer() -> Result<(), String> {
-    if !is_logging_enabled() {
-        let mut file_buffer = LOG_FILE_BUFFER
-            .lock()
-            .map_err(|e| format!("Failed to lock file log buffer: {}", e))?;
-        file_buffer.clear();
-        return Ok(());
-    }
-
     let data_dir = get_data_dir()?;
     let logs_dir = data_dir.join("logs");
     if !logs_dir.exists() {
@@ -145,11 +138,6 @@ pub(crate) async fn flush_log_buffer() -> Result<(), String> {
         .open(&log_file)
         .map_err(|e| format!("Failed to open log file {}: {}", log_file.display(), e))?;
 
-    // Write session begin marker on first flush
-    if !SESSION_STARTED.swap(true, Ordering::SeqCst) {
-        write_session_marker(&mut file, "SESSION BEGIN");
-    }
-
     for entry in logs {
         let log_line = format!(
             "[{}] [{}] [{}] {}\n",
@@ -164,13 +152,6 @@ pub(crate) async fn flush_log_buffer() -> Result<(), String> {
 }
 
 pub(crate) fn flush_log_buffer_sync() -> Result<(), String> {
-    if !is_logging_enabled() {
-        if let Ok(mut file_buffer) = LOG_FILE_BUFFER.lock() {
-            file_buffer.clear();
-        }
-        return Ok(());
-    }
-
     let data_dir = get_data_dir()?;
     let logs_dir = data_dir.join("logs");
     let _ = std::fs::create_dir_all(&logs_dir);
@@ -191,11 +172,6 @@ pub(crate) fn flush_log_buffer_sync() -> Result<(), String> {
     let instance_id = &*INSTANCE_ID;
     let log_file = logs_dir.join(log_file_name(&version, instance_id));
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_file) {
-        // Write session begin marker on first flush
-        if !SESSION_STARTED.swap(true, Ordering::SeqCst) {
-            write_session_marker(&mut file, "SESSION BEGIN");
-        }
-
         for entry in logs {
             let log_line = format!(
                 "[{}] [{}] [{}] {}\n",

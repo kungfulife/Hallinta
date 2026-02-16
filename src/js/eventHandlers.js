@@ -25,7 +25,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
     window.updateLogLevelColor = () => settingsManager.updateLogLevelSelectColor();
-    window.toggleLoggingEnabled = () => settingsManager.toggleLoggingEnabled();
     window.exportPresets = () => presetManager.exportPresets();
     window.importPresets = () => presetManager.importPresets();
 
@@ -427,7 +426,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 ['UTC Time', info.utc_time],
                 ['Noita Save Directory (Configured)', configuredNoitaDir || '(not set)'],
                 ['Entangled Worlds Directory (Configured)', settingsManager.settings.entangled_dir || '(not set)'],
-                ['Startup System Logging', (settingsManager.settings.log_settings?.enabled && settingsManager.settings.log_settings?.collect_system_info) ? 'Enabled' : 'Disabled']
+                ['Startup System Logging', settingsManager.settings.log_settings?.collect_system_info ? 'Enabled' : 'Disabled']
             ];
             body.innerHTML = rows.map(([label, value]) => (
                 `<div class="system-info-row"><strong>${window.logUtils.escapeHtml(label)}</strong><span>${window.logUtils.escapeHtml(value || '')}</span></div>`

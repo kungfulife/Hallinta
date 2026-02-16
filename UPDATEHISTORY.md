@@ -2,6 +2,15 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.7.3
+- Redesigned logging system: logging is now always active (cannot be disabled)
+- Removed the `Enable application logging` toggle from Settings
+- Log level dropdown now controls recording verbosity (what detail gets captured)
+- Log file and session marker are now created immediately on startup for crash resilience
+- Fixed status bar not showing messages when log level was set above Info
+- Standardized default log level to Info for both development and release builds
+- Updated application version to `0.7.3`
+
 ## 0.7.2
 - Applied the same custom scrollbar styling used across the app to the Settings `System Information` and `Open Source Libraries` views
 - Added an `Enable application logging` toggle in Settings
