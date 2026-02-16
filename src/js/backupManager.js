@@ -132,7 +132,7 @@ export class BackupManager {
         modal.innerHTML = `
             <div class="modal-content-checklist backup-selection-modal">
                 <h3>Select Backup to Restore</h3>
-                <div class="backup-list-container">
+                <div class="backup-list-container themed-scrollbar-compact">
                     ${listHTML}
                 </div>
                 <div class="modal-buttons">

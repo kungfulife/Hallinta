@@ -2,6 +2,18 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.7.4
+- Consolidated scrollbar styling into shared `.themed-scrollbar` and `.themed-scrollbar-compact` utility classes in `base.css`, replacing three duplicated scrollbar blocks across `mod-list.css`, `settings.css`, and `components.css`
+- Added consistent themed scrollbar styling to previously unstyled scrollable areas: gallery grid, log content (modal, fullscreen, and detached window), backup selection list, and missing mods list
+- Removed dead CSS for native `<select>` elements that were replaced by `SelectEnhancer` (preset dropdown in `presets.css`, mod filter in `header.css`)
+- Removed unused `@keyframes glow` and `.slide-in` animation from `animations.css`
+- Merged duplicate `.ux-select-menu` rule blocks in `components.css` into a single block
+- Removed unused `logAutoRefreshInterval` and `logFilters` properties from `state.js`
+- Simplified `updateLogLevelSelectColor()` by removing dead inline color assignment on the hidden native select element
+- Refactored `changeView()` in `UIManager` to extract repeated animation cleanup into shared `fadeInControls`/`fadeOutControls` helpers
+- Fixed Escape key propagation in `SelectEnhancer`: pressing Escape now only stops event propagation when a dropdown is actually open, preventing unintended view/settings cancellation
+- Updated application version to `0.7.4`
+
 ## 0.7.3
 - Redesigned logging system: logging is now always active (cannot be disabled)
 - Removed the `Enable application logging` toggle from Settings

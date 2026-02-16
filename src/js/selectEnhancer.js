@@ -38,7 +38,7 @@ export class SelectEnhancer {
 
         const menu = document.createElement('div');
         menu.id = `${selectId}-ux-menu`;
-        menu.className = 'ux-select-menu';
+        menu.className = 'ux-select-menu themed-scrollbar-compact';
         menu.setAttribute('role', 'listbox');
 
         wrapper.appendChild(trigger);
@@ -316,7 +316,11 @@ export class SelectEnhancer {
 
     _handleDocumentKeydown(event) {
         if (event.key === 'Escape') {
-            this.closeAll();
+            const anyOpen = Array.from(this.instances.values()).some(i => i.open);
+            if (anyOpen) {
+                this.closeAll();
+                event.stopPropagation();
+            }
         }
     }
 }

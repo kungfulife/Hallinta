@@ -33,6 +33,74 @@
     box-sizing: border-box;
 }
 
+/* Shared Scrollbar Styles — accent-tinted gradient thumbs on transparent tracks */
+.themed-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--accent-color) 35%, var(--border-color) 65%) transparent;
+}
+
+.themed-scrollbar::-webkit-scrollbar {
+    width: 11px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-track {
+    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.04), transparent);
+    border-radius: 999px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--border-color) 70%, var(--accent-color) 30%),
+        color-mix(in srgb, var(--border-color) 48%, var(--accent-color) 52%)
+    );
+    border-radius: 999px;
+    border: 2px solid color-mix(in srgb, var(--accent-color) 20%, transparent 80%);
+    min-height: 36px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--border-color) 58%, var(--accent-color) 42%),
+        color-mix(in srgb, var(--border-color) 34%, var(--accent-color) 66%)
+    );
+}
+
+/* Compact variant — narrower track for dropdown menus */
+.themed-scrollbar-compact {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--accent-color) 35%, var(--border-color) 65%) transparent;
+}
+
+.themed-scrollbar-compact::-webkit-scrollbar {
+    width: 6px;
+}
+
+.themed-scrollbar-compact::-webkit-scrollbar-track {
+    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.04), transparent);
+    border-radius: 999px;
+}
+
+.themed-scrollbar-compact::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--border-color) 70%, var(--accent-color) 30%),
+        color-mix(in srgb, var(--border-color) 48%, var(--accent-color) 52%)
+    );
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--accent-color) 20%, transparent 80%);
+    min-height: 24px;
+}
+
+.themed-scrollbar-compact::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--border-color) 58%, var(--accent-color) 42%),
+        color-mix(in srgb, var(--border-color) 34%, var(--accent-color) 66%)
+    );
+}
+
 body {
     background-color: var(--bg-color);
     color: var(--text-color);

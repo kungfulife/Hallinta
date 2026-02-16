@@ -766,10 +766,6 @@ export class SettingsManager {
     }
 
     updateLogLevelSelectColor() {
-        const select = document.getElementById('log-level-select');
-        if (!select) return;
-        const colorMap = { DEBUG: '#8f97a0', INFO: 'var(--accent-color)', WARN: '#d29200', ERROR: '#c83543' };
-        select.style.color = colorMap[select.value] || '';
         if (window.selectEnhancer) {
             window.selectEnhancer.sync('log-level-select');
         }

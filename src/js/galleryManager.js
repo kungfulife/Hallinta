@@ -270,7 +270,7 @@ export class GalleryManager {
             <div class="modal-content-checklist">
                 <h3>Missing Workshop Mods</h3>
                 <p>${missingMods.length} mod(s) from this preset are not installed. You can subscribe to them on Steam before continuing.</p>
-                <div class="missing-mods-list">${rows}</div>
+                <div class="missing-mods-list themed-scrollbar-compact">${rows}</div>
                 <div class="modal-buttons">
                     <button id="modal-confirm">Continue Import</button>
                     <button id="modal-cancel">Cancel</button>
