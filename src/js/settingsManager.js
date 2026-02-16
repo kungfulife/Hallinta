@@ -1,4 +1,5 @@
 import { buildPresetsForSave, deepCopyMods, state } from './state.js';
+import { getCatalogUrl } from './catalogConfig.js';
 
 export class SettingsManager {
     constructor(modManager, uiManager) {
@@ -15,7 +16,7 @@ export class SettingsManager {
                 max_log_size_mb: 10,
                 log_level: 'INFO',
                 auto_save: true,
-                collect_system_info: true
+                collect_system_info: false
             },
             backup_settings: {
                 auto_delete_days: 30,
@@ -27,7 +28,7 @@ export class SettingsManager {
                 include_entangled: false
             },
             gallery_settings: {
-                catalog_url: '',
+                catalog_url: getCatalogUrl(''),
                 steam_path: ''
             }
         };
@@ -80,7 +81,7 @@ export class SettingsManager {
                         max_log_size_mb: 10,
                         log_level: 'INFO',
                         auto_save: true,
-                        collect_system_info: true
+                        collect_system_info: false
                     },
                     backup_settings: {
                         auto_delete_days: 30,
@@ -92,7 +93,7 @@ export class SettingsManager {
                         include_entangled: false
                     },
                     gallery_settings: {
-                        catalog_url: '',
+                        catalog_url: getCatalogUrl(''),
                         steam_path: ''
                     }
                 };
@@ -230,17 +231,35 @@ export class SettingsManager {
                 hasError = true;
             }
 
+            let shouldPersistInitialGallerySettings = false;
+
             // Auto-detect Steam path if not configured (silent, non-blocking)
             if (!this.settings.gallery_settings?.steam_path) {
                 try {
                     const steamPath = await window.__TAURI__.core.invoke('detect_steam_path');
                     if (!this.settings.gallery_settings) {
-                        this.settings.gallery_settings = { catalog_url: '', steam_path: '' };
+                        this.settings.gallery_settings = { catalog_url: getCatalogUrl(''), steam_path: '' };
                     }
                     this.settings.gallery_settings.steam_path = steamPath;
+                    shouldPersistInitialGallerySettings = true;
                     this.logAction('DEBUG', `Auto-detected Steam path: ${steamPath}`);
                 } catch (e) {
                     // Silent - Steam not required
+                }
+            }
+
+            const resolvedCatalogUrl = getCatalogUrl(this.settings.gallery_settings?.catalog_url || '');
+            if ((this.settings.gallery_settings?.catalog_url || '') !== resolvedCatalogUrl) {
+                this.settings.gallery_settings.catalog_url = resolvedCatalogUrl;
+                shouldPersistInitialGallerySettings = true;
+            }
+
+            if (shouldPersistInitialGallerySettings) {
+                try {
+                    const settingsToSave = this.getSettingsForPersistence();
+                    await window.__TAURI__.core.invoke('save_settings', { settings: settingsToSave });
+                } catch (persistError) {
+                    this.logAction('WARN', `Could not persist startup gallery settings: ${persistError}`);
                 }
             }
 
@@ -272,14 +291,14 @@ export class SettingsManager {
                 max_log_size_mb: 10,
                 log_level: 'INFO',
                 auto_save: true,
-                collect_system_info: true
+                collect_system_info: false
             };
         }
         if (!this.settings.log_settings.log_level) {
             this.settings.log_settings.log_level = 'INFO';
         }
         if (typeof this.settings.log_settings.collect_system_info !== 'boolean') {
-            this.settings.log_settings.collect_system_info = true;
+            this.settings.log_settings.collect_system_info = false;
         }
         // Ensure backup_settings defaults
         if (!this.settings.backup_settings) {
@@ -299,7 +318,7 @@ export class SettingsManager {
         // Ensure gallery_settings defaults
         if (!this.settings.gallery_settings) {
             this.settings.gallery_settings = {
-                catalog_url: '',
+                catalog_url: getCatalogUrl(''),
                 steam_path: ''
             };
         }
@@ -323,6 +342,7 @@ export class SettingsManager {
         }
 
         state.isDarkMode = settings.dark_mode;
+        this.settings.gallery_settings.catalog_url = getCatalogUrl(this.settings.gallery_settings?.catalog_url || '');
         const noitaDirElement = document.getElementById('noita-dir');
         const entangledDirElement = document.getElementById('entangled-dir');
         const darkModeElement = document.getElementById('dark-mode-checkbox');
@@ -341,7 +361,7 @@ export class SettingsManager {
         if (darkModeElement) darkModeElement.checked = state.isDarkMode;
         if (logLevelSelect) logLevelSelect.value = settings.log_settings.log_level || 'INFO';
         if (collectSystemInfoCheckbox) {
-            collectSystemInfoCheckbox.checked = this.settings.log_settings.collect_system_info !== false;
+            collectSystemInfoCheckbox.checked = !!this.settings.log_settings.collect_system_info;
         }
         this.updateLogLevelSelectColor();
         if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings.auto_delete_days;
@@ -349,9 +369,7 @@ export class SettingsManager {
         if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
         if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = this.settings.save_monitor_settings?.max_snapshots_per_preset ?? 10;
 
-        const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
         const gallerySteamPathInput = document.getElementById('gallery-steam-path');
-        if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings?.catalog_url || '';
         if (gallerySteamPathInput) gallerySteamPathInput.value = this.settings.gallery_settings?.steam_path || '';
 
         // Show/hide dev data directory section
@@ -418,9 +436,8 @@ export class SettingsManager {
             if (!this.settings.gallery_settings) {
                 this.settings.gallery_settings = {};
             }
-            const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
             const gallerySteamPathInput = document.getElementById('gallery-steam-path');
-            if (galleryCatalogUrlInput) this.settings.gallery_settings.catalog_url = galleryCatalogUrlInput.value.trim();
+            this.settings.gallery_settings.catalog_url = getCatalogUrl(this.settings.gallery_settings.catalog_url || '');
             if (gallerySteamPathInput) this.settings.gallery_settings.steam_path = gallerySteamPathInput.value.trim();
 
             this.settings.version = await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown');
@@ -646,7 +663,7 @@ export class SettingsManager {
                     max_log_size_mb: 10,
                     log_level: 'INFO',
                     auto_save: true,
-                    collect_system_info: true
+                    collect_system_info: false
                 },
                 backup_settings: {
                     auto_delete_days: 30,
@@ -658,7 +675,7 @@ export class SettingsManager {
                     include_entangled: false
                 },
                 gallery_settings: {
-                    catalog_url: '',
+                    catalog_url: getCatalogUrl(''),
                     steam_path: ''
                 }
             };
@@ -682,7 +699,7 @@ export class SettingsManager {
             if (entangledDirElement) entangledDirElement.value = defaultEntangledDir;
             if (darkModeElement) darkModeElement.checked = false;
             if (logLevelSelect) logLevelSelect.value = 'INFO';
-            if (collectSystemInfoCheckbox) collectSystemInfoCheckbox.checked = true;
+            if (collectSystemInfoCheckbox) collectSystemInfoCheckbox.checked = false;
             this.updateLogLevelSelectColor();
             if (autoDeleteDaysInput) autoDeleteDaysInput.value = 30;
             if (backupIntervalInput) backupIntervalInput.value = 0;
@@ -690,9 +707,8 @@ export class SettingsManager {
             const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
             if (monitorIntervalInput) monitorIntervalInput.value = 15;
             if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = 10;
-            const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
             const gallerySteamPathInput = document.getElementById('gallery-steam-path');
-            if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = '';
+            this.settings.gallery_settings.catalog_url = getCatalogUrl('');
             if (gallerySteamPathInput) gallerySteamPathInput.value = '';
             this.uiManager.applyDarkMode();
 
@@ -733,16 +749,15 @@ export class SettingsManager {
             if (darkModeElement) darkModeElement.checked = state.isDarkMode;
             if (logLevelSelect) logLevelSelect.value = this.settings.log_settings.log_level;
             if (collectSystemInfoCheckbox) {
-                collectSystemInfoCheckbox.checked = this.settings.log_settings.collect_system_info !== false;
+                collectSystemInfoCheckbox.checked = !!this.settings.log_settings.collect_system_info;
             }
             this.updateLogLevelSelectColor();
             if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings?.auto_delete_days ?? 30;
             if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings?.backup_interval_minutes ?? 0;
             if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
             if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = this.settings.save_monitor_settings?.max_snapshots_per_preset ?? 10;
-            const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
             const gallerySteamPathInput = document.getElementById('gallery-steam-path');
-            if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings?.catalog_url || '';
+            this.settings.gallery_settings.catalog_url = getCatalogUrl(this.settings.gallery_settings?.catalog_url || '');
             if (gallerySteamPathInput) gallerySteamPathInput.value = this.settings.gallery_settings?.steam_path || '';
             this.uiManager.applyDarkMode();
 
@@ -753,8 +768,11 @@ export class SettingsManager {
     updateLogLevelSelectColor() {
         const select = document.getElementById('log-level-select');
         if (!select) return;
-        const colorMap = { DEBUG: '#adb5bd', INFO: 'var(--accent-color)', WARN: '#ffc107', ERROR: '#dc3545' };
+        const colorMap = { DEBUG: '#8f97a0', INFO: 'var(--accent-color)', WARN: '#d29200', ERROR: '#c83543' };
         select.style.color = colorMap[select.value] || '';
+        if (window.selectEnhancer) {
+            window.selectEnhancer.sync('log-level-select');
+        }
     }
 
     async logStartupSystemInfo() {

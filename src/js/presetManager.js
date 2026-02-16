@@ -35,6 +35,9 @@ export class PresetManager {
             selector.appendChild(option);
         });
 
+        if (window.selectEnhancer) {
+            window.selectEnhancer.sync('preset-dropdown');
+        }
         this.logAction('INFO', 'Loaded Presets');
     }
 
@@ -55,6 +58,9 @@ export class PresetManager {
             if (selectedValue === 'createnew') {
                 this.logAction('DEBUG', 'Creating new preset');
                 selector.value = state.selectedPreset;
+                if (window.selectEnhancer) {
+                    window.selectEnhancer.sync('preset-dropdown');
+                }
                 this.uiManager.showInputModal(
                     'Enter name for new preset:',
                     `Preset ${Object.keys(state.currentPresets).length + 1}`,
@@ -85,10 +91,16 @@ export class PresetManager {
             } else {
                 this.logAction('ERROR', `Preset ${selectedValue} is invalid or not found`);
                 selector.value = state.selectedPreset;
+                if (window.selectEnhancer) {
+                    window.selectEnhancer.sync('preset-dropdown');
+                }
             }
         } catch (error) {
             this.logAction('ERROR', `Error changing preset: ${error.message}`);
             selector.value = state.selectedPreset;
+            if (window.selectEnhancer) {
+                window.selectEnhancer.sync('preset-dropdown');
+            }
         }
     }
 
@@ -207,7 +219,7 @@ export class PresetManager {
                 try {
                     const exportData = {
                         hallinta_export: 'presets',
-                        version: '0.7.0',
+                        version: await window.__TAURI__.core.invoke('get_version').catch(() => '0.7.1'),
                         presets: {}
                     };
 

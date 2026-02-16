@@ -150,7 +150,10 @@ export class BackupManager {
         };
 
         const escapeHandler = (e) => {
-            if (e.key === 'Escape') closeModal();
+            if (e.key === 'Escape') {
+                this.logAction('DEBUG', 'Escape keybind triggered: close backup selection modal');
+                closeModal();
+            }
         };
 
         document.addEventListener('keydown', escapeHandler);

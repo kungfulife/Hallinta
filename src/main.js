@@ -7,6 +7,7 @@ import { PhraseManager } from './js/phraseManager.js';
 import { BackupManager } from './js/backupManager.js';
 import { SaveMonitorManager } from './js/saveMonitorManager.js';
 import { GalleryManager } from './js/galleryManager.js';
+import { SelectEnhancer } from './js/selectEnhancer.js';
 import { setupEventHandlers } from './js/eventHandlers.js';
 
 // Instantiate managers
@@ -17,10 +18,12 @@ const presetManager = new PresetManager(uiManager, modManager, settingsManager);
 const backupManager = new BackupManager(uiManager, modManager, settingsManager, presetManager);
 const saveMonitorManager = new SaveMonitorManager(uiManager, settingsManager);
 const galleryManager = new GalleryManager(uiManager, settingsManager, presetManager);
+const selectEnhancer = new SelectEnhancer(uiManager);
+window.selectEnhancer = selectEnhancer;
 
 // Set the circular dependency
 uiManager.setDependencies(modManager, settingsManager);
 presetManager.setGalleryManager(galleryManager);
 
 state.phraseManager = new PhraseManager();
-setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager, saveMonitorManager, galleryManager);
+setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager, saveMonitorManager, galleryManager, selectEnhancer);

@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { getCatalogUrl } from './catalogConfig.js';
 
 export class GalleryManager {
     constructor(uiManager, settingsManager, presetManager) {
@@ -38,9 +39,9 @@ export class GalleryManager {
             return this._catalogCache;
         }
 
-        const catalogUrl = this.settingsManager.settings.gallery_settings?.catalog_url || '';
+        const catalogUrl = getCatalogUrl(this.settingsManager.settings.gallery_settings?.catalog_url || '');
         if (!catalogUrl) {
-            throw new Error('No catalog URL configured. Set it in Settings > Gallery.');
+            throw new Error('Preset catalog URL is not configured by the developer build.');
         }
 
         const catalog = await window.__TAURI__.core.invoke('fetch_catalog', { catalogUrl });
@@ -301,6 +302,7 @@ export class GalleryManager {
 
         const escapeHandler = (e) => {
             if (e.key === 'Escape') {
+                this.logAction('DEBUG', 'Escape keybind triggered: close missing Workshop mods modal');
                 closeModal();
                 onDone();
             }
@@ -327,10 +329,10 @@ export class GalleryManager {
             let targetName = name;
             if (state.currentPresets[name]) {
                 // Rename to avoid overwrite by default
-                targetName = `${name} (gallery)`;
+                targetName = `${name} (vault)`;
                 let counter = 2;
                 while (state.currentPresets[targetName]) {
-                    targetName = `${name} (gallery ${counter})`;
+                    targetName = `${name} (vault ${counter})`;
                     counter++;
                 }
             }

@@ -6,6 +6,36 @@
     flex: 2;
     overflow-y: auto;
     padding: 1rem;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--accent-color) 35%, var(--border-color) 65%) transparent;
+}
+
+.mod-list::-webkit-scrollbar {
+    width: 11px;
+}
+
+.mod-list::-webkit-scrollbar-track {
+    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.04), transparent);
+    border-radius: 999px;
+}
+
+.mod-list::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--border-color) 70%, var(--accent-color) 30%),
+        color-mix(in srgb, var(--border-color) 48%, var(--accent-color) 52%)
+    );
+    border-radius: 999px;
+    border: 2px solid color-mix(in srgb, var(--accent-color) 20%, transparent 80%);
+    min-height: 36px;
+}
+
+.mod-list::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--border-color) 58%, var(--accent-color) 42%),
+        color-mix(in srgb, var(--border-color) 34%, var(--accent-color) 66%)
+    );
 }
 
 .mod-count {
@@ -31,7 +61,7 @@
     color: var(--text-color);
     cursor: pointer;
     display: flex;
-    font-size: 0.95em;
+    font-size: 1em;
     gap: 1rem;
     margin: 0.1em 0;
     min-height: 30px;
@@ -107,13 +137,13 @@
 
 .mod-name {
     color: var(--text-color);
-    font-size: 0.9em;
+    font-size: 0.95em;
     font-weight: 500;
 }
 
 .mod-type {
     color: #666;
-    font-size: 0.75em;
+    font-size: 0.8em;
 }
 
 .mod-type.workshop {

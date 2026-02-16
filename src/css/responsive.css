@@ -15,20 +15,39 @@
         gap: 0.5rem;
     }
 
+    .view-tabs {
+        justify-content: center;
+        order: 0;
+    }
+
     .search-bar {
         max-width: none;
         min-width: auto;
         order: 1;
     }
 
+    .header .ux-select[data-select-id="mod-filter-mode"] {
+        flex: 1 1 auto;
+        order: 2;
+        width: 100%;
+    }
+
     .preset-controls {
         min-width: auto;
-        order: 2;
+        order: 3;
+        width: 100%;
+    }
+
+    .preset-controls .ux-select {
+        max-width: none;
+        min-width: 0;
+        width: 100%;
     }
 
     .header-buttons {
         justify-content: center;
-        order: 3;
+        margin-left: 0;
+        order: 4;
     }
 
     .main-content {
@@ -47,11 +66,19 @@
     }
 
     .settings-page {
-        padding: 1rem;
+        padding: 0.5rem 0.6rem 1rem 0.15rem;
     }
 
     .settings-page input {
         max-width: none;
+    }
+
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-card-wide {
+        grid-column: span 1;
     }
 
     .settings-page .button-group {
@@ -59,10 +86,7 @@
     }
 
     #save-close-btn {
-        left: 1rem;
-        right: 1rem;
-        transform: none;
-        width: calc(100% - 2rem);
+        width: 100%;
     }
 
     .status-bar {
@@ -107,11 +131,12 @@
     }
 
     .settings-page {
-        padding: 0.5rem;
+        padding: 0.35rem 0.45rem 0.75rem 0.1rem;
     }
 
     #save-close-btn {
         font-size: 1em;
-        padding: 0.8em 1.5em;
+        min-width: 0;
+        padding: 0.72em 1em;
     }
 }

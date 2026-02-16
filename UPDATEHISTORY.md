@@ -2,6 +2,24 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.7.1
+- Replaced the old Gallery header button with a tab-style view switcher (`Mod List` and `Preset Vault`)
+- Refreshed settings layout into readable section cards with improved spacing and navigation flow
+- Improved log-level hover/focus reactivity so the selector responds like interactive buttons
+- Added explicit `DEBUG` logs when Escape keybind actions trigger (modals/panels/reorder/view exits)
+- Set `Collect startup system details in logs` to default OFF and clarified non-technical helper copy
+- Removed user-facing Catalog URL setting; catalog source is now developer-managed in code
+- Added startup-time persistence for auto-detected Steam path when missing
+- Fixed startup header spacing/clipping so the top-right Settings button remains fully visible
+- Improved select UX polish in dark mode (log level + preset dropdown readability/feedback)
+- Rebuilt Preset and Log Level dropdowns using a custom themed select component so list items render correctly in both light and dark mode
+- Added compact scrollbar styling for the Preset dropdown list and main Mod List panel
+- Tuned Log Level dropdown list behavior to stay non-scrolling while preserving per-option level coloring
+- Applied the same styled scrollbar treatment to Settings and refined scrollbar visuals for a cleaner, more premium look
+- Increased Preset dropdown width and aligned top-bar control heights for better visual consistency
+- Slightly increased Mod List text size and widened its scrollbar for readability
+- Updated application version to `0.7.1`
+
 ## 0.7.0
 - Added Preset Gallery: browsable tab that fetches preset listings from a developer-maintained Google Drive catalog
 - Added search and tag-based filtering for gallery presets

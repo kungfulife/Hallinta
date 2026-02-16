@@ -2,6 +2,7 @@ use crate::app::{get_entangled_worlds_config_path, get_noita_save_path, get_vers
 use crate::backup::add_directory_to_zip;
 use crate::logging::add_log_entry;
 use crate::models::{AppSettings, BackupSettings, GallerySettings, LogSettings, ModPreset, SaveMonitorSettings};
+use crate::workshop::detect_steam_path;
 use chrono::Utc;
 use serde_json;
 use std::fs;
@@ -187,11 +188,14 @@ pub(crate) async fn load_settings() -> Result<AppSettings, String> {
                 max_log_size_mb: 10,
                 log_level: default_log_level.to_string(),
                 auto_save: true,
-                collect_system_info: true,
+                collect_system_info: false,
             },
             backup_settings: BackupSettings::default(),
             save_monitor_settings: SaveMonitorSettings::default(),
-            gallery_settings: GallerySettings::default(),
+            gallery_settings: GallerySettings {
+                catalog_url: String::new(),
+                steam_path: detect_steam_path().unwrap_or_default(),
+            },
         };
         save_settings(default_settings.clone())?;
         return Ok(default_settings);
@@ -221,6 +225,13 @@ pub(crate) async fn load_settings() -> Result<AppSettings, String> {
         )?;
         settings.version = get_version();
         save_settings(settings.clone())?;
+    }
+
+    if settings.gallery_settings.steam_path.trim().is_empty() {
+        if let Ok(steam_path) = detect_steam_path() {
+            settings.gallery_settings.steam_path = steam_path;
+            save_settings(settings.clone())?;
+        }
     }
 
     Ok(settings)
