@@ -554,35 +554,31 @@ export class UIManager {
     }
 
     logAction(level, message, module = 'UIManager') {
-        const normalizedLevel = level.toUpperCase(); // Normalize to uppercase
+        const normalizedLevel = level.toUpperCase();
         const logLevelOrder = window.logUtils?.logLevelOrder || {'DEV': -1, 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3};
         const currentLogLevel = this.settingsManager?.settings?.log_settings?.log_level?.toUpperCase() || 'INFO';
-        const loggingEnabled = !!this.settingsManager?.settings?.log_settings?.enabled;
         const currentLevelValue = logLevelOrder[currentLogLevel] ?? 1;
         const logLevelValue = logLevelOrder[normalizedLevel] ?? 0;
 
-        // DEV level always passes through regardless of log level setting
-        if (normalizedLevel === 'DEV' || logLevelValue >= currentLevelValue) {
-
-            // DEV logs go straight to the buffer, skip status bar
-            if (normalizedLevel !== 'DEV') {
-                const statusBar = document.getElementById('status-bar');
-                if (statusBar) {
-                    if (normalizedLevel === 'ERROR') {
-                        statusBar.textContent = `Error: ${message}`;
-                        statusBar.classList.add('error');
-                        setTimeout(() => {
-                            statusBar.classList.remove('error');
-                        }, 5000);
-                    } else {
-                        statusBar.textContent = message;
-                        statusBar.className = 'status-bar';
-                    }
+        // Status bar always shows messages for non-DEV levels, regardless of log level setting
+        if (normalizedLevel !== 'DEV') {
+            const statusBar = document.getElementById('status-bar');
+            if (statusBar) {
+                if (normalizedLevel === 'ERROR') {
+                    statusBar.textContent = `Error: ${message}`;
+                    statusBar.classList.add('error');
+                    setTimeout(() => {
+                        statusBar.classList.remove('error');
+                    }, 5000);
+                } else {
+                    statusBar.textContent = message;
+                    statusBar.className = 'status-bar';
                 }
             }
-            if (!loggingEnabled) {
-                return;
-            }
+        }
+
+        // Backend logging is gated by log level (DEV always passes)
+        if (normalizedLevel === 'DEV' || logLevelValue >= currentLevelValue) {
             if (window.__TAURI__ && window.__TAURI__.core) {
                 window.__TAURI__.core.invoke('add_log_entry', {level: normalizedLevel, message, module})
                     .catch(error => {

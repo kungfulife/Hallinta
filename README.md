@@ -34,6 +34,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Upgrade backups created automatically on version change (keeps last 5)
 
 ### Application Logs
+- Always-on session logging for reliable crash diagnostics
 - Three viewing modes: modal overlay, fullscreen panel, separate OS window
 - Level-based filtering (Debug, Info, Warn, Error)
 - Search within log entries
@@ -56,8 +57,8 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ### Settings & Configuration
 - Persistent settings stored in system data directories
-- Configurable log levels
-- Optional startup system diagnostics logging toggle (disabled by default)
+- Configurable log level controls recording verbosity
+- Optional startup system diagnostics collection (disabled by default)
 - Backup scheduling and retention settings
 - Steam path auto-detection during initial setup
 - Developer-managed catalog source (Catalog URL hidden from user settings)
@@ -112,19 +113,15 @@ cargo tauri build
 
 ## Latest Version
 
-Current version: **0.7.2**
+Current version: **0.7.3**
 
 Latest update highlights:
-- Applied the same custom scrollbar styling used across the app to the Settings `System Information` and `Open Source Libraries` views
-- Added an `Enable application logging` toggle in Settings
-- Set application logging to default OFF for new and migrated settings
-- Added a themed top bar for log headers (main-view style gradient/border/shadow) via new log-toolbar styling.
-- Made log top buttons larger and more prominent (bigger height, padding, radius, font weight, hover lift).
-- Applied this to:
-    - In-app log modal header
-    - In-app fullscreen log header
-    - Detached log window header
-- Added mobile wrapping behavior so toolbar controls stay usable on smaller widths.
-- Updated application version to `0.7.2`
+- Redesigned logging system: logging is now always active (cannot be disabled)
+- Removed the `Enable application logging` toggle from Settings
+- Log level dropdown now controls recording verbosity (what detail gets captured)
+- Log file and session marker are now created immediately on startup for crash resilience
+- Fixed status bar not showing messages when log level was set above Info
+- Standardized default log level to Info for both development and release builds
+- Updated application version to `0.7.3`
 
 For older release notes, see `UPDATEHISTORY.md`.
