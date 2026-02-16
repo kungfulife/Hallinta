@@ -15,23 +15,37 @@ export class UIManager {
         const galleryPage = document.getElementById('gallery-page');
         const presetControls = document.getElementById('preset-controls');
         const combinedButton = document.getElementById('header-combined-button');
-        const galleryButton = document.getElementById('header-gallery-button');
+        const modListTab = document.getElementById('view-tab-mod-list');
+        const vaultTab = document.getElementById('view-tab-vault');
         const searchBar = document.getElementById('search-bar');
         const modFilterSelect = document.getElementById('mod-filter-mode');
+        const modFilterSelectUx = document.querySelector('.ux-select[data-select-id="mod-filter-mode"]');
         const TRANSITION_DURATION_MS = 200;
 
         function cleanupAnimation(el) {
             if (el) el.classList.remove('fade-in-fast', 'fade-out-fast');
         }
 
+        function setActiveTab(tab) {
+            const setTabState = (el, isActive) => {
+                if (!el) return;
+                el.classList.toggle('active', isActive);
+                el.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            };
+            setTabState(modListTab, tab === 'main');
+            setTabState(vaultTab, tab === 'vault');
+        }
+
         if (view === 'main') {
             cleanupAnimation(presetControls);
             cleanupAnimation(searchBar);
             cleanupAnimation(modFilterSelect);
+            cleanupAnimation(modFilterSelectUx);
 
             presetControls.style.display = 'flex';
             searchBar.style.display = 'flex';
             if (modFilterSelect) modFilterSelect.style.display = '';
+            if (modFilterSelectUx) modFilterSelectUx.style.display = '';
 
             void presetControls.offsetWidth;
             void searchBar.offsetWidth;
@@ -39,29 +53,40 @@ export class UIManager {
             presetControls.classList.add('fade-in-fast');
             searchBar.classList.add('fade-in-fast');
             if (modFilterSelect) modFilterSelect.classList.add('fade-in-fast');
+            if (modFilterSelectUx) modFilterSelectUx.classList.add('fade-in-fast');
+            setTimeout(() => {
+                cleanupAnimation(presetControls);
+                cleanupAnimation(searchBar);
+                cleanupAnimation(modFilterSelect);
+                cleanupAnimation(modFilterSelectUx);
+            }, TRANSITION_DURATION_MS + 20);
 
             mainPage.style.display = 'flex';
             settingsPage.style.display = 'none';
             if (galleryPage) galleryPage.style.display = 'none';
             combinedButton.textContent = 'Settings';
             combinedButton.className = 'header-combined-button settings-state';
-            if (galleryButton) galleryButton.classList.remove('active');
+            setActiveTab('main');
         } else if (view === 'settings') {
             cleanupAnimation(presetControls);
             cleanupAnimation(searchBar);
             cleanupAnimation(modFilterSelect);
+            cleanupAnimation(modFilterSelectUx);
 
             presetControls.classList.add('fade-out-fast');
             searchBar.classList.add('fade-out-fast');
             if (modFilterSelect) modFilterSelect.classList.add('fade-out-fast');
+            if (modFilterSelectUx) modFilterSelectUx.classList.add('fade-out-fast');
 
             setTimeout(() => {
                 presetControls.style.display = 'none';
                 searchBar.style.display = 'none';
                 if (modFilterSelect) modFilterSelect.style.display = 'none';
+                if (modFilterSelectUx) modFilterSelectUx.style.display = 'none';
                 cleanupAnimation(presetControls);
                 cleanupAnimation(searchBar);
                 cleanupAnimation(modFilterSelect);
+                cleanupAnimation(modFilterSelectUx);
             }, TRANSITION_DURATION_MS);
             mainPage.style.display = 'none';
             settingsPage.style.display = 'block';
@@ -69,23 +94,27 @@ export class UIManager {
 
             combinedButton.textContent = 'Cancel';
             combinedButton.className = 'header-combined-button cancel-state';
-            if (galleryButton) galleryButton.classList.remove('active');
+            setActiveTab(state.galleryView ? 'vault' : 'main');
         } else if (view === 'gallery') {
             cleanupAnimation(presetControls);
             cleanupAnimation(searchBar);
             cleanupAnimation(modFilterSelect);
+            cleanupAnimation(modFilterSelectUx);
 
             presetControls.classList.add('fade-out-fast');
             searchBar.classList.add('fade-out-fast');
             if (modFilterSelect) modFilterSelect.classList.add('fade-out-fast');
+            if (modFilterSelectUx) modFilterSelectUx.classList.add('fade-out-fast');
 
             setTimeout(() => {
                 presetControls.style.display = 'none';
                 searchBar.style.display = 'none';
                 if (modFilterSelect) modFilterSelect.style.display = 'none';
+                if (modFilterSelectUx) modFilterSelectUx.style.display = 'none';
                 cleanupAnimation(presetControls);
                 cleanupAnimation(searchBar);
                 cleanupAnimation(modFilterSelect);
+                cleanupAnimation(modFilterSelectUx);
             }, TRANSITION_DURATION_MS);
             mainPage.style.display = 'none';
             settingsPage.style.display = 'none';
@@ -93,7 +122,7 @@ export class UIManager {
 
             combinedButton.textContent = 'Settings';
             combinedButton.className = 'header-combined-button settings-state';
-            if (galleryButton) galleryButton.classList.add('active');
+            setActiveTab('vault');
         }
     }
 
@@ -198,6 +227,9 @@ export class UIManager {
         const checkbox = document.getElementById('dark-mode-checkbox');
         state.isDarkMode = checkbox.checked;
         this.applyDarkMode();
+        if (this.settingsManager?.updateLogLevelSelectColor) {
+            this.settingsManager.updateLogLevelSelectColor();
+        }
     }
 
     applyDarkMode() {
@@ -263,6 +295,7 @@ export class UIManager {
 
         const escapeHandler = (e) => {
             if (e.key === 'Escape') {
+                this.logAction('DEBUG', 'Escape keybind triggered: close confirmation modal');
                 cancelAction();
             }
         };
@@ -327,6 +360,7 @@ export class UIManager {
 
         const escapeHandler = (e) => {
             if (e.key === 'Escape') {
+                this.logAction('DEBUG', 'Escape keybind triggered: close input modal');
                 cancelAction();
             }
         };
@@ -397,6 +431,7 @@ export class UIManager {
 
         const escapeHandler = (e) => {
             if (e.key === 'Escape') {
+                this.logAction('DEBUG', 'Escape keybind triggered: close checklist modal');
                 if (onCancel) onCancel();
                 closeModal();
             }

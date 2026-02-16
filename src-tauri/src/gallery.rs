@@ -4,7 +4,7 @@ use sha2::{Digest, Sha256};
 #[tauri::command]
 pub(crate) async fn fetch_catalog(catalog_url: String) -> Result<Catalog, String> {
     if catalog_url.is_empty() {
-        return Err("No catalog URL configured".to_string());
+        return Err("Preset catalog URL is not configured in this build".to_string());
     }
 
     let client = reqwest::Client::builder()
@@ -28,7 +28,7 @@ pub(crate) async fn fetch_catalog(catalog_url: String) -> Result<Catalog, String
 
     let status = response.status();
     if status == reqwest::StatusCode::NOT_FOUND {
-        return Err("Catalog not found (404). Please check the catalog URL in settings.".to_string());
+        return Err("Catalog not found (404). The configured catalog source may be unavailable.".to_string());
     }
     if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
         return Err("Rate limited by the server. Please try again later.".to_string());

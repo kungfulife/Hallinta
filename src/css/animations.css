@@ -51,22 +51,18 @@
 @keyframes fadeInFast {
     from {
         opacity: 0;
-        transform: translateY(-5px);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
 @keyframes fadeOutFast {
     from {
         opacity: 1;
-        transform: translateY(0);
     }
     to {
         opacity: 0;
-        transform: translateY(-5px);
     }
 }
 

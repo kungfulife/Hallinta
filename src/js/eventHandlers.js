@@ -1,7 +1,7 @@
 import {deepCopyMods, state} from './state.js';
 import {updateDragVisualNumbersByDom} from './reorderUtils.js';
 
-export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager, saveMonitorManager, galleryManager) {
+export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager, saveMonitorManager, galleryManager, selectEnhancer) {
     window.changeDirectory = (type) => settingsManager.changeDirectory(type);
     window.findDefaultDirectory = (type) => settingsManager.findDefaultDirectory(type);
     window.openDirectory = (type) => settingsManager.openDirectory(type);
@@ -28,19 +28,41 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     window.exportPresets = () => presetManager.exportPresets();
     window.importPresets = () => presetManager.importPresets();
 
-    // Gallery handlers
-    window.toggleGalleryView = () => {
+    // Preset Vault handlers
+    window.showModListView = () => {
+        const button = document.getElementById('header-combined-button');
+        const isInSettings = button && button.textContent === 'Cancel';
+
+        if (isInSettings) {
+            settingsManager.restorePreviousSettings();
+            uiManager.changeView('main');
+            return;
+        }
+
         if (galleryManager.isGalleryOpen()) {
             galleryManager.closeGallery();
-        } else {
-            // Close settings if open
-            const button = document.getElementById('header-combined-button');
-            if (button && button.textContent === 'Cancel') {
-                settingsManager.restorePreviousSettings();
-            }
-            galleryManager.openGallery();
+            return;
         }
+
+        uiManager.changeView('main');
     };
+    window.showLoadoutView = window.showModListView;
+
+    window.showPresetVaultView = () => {
+        if (galleryManager.isGalleryOpen()) {
+            return;
+        }
+
+        // Close settings if open
+        const button = document.getElementById('header-combined-button');
+        if (button && button.textContent === 'Cancel') {
+            settingsManager.restorePreviousSettings();
+        }
+        galleryManager.openGallery();
+    };
+
+    // Backward compatibility for older inline hooks
+    window.toggleGalleryView = () => window.showPresetVaultView();
     window.filterGallery = () => galleryManager.filterAndRender();
     window.refreshGallery = () => galleryManager.refreshGallery();
     window.downloadByShareLink = () => galleryManager.downloadByShareLink();
@@ -679,6 +701,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 if (state.isReordering) {
                     dragCancelRequested = true;
                     e.preventDefault();
+                    uiManager.logAction('DEBUG', 'Escape keybind triggered: cancel active reorder', 'EventHandler');
                     uiManager.logAction('INFO', 'Reorder canceled. Drop to revert to original order.', 'EventHandler');
                     return;
                 }
@@ -690,16 +713,22 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 const settingsPage = document.getElementById('settings-page');
 
                 if (logFullscreen && logFullscreen.style.display !== 'none') {
+                    uiManager.logAction('DEBUG', 'Escape keybind triggered: close fullscreen log view', 'EventHandler');
                     closeLogs();
                 } else if (logModal && logModal.style.display !== 'none') {
+                    uiManager.logAction('DEBUG', 'Escape keybind triggered: close modal log view', 'EventHandler');
                     closeLogs();
                 } else if (systemInfoPanel && systemInfoPanel.style.display !== 'none') {
+                    uiManager.logAction('DEBUG', 'Escape keybind triggered: close system info panel', 'EventHandler');
                     window.closeSystemInfo();
                 } else if (openSourcePanel && openSourcePanel.style.display !== 'none') {
+                    uiManager.logAction('DEBUG', 'Escape keybind triggered: close open source panel', 'EventHandler');
                     window.closeOpenSourceLibraries();
                 } else if (galleryManager.isGalleryOpen()) {
+                    uiManager.logAction('DEBUG', 'Escape keybind triggered: return from Preset Vault to Mod List', 'EventHandler');
                     galleryManager.closeGallery();
                 } else if (settingsPage && settingsPage.style.display === 'block') {
+                    uiManager.logAction('DEBUG', 'Escape keybind triggered: cancel settings changes', 'EventHandler');
                     settingsManager.restorePreviousSettings();
                     uiManager.changeView('main');
                 }
@@ -708,6 +737,14 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
         await settingsManager.loadConfig();
         presetManager.loadPresets();
+        if (selectEnhancer) {
+            selectEnhancer.enhance('mod-filter-mode', { variant: 'header' });
+            selectEnhancer.enhance('preset-dropdown', { variant: 'header' });
+            selectEnhancer.enhance('log-level-select', { variant: 'settings' });
+            selectEnhancer.sync('mod-filter-mode');
+            selectEnhancer.sync('preset-dropdown');
+            selectEnhancer.sync('log-level-select');
+        }
         initLogFilterDropdown();
 
         if (settingsManager.settings.noita_dir) {

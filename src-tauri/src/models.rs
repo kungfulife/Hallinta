@@ -94,7 +94,7 @@ pub struct WorkshopModStatus {
 }
 
 fn default_collect_system_info() -> bool {
-    true
+    false
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -119,7 +119,7 @@ impl Default for LogSettings {
             max_log_size_mb: 10,
             log_level: default_log_level.to_string(),
             auto_save: true,
-            collect_system_info: true,
+            collect_system_info: false,
         }
     }
 }

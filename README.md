@@ -18,7 +18,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Automatic preset synchronization with mod_config.xml
 - Conflict resolution when external changes detected
 
-### Preset Gallery
+### Preset Vault
 - Browse and download presets from a developer-maintained catalog
 - Search and tag-based filtering
 - One-click download with JSON validation and checksum verification
@@ -50,14 +50,17 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Dark and light mode
 - Context menus for mod operations (toggle, delete, reorder, workshop links)
 - Search and filter functionality
+- Theme-safe custom dropdowns for Presets and Log Level (consistent light/dark list-item rendering)
 - Responsive layout
 - Status bar with application info
 
 ### Settings & Configuration
 - Persistent settings stored in system data directories
 - Configurable log levels
-- Optional startup system diagnostics logging toggle
+- Optional startup system diagnostics logging toggle (disabled by default)
 - Backup scheduling and retention settings
+- Steam path auto-detection during initial setup
+- Developer-managed catalog source (Catalog URL hidden from user settings)
 - Version upgrade detection with automatic backups
 - Settings validation and error recovery
 - System Information and Open Source Libraries credits panels
@@ -78,10 +81,10 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ## Interface Overview
 
-- **Header**: Search bar, preset controls, gallery access, settings access
-- **Main View**: Mod list with drag-and-drop reordering
-- **Gallery**: Browse, search, and download community presets
-- **Settings**: Directory configuration, appearance, backup, logging, gallery
+- **Header**: `Mod List` / `Preset Vault` tabs, search bar, preset controls, settings access
+- **Mod List View**: Main mod list with drag-and-drop reordering
+- **Preset Vault**: Browse, search, and download curated presets
+- **Settings**: Directory configuration, appearance, backup, logging, preset import checks
 - **Status Bar**: Click for application logs
 
 ## Technical Details
@@ -109,11 +112,15 @@ cargo tauri build
 
 ## Latest Version
 
-Current version: **0.7.0**
+Current version: **0.7.1**
 
 Latest update highlights:
-- Added Preset Gallery with browsable catalog, search, tag filtering, and one-click download
-- Added Workshop Mod Check with Steam Subscribe integration for missing mods
-- Enhanced preset export format with SHA-256 checksum verification
+- Reworked header navigation with `Mod List` and `Preset Vault` tabs
+- Overhauled settings layout for readability and faster navigation
+- Rebuilt Preset and Log Level dropdowns with a custom themed list UI for consistent dark/light option rendering
+- Added compact scrollbar styling for Preset dropdown and Mod List, while keeping Log Level dropdown non-scrolling
+- Added keybind action debug logging for Escape-driven actions
+- Defaulted startup system-detail logging to OFF with clearer user-facing wording
+- Added startup persistence for auto-detected Steam path
 
 For older release notes, see `UPDATEHISTORY.md`.
