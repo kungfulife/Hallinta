@@ -1,14 +1,5 @@
 /* Global Animations and Keyframes */
 
-@keyframes glow {
-    from {
-        box-shadow: 0 0 5px rgba(0, 122, 204, 0.3);
-    }
-    to {
-        box-shadow: 0 0 10px rgba(0, 122, 204, 0.6);
-    }
-}
-
 /* Fade In/Out (Default speed) */
 .fade-in {
     animation: fadeIn 0.3s ease-in-out forwards;
@@ -63,20 +54,6 @@
     }
     to {
         opacity: 0;
-    }
-}
-
-/* Slide In (from left) */
-.slide-in {
-    animation: slideIn 0.3s ease-out forwards;
-}
-
-@keyframes slideIn {
-    from {
-        transform: translateX(-100%);
-    }
-    to {
-        transform: translateX(0);
     }
 }
 

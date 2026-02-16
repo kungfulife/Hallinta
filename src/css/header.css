@@ -86,34 +86,7 @@
     outline: none;
 }
 
-/* Mod Filter Select */
-.mod-filter-select {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    color: var(--text-color);
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.95em;
-    font-weight: 500;
-    flex: 0 0 104px;
-    height: var(--header-control-height);
-    min-width: 0;
-    width: 104px;
-    padding: 0 0.75em;
-    transition: border-color 0.25s, box-shadow 0.25s;
-}
-
-.mod-filter-select:focus {
-    border-color: var(--accent-color);
-    box-shadow: 0 2px 8px rgba(0, 122, 204, 0.2);
-    outline: none;
-}
-
-.mod-filter-select:hover {
-    border-color: var(--accent-color);
-}
-
+/* Mod Filter Select (enhanced by SelectEnhancer) */
 .header .ux-select[data-select-id="mod-filter-mode"] {
     flex: 0 0 104px;
     width: 104px;

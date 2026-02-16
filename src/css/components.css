@@ -657,6 +657,7 @@ input:checked + .slider:before {
     transform: rotate(180deg);
 }
 
+/* Scrollbar styling via .themed-scrollbar-compact class in base.css */
 .ux-select-menu {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
@@ -672,39 +673,6 @@ input:checked + .slider:before {
     position: absolute;
     top: 100%;
     z-index: 3200;
-}
-
-.ux-select-menu {
-    scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--accent-color) 35%, var(--border-color) 65%) transparent;
-}
-
-.ux-select-menu::-webkit-scrollbar {
-    width: 6px;
-}
-
-.ux-select-menu::-webkit-scrollbar-track {
-    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.04), transparent);
-    border-radius: 999px;
-}
-
-.ux-select-menu::-webkit-scrollbar-thumb {
-    background: linear-gradient(
-        to bottom,
-        color-mix(in srgb, var(--border-color) 72%, var(--accent-color) 28%),
-        color-mix(in srgb, var(--border-color) 54%, var(--accent-color) 46%)
-    );
-    border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--accent-color) 24%, transparent 76%);
-    min-height: 24px;
-}
-
-.ux-select-menu::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(
-        to bottom,
-        color-mix(in srgb, var(--border-color) 58%, var(--accent-color) 42%),
-        color-mix(in srgb, var(--border-color) 40%, var(--accent-color) 60%)
-    );
 }
 
 .ux-select.open .ux-select-menu {

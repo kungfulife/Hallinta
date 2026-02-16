@@ -113,15 +113,14 @@ cargo tauri build
 
 ## Latest Version
 
-Current version: **0.7.3**
+Current version: **0.7.4**
 
 Latest update highlights:
-- Redesigned logging system: logging is now always active (cannot be disabled)
-- Removed the `Enable application logging` toggle from Settings
-- Log level dropdown now controls recording verbosity (what detail gets captured)
-- Log file and session marker are now created immediately on startup for crash resilience
-- Fixed status bar not showing messages when log level was set above Info
-- Standardized default log level to Info for both development and release builds
-- Updated application version to `0.7.3`
+- Consolidated scrollbar styling into shared utility classes, eliminating duplication
+- Added themed scrollbar to gallery grid, log viewer, backup list, and missing mods modal
+- Removed dead CSS and JS code left over from the SelectEnhancer migration
+- Refactored view-switching animation logic for cleaner code
+- Fixed Escape key in open dropdowns no longer accidentally closing settings or views
+- Updated application version to `0.7.4`
 
 For older release notes, see `UPDATEHISTORY.md`.

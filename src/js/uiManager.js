@@ -22,8 +22,11 @@ export class UIManager {
         const modFilterSelectUx = document.querySelector('.ux-select[data-select-id="mod-filter-mode"]');
         const TRANSITION_DURATION_MS = 200;
 
-        function cleanupAnimation(el) {
-            if (el) el.classList.remove('fade-in-fast', 'fade-out-fast');
+        // Header controls that animate in/out together
+        const headerControls = [presetControls, searchBar, modFilterSelect, modFilterSelectUx];
+
+        function cleanupAll() {
+            headerControls.forEach(el => { if (el) el.classList.remove('fade-in-fast', 'fade-out-fast'); });
         }
 
         function setActiveTab(tab) {
@@ -36,31 +39,31 @@ export class UIManager {
             setTabState(vaultTab, tab === 'vault');
         }
 
-        if (view === 'main') {
-            cleanupAnimation(presetControls);
-            cleanupAnimation(searchBar);
-            cleanupAnimation(modFilterSelect);
-            cleanupAnimation(modFilterSelectUx);
-
+        function fadeInControls() {
+            cleanupAll();
             presetControls.style.display = 'flex';
             searchBar.style.display = 'flex';
             if (modFilterSelect) modFilterSelect.style.display = '';
             if (modFilterSelectUx) modFilterSelectUx.style.display = '';
-
             void presetControls.offsetWidth;
-            void searchBar.offsetWidth;
+            headerControls.forEach(el => { if (el) el.classList.add('fade-in-fast'); });
+            setTimeout(cleanupAll, TRANSITION_DURATION_MS + 20);
+        }
 
-            presetControls.classList.add('fade-in-fast');
-            searchBar.classList.add('fade-in-fast');
-            if (modFilterSelect) modFilterSelect.classList.add('fade-in-fast');
-            if (modFilterSelectUx) modFilterSelectUx.classList.add('fade-in-fast');
+        function fadeOutControls() {
+            cleanupAll();
+            headerControls.forEach(el => { if (el) el.classList.add('fade-out-fast'); });
             setTimeout(() => {
-                cleanupAnimation(presetControls);
-                cleanupAnimation(searchBar);
-                cleanupAnimation(modFilterSelect);
-                cleanupAnimation(modFilterSelectUx);
-            }, TRANSITION_DURATION_MS + 20);
+                presetControls.style.display = 'none';
+                searchBar.style.display = 'none';
+                if (modFilterSelect) modFilterSelect.style.display = 'none';
+                if (modFilterSelectUx) modFilterSelectUx.style.display = 'none';
+                cleanupAll();
+            }, TRANSITION_DURATION_MS);
+        }
 
+        if (view === 'main') {
+            fadeInControls();
             mainPage.style.display = 'flex';
             settingsPage.style.display = 'none';
             if (galleryPage) galleryPage.style.display = 'none';
@@ -68,58 +71,18 @@ export class UIManager {
             combinedButton.className = 'header-combined-button settings-state';
             setActiveTab('main');
         } else if (view === 'settings') {
-            cleanupAnimation(presetControls);
-            cleanupAnimation(searchBar);
-            cleanupAnimation(modFilterSelect);
-            cleanupAnimation(modFilterSelectUx);
-
-            presetControls.classList.add('fade-out-fast');
-            searchBar.classList.add('fade-out-fast');
-            if (modFilterSelect) modFilterSelect.classList.add('fade-out-fast');
-            if (modFilterSelectUx) modFilterSelectUx.classList.add('fade-out-fast');
-
-            setTimeout(() => {
-                presetControls.style.display = 'none';
-                searchBar.style.display = 'none';
-                if (modFilterSelect) modFilterSelect.style.display = 'none';
-                if (modFilterSelectUx) modFilterSelectUx.style.display = 'none';
-                cleanupAnimation(presetControls);
-                cleanupAnimation(searchBar);
-                cleanupAnimation(modFilterSelect);
-                cleanupAnimation(modFilterSelectUx);
-            }, TRANSITION_DURATION_MS);
+            fadeOutControls();
             mainPage.style.display = 'none';
             settingsPage.style.display = 'block';
             if (galleryPage) galleryPage.style.display = 'none';
-
             combinedButton.textContent = 'Cancel';
             combinedButton.className = 'header-combined-button cancel-state';
             setActiveTab(state.galleryView ? 'vault' : 'main');
         } else if (view === 'gallery') {
-            cleanupAnimation(presetControls);
-            cleanupAnimation(searchBar);
-            cleanupAnimation(modFilterSelect);
-            cleanupAnimation(modFilterSelectUx);
-
-            presetControls.classList.add('fade-out-fast');
-            searchBar.classList.add('fade-out-fast');
-            if (modFilterSelect) modFilterSelect.classList.add('fade-out-fast');
-            if (modFilterSelectUx) modFilterSelectUx.classList.add('fade-out-fast');
-
-            setTimeout(() => {
-                presetControls.style.display = 'none';
-                searchBar.style.display = 'none';
-                if (modFilterSelect) modFilterSelect.style.display = 'none';
-                if (modFilterSelectUx) modFilterSelectUx.style.display = 'none';
-                cleanupAnimation(presetControls);
-                cleanupAnimation(searchBar);
-                cleanupAnimation(modFilterSelect);
-                cleanupAnimation(modFilterSelectUx);
-            }, TRANSITION_DURATION_MS);
+            fadeOutControls();
             mainPage.style.display = 'none';
             settingsPage.style.display = 'none';
             if (galleryPage) galleryPage.style.display = 'flex';
-
             combinedButton.textContent = 'Settings';
             combinedButton.className = 'header-combined-button settings-state';
             setActiveTab('vault');

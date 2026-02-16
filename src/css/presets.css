@@ -12,21 +12,6 @@
     z-index: 30;
 }
 
-.preset-controls select {
-    cursor: pointer;
-    background: var(--button-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    color: var(--text-color);
-    flex: 1;
-    font-weight: 500;
-    transition: all 0.2s;
-    font-size: 1em;
-    max-width: 220px;
-    min-width: 110px;
-    padding: 0.6em;
-}
-
 .preset-controls .ux-select {
     flex: 0 1 auto;
     max-width: 20ch;
@@ -50,27 +35,8 @@
     transition: all 0.2s;
 }
 
-.preset-controls select:hover {
-    background: var(--button-hover);
-    border-color: var(--accent-color);
-}
-
-.preset-controls select:focus {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
-    outline: none;
-}
-
-.preset-controls select option {
-    background: var(--card-bg);
-    color: var(--text-color);
-}
-
 .preset-controls button:hover {
     background: var(--button-hover);
     border-color: var(--accent-color);
 }
 
-.dark-mode .preset-controls select:focus {
-    box-shadow: 0 0 0 2px rgba(77, 166, 255, 0.3);
-}
