@@ -2,6 +2,19 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.7.2
+- Applied the same custom scrollbar styling used across the app to the Settings `System Information` and `Open Source Libraries` views
+- Added an `Enable application logging` toggle in Settings
+- Set application logging to default OFF for new and migrated settings
+- Added a themed top bar for log headers (main-view style gradient/border/shadow) via new log-toolbar styling.
+- Made log top buttons larger and more prominent (bigger height, padding, radius, font weight, hover lift).
+- Applied this to:
+  - In-app log modal header
+  - In-app fullscreen log header
+  - Detached log window header
+- Added mobile wrapping behavior so toolbar controls stay usable on smaller widths.
+- Updated application version to `0.7.2`
+
 ## 0.7.1
 - Replaced the old Gallery header button with a tab-style view switcher (`Mod List` and `Preset Vault`)
 - Refreshed settings layout into readable section cards with improved spacing and navigation flow

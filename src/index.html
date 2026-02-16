@@ -165,6 +165,12 @@
                         <button onclick="openAppSettingsFolder()">Open Settings Folder</button>
                     </div>
 
+                    <div class="setting-item setting-item-checkbox">
+                        <input type="checkbox" id="logging-enabled-checkbox" onchange="toggleLoggingEnabled()">
+                        <label for="logging-enabled-checkbox">Enable application logging</label>
+                    </div>
+                    <p class="dev-info-text">When disabled, Hallinta keeps status messages but does not record new log entries.</p>
+
                     <div class="setting-item">
                         <label for="log-level-select">Log Level</label>
                         <div class="log-level-select-wrap">
@@ -273,7 +279,7 @@
 
     <div id="log-modal" class="custom-modal" style="display: none;">
         <div class="log-modal-content">
-            <div class="log-header">
+            <div class="log-header log-toolbar">
                 <h3>Application Logs</h3>
                 <div class="log-controls">
                     <button onclick="toggleLogFullscreen()" title="Toggle Fullscreen">⛶</button>
@@ -298,7 +304,7 @@
 
     <div id="log-fullscreen" class="log-fullscreen-panel" style="display: none;">
         <div class="log-fullscreen-content">
-            <div class="log-header">
+            <div class="log-header log-toolbar">
                 <h3>Application Logs</h3>
                 <div class="log-controls">
                     <button onclick="toggleLogFullscreen()" title="Exit Fullscreen">⛶</button>
@@ -329,7 +335,7 @@
                     <button class="system-info-close-btn" onclick="closeSystemInfo()">Close</button>
                 </div>
             </div>
-            <div id="system-info-body" class="system-info-body"></div>
+            <div id="system-info-body" class="system-info-body settings-scrollable"></div>
         </div>
     </div>
 
@@ -341,7 +347,7 @@
                     <button class="system-info-close-btn" onclick="closeOpenSourceLibraries()">Close</button>
                 </div>
             </div>
-            <div id="open-source-body" class="system-info-body"></div>
+            <div id="open-source-body" class="system-info-body settings-scrollable"></div>
         </div>
     </div>
 

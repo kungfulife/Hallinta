@@ -556,7 +556,8 @@ export class UIManager {
     logAction(level, message, module = 'UIManager') {
         const normalizedLevel = level.toUpperCase(); // Normalize to uppercase
         const logLevelOrder = window.logUtils?.logLevelOrder || {'DEV': -1, 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3};
-        const currentLogLevel = this.settingsManager?.settings.log_settings.log_level?.toUpperCase() || 'INFO';
+        const currentLogLevel = this.settingsManager?.settings?.log_settings?.log_level?.toUpperCase() || 'INFO';
+        const loggingEnabled = !!this.settingsManager?.settings?.log_settings?.enabled;
         const currentLevelValue = logLevelOrder[currentLogLevel] ?? 1;
         const logLevelValue = logLevelOrder[normalizedLevel] ?? 0;
 
@@ -578,6 +579,9 @@ export class UIManager {
                         statusBar.className = 'status-bar';
                     }
                 }
+            }
+            if (!loggingEnabled) {
+                return;
             }
             if (window.__TAURI__ && window.__TAURI__.core) {
                 window.__TAURI__.core.invoke('add_log_entry', {level: normalizedLevel, message, module})

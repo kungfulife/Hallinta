@@ -1,6 +1,6 @@
 use crate::app::{get_entangled_worlds_config_path, get_noita_save_path, get_version};
 use crate::backup::add_directory_to_zip;
-use crate::logging::add_log_entry;
+use crate::logging::{add_log_entry, set_logging_enabled};
 use crate::models::{AppSettings, BackupSettings, GallerySettings, LogSettings, ModPreset, SaveMonitorSettings};
 use crate::workshop::detect_steam_path;
 use chrono::Utc;
@@ -156,6 +156,7 @@ pub(crate) fn save_settings(settings: AppSettings) -> Result<(), String> {
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
     fs::write(settings_path, json_content)
         .map_err(|e| format!("Failed to write settings file: {}", e))?;
+    set_logging_enabled(settings.log_settings.enabled);
     Ok(())
 }
 
@@ -188,6 +189,7 @@ pub(crate) async fn load_settings() -> Result<AppSettings, String> {
                 max_log_size_mb: 10,
                 log_level: default_log_level.to_string(),
                 auto_save: true,
+                enabled: false,
                 collect_system_info: false,
             },
             backup_settings: BackupSettings::default(),
@@ -205,6 +207,7 @@ pub(crate) async fn load_settings() -> Result<AppSettings, String> {
         .map_err(|e| format!("Failed to read settings file: {}", e))?;
     let mut settings: AppSettings =
         serde_json::from_str(&content).map_err(|e| format!("Failed to parse settings: {}", e))?;
+    set_logging_enabled(settings.log_settings.enabled);
     if settings.version != get_version() {
         let old_version = settings.version.clone();
         let new_version = get_version();

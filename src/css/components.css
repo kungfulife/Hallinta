@@ -216,6 +216,73 @@ input:checked + .slider:before {
     border-color: var(--accent-color);
 }
 
+/* Log toolbar: main-header inspired top bar for log views/windows */
+.log-toolbar {
+    align-items: center;
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--card-bg) 92%, #ffffff 8%),
+        color-mix(in srgb, var(--card-bg) 98%, var(--accent-color) 2%)
+    );
+    border: 1px solid color-mix(in srgb, var(--border-color) 86%, var(--accent-color) 14%);
+    border-radius: 12px;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+    min-height: 58px;
+    padding: 0.5rem 0.7rem;
+}
+
+.dark-mode .log-toolbar {
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.34);
+}
+
+.log-toolbar h3 {
+    font-size: 1.03em;
+    font-weight: 600;
+}
+
+.log-toolbar .log-controls {
+    gap: 0.45rem;
+    justify-content: flex-end;
+    margin-left: auto;
+}
+
+.log-toolbar .log-controls button {
+    align-items: center;
+    border-radius: 8px;
+    display: inline-flex;
+    font-size: 0.95em;
+    font-weight: 600;
+    height: 40px;
+    justify-content: center;
+    min-width: 40px;
+    padding: 0 0.95em;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    white-space: nowrap;
+}
+
+.log-toolbar .log-controls button:hover {
+    transform: translateY(-1px);
+}
+
+.log-toolbar .log-controls button:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+    .log-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .log-toolbar .log-controls {
+        justify-content: flex-start;
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
 .log-filters {
     display: flex;
     align-items: center;
