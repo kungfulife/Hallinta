@@ -5,6 +5,11 @@ export class PresetManager {
         this.uiManager = uiManager;
         this.modManager = modManager;
         this.settingsManager = settingsManager;
+        this._galleryManager = null;
+    }
+
+    setGalleryManager(galleryManager) {
+        this._galleryManager = galleryManager;
     }
 
     loadPresets() {
@@ -202,7 +207,7 @@ export class PresetManager {
                 try {
                     const exportData = {
                         hallinta_export: 'presets',
-                        version: '0.4.0',
+                        version: '0.7.0',
                         presets: {}
                     };
 
@@ -214,6 +219,14 @@ export class PresetManager {
                             settings_fold_open: mod.settingsFoldOpen || false
                         }));
                     });
+
+                    // Compute checksum over the presets data
+                    try {
+                        const presetsString = JSON.stringify(exportData.presets);
+                        exportData.checksum = await window.__TAURI__.core.invoke('compute_checksum', { content: presetsString });
+                    } catch (checksumError) {
+                        this.logAction('WARN', `Could not compute checksum: ${checksumError}`);
+                    }
 
                     const filePath = await window.__TAURI__.dialog.save({
                         title: 'Export Presets',
@@ -261,6 +274,36 @@ export class PresetManager {
                 return;
             }
 
+            // Checksum verification (non-blocking, warn only)
+            if (importData.checksum) {
+                try {
+                    const presetsString = JSON.stringify(importData.presets);
+                    const valid = await window.__TAURI__.core.invoke('verify_checksum', {
+                        content: presetsString,
+                        expectedChecksum: importData.checksum
+                    });
+                    if (!valid) {
+                        const proceed = await new Promise((resolve) => {
+                            this.uiManager.showConfirmModal(
+                                'Checksum mismatch: the preset file may have been modified since it was exported. Continue importing?',
+                                {
+                                    confirmText: 'Continue',
+                                    cancelText: 'Cancel',
+                                    onConfirm: () => resolve(true),
+                                    onCancel: () => resolve(false)
+                                }
+                            );
+                        });
+                        if (!proceed) {
+                            this.logAction('INFO', 'Import cancelled due to checksum mismatch');
+                            return;
+                        }
+                    }
+                } catch (checksumError) {
+                    this.logAction('WARN', `Checksum verification failed: ${checksumError}`);
+                }
+            }
+
             const importedNames = Object.keys(importData.presets);
             if (importedNames.length === 0) {
                 this.logAction('WARN', 'No presets found in file');
@@ -287,6 +330,15 @@ export class PresetManager {
                     const conflicts = selected.filter(name => state.currentPresets[name]);
 
                     const doImport = async () => {
+                        // Workshop mod check before import
+                        if (this._galleryManager) {
+                            try {
+                                await this._galleryManager.checkWorkshopMods(importData);
+                            } catch (e) {
+                                this.logAction('WARN', `Workshop check skipped: ${e}`);
+                            }
+                        }
+
                         let imported = 0;
                         for (const name of selected) {
                             let targetName = name;

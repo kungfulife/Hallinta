@@ -12,8 +12,10 @@ export class UIManager {
         this.logAction('DEBUG', `Changing view to ${view}`);
         const mainPage = document.getElementById('main-page');
         const settingsPage = document.getElementById('settings-page');
+        const galleryPage = document.getElementById('gallery-page');
         const presetControls = document.getElementById('preset-controls');
         const combinedButton = document.getElementById('header-combined-button');
+        const galleryButton = document.getElementById('header-gallery-button');
         const searchBar = document.getElementById('search-bar');
         const modFilterSelect = document.getElementById('mod-filter-mode');
         const TRANSITION_DURATION_MS = 200;
@@ -40,8 +42,10 @@ export class UIManager {
 
             mainPage.style.display = 'flex';
             settingsPage.style.display = 'none';
+            if (galleryPage) galleryPage.style.display = 'none';
             combinedButton.textContent = 'Settings';
             combinedButton.className = 'header-combined-button settings-state';
+            if (galleryButton) galleryButton.classList.remove('active');
         } else if (view === 'settings') {
             cleanupAnimation(presetControls);
             cleanupAnimation(searchBar);
@@ -61,9 +65,35 @@ export class UIManager {
             }, TRANSITION_DURATION_MS);
             mainPage.style.display = 'none';
             settingsPage.style.display = 'block';
+            if (galleryPage) galleryPage.style.display = 'none';
 
             combinedButton.textContent = 'Cancel';
             combinedButton.className = 'header-combined-button cancel-state';
+            if (galleryButton) galleryButton.classList.remove('active');
+        } else if (view === 'gallery') {
+            cleanupAnimation(presetControls);
+            cleanupAnimation(searchBar);
+            cleanupAnimation(modFilterSelect);
+
+            presetControls.classList.add('fade-out-fast');
+            searchBar.classList.add('fade-out-fast');
+            if (modFilterSelect) modFilterSelect.classList.add('fade-out-fast');
+
+            setTimeout(() => {
+                presetControls.style.display = 'none';
+                searchBar.style.display = 'none';
+                if (modFilterSelect) modFilterSelect.style.display = 'none';
+                cleanupAnimation(presetControls);
+                cleanupAnimation(searchBar);
+                cleanupAnimation(modFilterSelect);
+            }, TRANSITION_DURATION_MS);
+            mainPage.style.display = 'none';
+            settingsPage.style.display = 'none';
+            if (galleryPage) galleryPage.style.display = 'flex';
+
+            combinedButton.textContent = 'Settings';
+            combinedButton.className = 'header-combined-button settings-state';
+            if (galleryButton) galleryButton.classList.add('active');
         }
     }
 

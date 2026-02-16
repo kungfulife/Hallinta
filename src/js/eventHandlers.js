@@ -1,7 +1,7 @@
 import {deepCopyMods, state} from './state.js';
 import {updateDragVisualNumbersByDom} from './reorderUtils.js';
 
-export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager, saveMonitorManager) {
+export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager, saveMonitorManager, galleryManager) {
     window.changeDirectory = (type) => settingsManager.changeDirectory(type);
     window.findDefaultDirectory = (type) => settingsManager.findDefaultDirectory(type);
     window.openDirectory = (type) => settingsManager.openDirectory(type);
@@ -27,6 +27,33 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     window.updateLogLevelColor = () => settingsManager.updateLogLevelSelectColor();
     window.exportPresets = () => presetManager.exportPresets();
     window.importPresets = () => presetManager.importPresets();
+
+    // Gallery handlers
+    window.toggleGalleryView = () => {
+        if (galleryManager.isGalleryOpen()) {
+            galleryManager.closeGallery();
+        } else {
+            // Close settings if open
+            const button = document.getElementById('header-combined-button');
+            if (button && button.textContent === 'Cancel') {
+                settingsManager.restorePreviousSettings();
+            }
+            galleryManager.openGallery();
+        }
+    };
+    window.filterGallery = () => galleryManager.filterAndRender();
+    window.refreshGallery = () => galleryManager.refreshGallery();
+    window.downloadByShareLink = () => galleryManager.downloadByShareLink();
+    window.detectSteamPath = async () => {
+        try {
+            const steamPath = await window.__TAURI__.core.invoke('detect_steam_path');
+            const input = document.getElementById('gallery-steam-path');
+            if (input) input.value = steamPath;
+            uiManager.logAction('INFO', `Detected Steam path: ${steamPath}`, 'EventHandler');
+        } catch (error) {
+            uiManager.logAction('WARN', `Could not detect Steam path: ${error}`, 'EventHandler');
+        }
+    };
     window.toggleMod = () => uiManager.toggleMod();
     window.reorderMod = () => uiManager.reorderMod();
     window.deleteMod = () => uiManager.deleteMod();
@@ -448,6 +475,10 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             settingsManager.restorePreviousSettings();
             uiManager.changeView('main');
         } else {
+            // Close gallery if open before entering settings
+            if (galleryManager.isGalleryOpen()) {
+                galleryManager.closeGallery();
+            }
             settingsManager.storeCurrentSettings();
             uiManager.changeView('settings');
         }
@@ -666,6 +697,8 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                     window.closeSystemInfo();
                 } else if (openSourcePanel && openSourcePanel.style.display !== 'none') {
                     window.closeOpenSourceLibraries();
+                } else if (galleryManager.isGalleryOpen()) {
+                    galleryManager.closeGallery();
                 } else if (settingsPage && settingsPage.style.display === 'block') {
                     settingsManager.restorePreviousSettings();
                     uiManager.changeView('main');
