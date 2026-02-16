@@ -219,7 +219,7 @@ export class PresetManager {
                 try {
                     const exportData = {
                         hallinta_export: 'presets',
-                        version: await window.__TAURI__.core.invoke('get_version').catch(() => '0.7.1'),
+                        version: await window.__TAURI__.core.invoke('get_version').catch(() => '0.7.2'),
                         presets: {}
                     };
 

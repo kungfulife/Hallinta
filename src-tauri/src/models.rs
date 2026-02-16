@@ -97,12 +97,18 @@ fn default_collect_system_info() -> bool {
     false
 }
 
+fn default_logging_enabled() -> bool {
+    false
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct LogSettings {
     pub max_log_files: usize,
     pub max_log_size_mb: usize,
     pub log_level: String,
     pub auto_save: bool,
+    #[serde(default = "default_logging_enabled")]
+    pub enabled: bool,
     #[serde(default = "default_collect_system_info")]
     pub collect_system_info: bool,
 }
@@ -119,6 +125,7 @@ impl Default for LogSettings {
             max_log_size_mb: 10,
             log_level: default_log_level.to_string(),
             auto_save: true,
+            enabled: false,
             collect_system_info: false,
         }
     }

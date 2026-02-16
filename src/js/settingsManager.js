@@ -16,6 +16,7 @@ export class SettingsManager {
                 max_log_size_mb: 10,
                 log_level: 'INFO',
                 auto_save: true,
+                enabled: false,
                 collect_system_info: false
             },
             backup_settings: {
@@ -81,6 +82,7 @@ export class SettingsManager {
                         max_log_size_mb: 10,
                         log_level: 'INFO',
                         auto_save: true,
+                        enabled: false,
                         collect_system_info: false
                     },
                     backup_settings: {
@@ -291,11 +293,15 @@ export class SettingsManager {
                 max_log_size_mb: 10,
                 log_level: 'INFO',
                 auto_save: true,
+                enabled: false,
                 collect_system_info: false
             };
         }
         if (!this.settings.log_settings.log_level) {
             this.settings.log_settings.log_level = 'INFO';
+        }
+        if (typeof this.settings.log_settings.enabled !== 'boolean') {
+            this.settings.log_settings.enabled = false;
         }
         if (typeof this.settings.log_settings.collect_system_info !== 'boolean') {
             this.settings.log_settings.collect_system_info = false;
@@ -346,6 +352,7 @@ export class SettingsManager {
         const noitaDirElement = document.getElementById('noita-dir');
         const entangledDirElement = document.getElementById('entangled-dir');
         const darkModeElement = document.getElementById('dark-mode-checkbox');
+        const loggingEnabledCheckbox = document.getElementById('logging-enabled-checkbox');
         const logLevelSelect = document.getElementById('log-level-select');
         const collectSystemInfoCheckbox = document.getElementById('collect-system-info-checkbox');
         const autoDeleteDaysInput = document.getElementById('auto-delete-days');
@@ -359,11 +366,14 @@ export class SettingsManager {
         }
         if (entangledDirElement) entangledDirElement.value = settings.entangled_dir;
         if (darkModeElement) darkModeElement.checked = state.isDarkMode;
+        if (loggingEnabledCheckbox) {
+            loggingEnabledCheckbox.checked = !!this.settings.log_settings.enabled;
+        }
         if (logLevelSelect) logLevelSelect.value = settings.log_settings.log_level || 'INFO';
         if (collectSystemInfoCheckbox) {
             collectSystemInfoCheckbox.checked = !!this.settings.log_settings.collect_system_info;
         }
-        this.updateLogLevelSelectColor();
+        this.updateLoggingControls();
         if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings.auto_delete_days;
         if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings.backup_interval_minutes;
         if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
@@ -395,6 +405,7 @@ export class SettingsManager {
         try {
             const noitaDirElement = document.getElementById('noita-dir');
             const entangledDirElement = document.getElementById('entangled-dir');
+            const loggingEnabledCheckbox = document.getElementById('logging-enabled-checkbox');
             const logLevelSelect = document.getElementById('log-level-select');
             const collectSystemInfoCheckbox = document.getElementById('collect-system-info-checkbox');
             const autoDeleteDaysInput = document.getElementById('auto-delete-days');
@@ -409,6 +420,7 @@ export class SettingsManager {
             if (!this.settings.log_settings) {
                 this.settings.log_settings = {};
             }
+            if (loggingEnabledCheckbox) this.settings.log_settings.enabled = !!loggingEnabledCheckbox.checked;
             if (logLevelSelect) this.settings.log_settings.log_level = logLevelSelect.value;
             if (collectSystemInfoCheckbox) {
                 this.settings.log_settings.collect_system_info = !!collectSystemInfoCheckbox.checked;
@@ -663,6 +675,7 @@ export class SettingsManager {
                     max_log_size_mb: 10,
                     log_level: 'INFO',
                     auto_save: true,
+                    enabled: false,
                     collect_system_info: false
                 },
                 backup_settings: {
@@ -688,6 +701,7 @@ export class SettingsManager {
             const noitaDirElement = document.getElementById('noita-dir');
             const entangledDirElement = document.getElementById('entangled-dir');
             const darkModeElement = document.getElementById('dark-mode-checkbox');
+            const loggingEnabledCheckbox = document.getElementById('logging-enabled-checkbox');
             const logLevelSelect = document.getElementById('log-level-select');
             const collectSystemInfoCheckbox = document.getElementById('collect-system-info-checkbox');
             const autoDeleteDaysInput = document.getElementById('auto-delete-days');
@@ -698,9 +712,10 @@ export class SettingsManager {
             }
             if (entangledDirElement) entangledDirElement.value = defaultEntangledDir;
             if (darkModeElement) darkModeElement.checked = false;
+            if (loggingEnabledCheckbox) loggingEnabledCheckbox.checked = false;
             if (logLevelSelect) logLevelSelect.value = 'INFO';
             if (collectSystemInfoCheckbox) collectSystemInfoCheckbox.checked = false;
-            this.updateLogLevelSelectColor();
+            this.updateLoggingControls();
             if (autoDeleteDaysInput) autoDeleteDaysInput.value = 30;
             if (backupIntervalInput) backupIntervalInput.value = 0;
             const monitorIntervalInput = document.getElementById('monitor-interval');
@@ -735,6 +750,7 @@ export class SettingsManager {
             const noitaDirElement = document.getElementById('noita-dir');
             const entangledDirElement = document.getElementById('entangled-dir');
             const darkModeElement = document.getElementById('dark-mode-checkbox');
+            const loggingEnabledCheckbox = document.getElementById('logging-enabled-checkbox');
             const logLevelSelect = document.getElementById('log-level-select');
             const collectSystemInfoCheckbox = document.getElementById('collect-system-info-checkbox');
             const autoDeleteDaysInput = document.getElementById('auto-delete-days');
@@ -747,11 +763,12 @@ export class SettingsManager {
             }
             if (entangledDirElement) entangledDirElement.value = this.settings.entangled_dir;
             if (darkModeElement) darkModeElement.checked = state.isDarkMode;
+            if (loggingEnabledCheckbox) loggingEnabledCheckbox.checked = !!this.settings.log_settings.enabled;
             if (logLevelSelect) logLevelSelect.value = this.settings.log_settings.log_level;
             if (collectSystemInfoCheckbox) {
                 collectSystemInfoCheckbox.checked = !!this.settings.log_settings.collect_system_info;
             }
-            this.updateLogLevelSelectColor();
+            this.updateLoggingControls();
             if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings?.auto_delete_days ?? 30;
             if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings?.backup_interval_minutes ?? 0;
             if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
@@ -765,18 +782,43 @@ export class SettingsManager {
         }
     }
 
+    toggleLoggingEnabled() {
+        const loggingEnabledCheckbox = document.getElementById('logging-enabled-checkbox');
+        if (!loggingEnabledCheckbox) return;
+        if (!this.settings.log_settings) {
+            this.settings.log_settings = {};
+        }
+        this.settings.log_settings.enabled = !!loggingEnabledCheckbox.checked;
+        this.updateLoggingControls();
+    }
+
+    updateLoggingControls() {
+        const loggingEnabled = !!this.settings.log_settings?.enabled;
+        const logLevelSelect = document.getElementById('log-level-select');
+        const collectSystemInfoCheckbox = document.getElementById('collect-system-info-checkbox');
+
+        if (logLevelSelect) {
+            logLevelSelect.disabled = !loggingEnabled;
+        }
+        if (collectSystemInfoCheckbox) {
+            collectSystemInfoCheckbox.disabled = !loggingEnabled;
+        }
+
+        this.updateLogLevelSelectColor();
+    }
+
     updateLogLevelSelectColor() {
         const select = document.getElementById('log-level-select');
         if (!select) return;
         const colorMap = { DEBUG: '#8f97a0', INFO: 'var(--accent-color)', WARN: '#d29200', ERROR: '#c83543' };
-        select.style.color = colorMap[select.value] || '';
+        select.style.color = select.disabled ? '' : (colorMap[select.value] || '');
         if (window.selectEnhancer) {
             window.selectEnhancer.sync('log-level-select');
         }
     }
 
     async logStartupSystemInfo() {
-        if (!this.settings.log_settings?.collect_system_info) {
+        if (!this.settings.log_settings?.enabled || !this.settings.log_settings?.collect_system_info) {
             return;
         }
 

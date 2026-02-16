@@ -112,15 +112,19 @@ cargo tauri build
 
 ## Latest Version
 
-Current version: **0.7.1**
+Current version: **0.7.2**
 
 Latest update highlights:
-- Reworked header navigation with `Mod List` and `Preset Vault` tabs
-- Overhauled settings layout for readability and faster navigation
-- Rebuilt Preset and Log Level dropdowns with a custom themed list UI for consistent dark/light option rendering
-- Added compact scrollbar styling for Preset dropdown and Mod List, while keeping Log Level dropdown non-scrolling
-- Added keybind action debug logging for Escape-driven actions
-- Defaulted startup system-detail logging to OFF with clearer user-facing wording
-- Added startup persistence for auto-detected Steam path
+- Applied the same custom scrollbar styling used across the app to the Settings `System Information` and `Open Source Libraries` views
+- Added an `Enable application logging` toggle in Settings
+- Set application logging to default OFF for new and migrated settings
+- Added a themed top bar for log headers (main-view style gradient/border/shadow) via new log-toolbar styling.
+- Made log top buttons larger and more prominent (bigger height, padding, radius, font weight, hover lift).
+- Applied this to:
+    - In-app log modal header
+    - In-app fullscreen log header
+    - Detached log window header
+- Added mobile wrapping behavior so toolbar controls stay usable on smaller widths.
+- Updated application version to `0.7.2`
 
 For older release notes, see `UPDATEHISTORY.md`.
