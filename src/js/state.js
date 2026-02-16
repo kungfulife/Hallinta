@@ -32,6 +32,7 @@ export const state = {
     isModalVisible: false,
     backupInProgress: false,
     isRestoring: false,
+    galleryView: false,
     logAutoRefreshInterval: null,
     logFilters: {
         debug: true,

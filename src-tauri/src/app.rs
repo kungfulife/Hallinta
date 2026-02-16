@@ -280,10 +280,22 @@ pub(crate) fn get_open_source_libraries() -> Vec<OpenSourceLibrary> {
             "https://crates.io/crates/named-lock",
         ),
         (
+            "reqwest",
+            "0.12",
+            "HTTP client for gallery/preset downloads",
+            "https://crates.io/crates/reqwest",
+        ),
+        (
             "serde",
             "1.0.228",
             "Serialization framework",
             "https://crates.io/crates/serde",
+        ),
+        (
+            "sha2",
+            "0.10",
+            "SHA-256 checksum verification",
+            "https://crates.io/crates/sha2",
         ),
         (
             "serde_json",
@@ -338,6 +350,12 @@ pub(crate) fn get_open_source_libraries() -> Vec<OpenSourceLibrary> {
             "2",
             "Recursive directory traversal",
             "https://crates.io/crates/walkdir",
+        ),
+        (
+            "winreg",
+            "0.55",
+            "Windows registry access for Steam detection",
+            "https://crates.io/crates/winreg",
         ),
         (
             "zip",

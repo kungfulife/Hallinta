@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="css/mod-list.css">
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/settings.css">
+    <link rel="stylesheet" href="css/gallery.css">
     <link rel="stylesheet" href="css/components.css">
 
     <link rel="stylesheet" href="css/status-bar.css">
@@ -28,6 +29,7 @@
     <script type="module" src="js/uiManager.js"></script>
     <script type="module" src="js/backupManager.js"></script>
     <script type="module" src="js/saveMonitorManager.js"></script>
+    <script type="module" src="js/galleryManager.js"></script>
     <script type="module" src="js/eventHandlers.js"></script>
     <script type="module" src="main.js"></script>
 </head>
@@ -50,8 +52,8 @@
         </div>
 
         <div class="header-buttons">
+            <button id="header-gallery-button" class="header-gallery-button" onclick="toggleGalleryView()">Gallery</button>
             <button id="header-combined-button" class="header-combined-button settings-state" onclick="toggleSettingsView()">Settings</button>
-
         </div>
     </div>
 
@@ -84,6 +86,16 @@
             <button id="save-monitor-toggle" class="save-monitor-btn" onclick="toggleSaveMonitor()">Start Save Monitor</button>
             <span id="save-monitor-status" class="save-monitor-status">Stopped</span>
         </div>
+    </div>
+
+    <div class="gallery-page" id="gallery-page" style="display: none;">
+        <div class="gallery-toolbar">
+            <input type="text" id="gallery-search" placeholder="Search presets..." oninput="filterGallery()">
+            <div id="gallery-tags" class="gallery-tag-filters"></div>
+            <button onclick="downloadByShareLink()">Import by Link</button>
+            <button onclick="refreshGallery()">Refresh</button>
+        </div>
+        <div id="gallery-content" class="gallery-grid"></div>
     </div>
 
     <div class="settings-page" id="settings-page">
@@ -158,6 +170,20 @@
             <input type="number" id="monitor-max-snapshots" min="1" max="100" value="10">
         </div>
         <p class="dev-info-text">Oldest snapshots are automatically deleted when the limit is reached</p>
+
+        <h2>Gallery</h2>
+        <div class="setting-item">
+            <label for="gallery-catalog-url">Catalog URL:</label>
+            <input type="text" id="gallery-catalog-url" placeholder="URL to catalog JSON">
+        </div>
+        <div class="setting-item">
+            <label for="gallery-steam-path">Steam Path:</label>
+            <div class="button-group-inline">
+                <input type="text" id="gallery-steam-path" placeholder="Auto-detected or manual">
+                <button onclick="detectSteamPath()">Auto-detect</button>
+            </div>
+        </div>
+        <p class="dev-info-text">Steam path is used to check which Workshop mods are installed when importing presets</p>
 
         <h2>Appearance</h2>
         <div class="dark-mode-toggle">

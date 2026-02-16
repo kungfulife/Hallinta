@@ -45,6 +45,52 @@ pub struct AppSettings {
     pub backup_settings: BackupSettings,
     #[serde(default)]
     pub save_monitor_settings: SaveMonitorSettings,
+    #[serde(default)]
+    pub gallery_settings: GallerySettings,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct GallerySettings {
+    pub catalog_url: String,
+    pub steam_path: String,
+}
+
+impl Default for GallerySettings {
+    fn default() -> Self {
+        GallerySettings {
+            catalog_url: String::new(),
+            steam_path: String::new(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct CatalogPresetEntry {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub author: String,
+    pub tags: Vec<String>,
+    pub mod_count: usize,
+    pub version: String,
+    pub checksum: String,
+    pub download_url: String,
+    pub thumbnail_url: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Catalog {
+    pub catalog_version: String,
+    pub last_updated: String,
+    pub presets: Vec<CatalogPresetEntry>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct WorkshopModStatus {
+    pub workshop_id: String,
+    pub installed: bool,
 }
 
 fn default_collect_system_info() -> bool {

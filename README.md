@@ -14,9 +14,17 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 ### Preset System
 - Create, rename, and delete mod presets
 - Quick switching between different mod configurations
-- Import and export presets as JSON files
+- Import and export presets as JSON files with checksum verification
 - Automatic preset synchronization with mod_config.xml
 - Conflict resolution when external changes detected
+
+### Preset Gallery
+- Browse and download presets from a developer-maintained catalog
+- Search and tag-based filtering
+- One-click download with JSON validation and checksum verification
+- Import presets directly from Google Drive share links
+- Workshop mod check: detects missing Steam Workshop mods on import
+- Per-mod Steam Subscribe buttons for quick installation
 
 ### Backup & Restore
 - Manual and automatic backups of Noita save data (save00, save01) and presets
@@ -70,9 +78,10 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ## Interface Overview
 
-- **Header**: Search bar, preset controls, settings access
+- **Header**: Search bar, preset controls, gallery access, settings access
 - **Main View**: Mod list with drag-and-drop reordering
-- **Settings**: Directory configuration, appearance, backup, logging
+- **Gallery**: Browse, search, and download community presets
+- **Settings**: Directory configuration, appearance, backup, logging, gallery
 - **Status Bar**: Click for application logs
 
 ## Technical Details
@@ -100,11 +109,11 @@ cargo tauri build
 
 ## Latest Version
 
-Current version: **0.6.2**
+Current version: **0.7.0**
 
 Latest update highlights:
-- Clarified System Information labels and expanded diagnostics details
-- Added toggleable startup system-information logging
-- Added Open Source Libraries credits panel sourced from Cargo dependencies
+- Added Preset Gallery with browsable catalog, search, tag filtering, and one-click download
+- Added Workshop Mod Check with Steam Subscribe integration for missing mods
+- Enhanced preset export format with SHA-256 checksum verification
 
 For older release notes, see `UPDATEHISTORY.md`.

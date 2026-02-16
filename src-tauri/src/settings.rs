@@ -1,7 +1,7 @@
 use crate::app::{get_entangled_worlds_config_path, get_noita_save_path, get_version};
 use crate::backup::add_directory_to_zip;
 use crate::logging::add_log_entry;
-use crate::models::{AppSettings, BackupSettings, LogSettings, ModPreset, SaveMonitorSettings};
+use crate::models::{AppSettings, BackupSettings, GallerySettings, LogSettings, ModPreset, SaveMonitorSettings};
 use chrono::Utc;
 use serde_json;
 use std::fs;
@@ -191,6 +191,7 @@ pub(crate) async fn load_settings() -> Result<AppSettings, String> {
             },
             backup_settings: BackupSettings::default(),
             save_monitor_settings: SaveMonitorSettings::default(),
+            gallery_settings: GallerySettings::default(),
         };
         save_settings(default_settings.clone())?;
         return Ok(default_settings);

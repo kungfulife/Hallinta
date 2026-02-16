@@ -1,11 +1,13 @@
 mod app;
 mod backup;
 mod files;
+mod gallery;
 mod logging;
 mod models;
 mod save_monitor;
 mod session;
 mod settings;
+mod workshop;
 
 use tauri::Manager;
 
@@ -58,7 +60,15 @@ pub fn run() {
             save_monitor::create_monitor_snapshot,
             save_monitor::list_monitor_snapshots,
             save_monitor::cleanup_monitor_snapshots,
-            save_monitor::clear_monitor_data
+            save_monitor::clear_monitor_data,
+            gallery::fetch_catalog,
+            gallery::download_preset_file,
+            gallery::parse_gdrive_share_link,
+            gallery::verify_checksum,
+            gallery::compute_checksum,
+            workshop::detect_steam_path,
+            workshop::check_workshop_mods_installed,
+            workshop::open_steam_subscribe
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

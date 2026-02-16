@@ -2,6 +2,21 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.7.0
+- Added Preset Gallery: browsable tab that fetches preset listings from a developer-maintained Google Drive catalog
+- Added search and tag-based filtering for gallery presets
+- Added one-click preset download with JSON validation and checksum verification
+- Added "Import by Link" flow for downloading presets directly from Google Drive share URLs
+- Added Workshop Mod Check: detects missing Steam Workshop mods when importing presets (gallery or local)
+- Added missing mods modal with per-mod Steam Subscribe buttons (`steam://subscribe/{id}`)
+- Added Steam path auto-detection via Windows registry with common-path fallback
+- Added Gallery settings section (Catalog URL, Steam path with auto-detect button)
+- Enhanced preset export format with SHA-256 checksum and updated version field (backward-compatible)
+- Added checksum verification on preset import (warns on mismatch, does not block)
+- Added `reqwest`, `sha2`, and `winreg` backend dependencies
+- Added reqwest, sha2, and winreg to Open Source Libraries panel
+- Updated Zip to 8.0.0
+
 ## 0.6.2
 - Clarified System Information terminology: replaced "Target Triple" wording with "Build Target Platform"
 - Expanded System Information details with runtime diagnostics (OS family, logical CPU cores, clock snapshot, app/exe directories, configured game paths)

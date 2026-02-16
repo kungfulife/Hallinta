@@ -25,6 +25,10 @@ export class SettingsManager {
                 interval_minutes: 15,
                 max_snapshots_per_preset: 10,
                 include_entangled: false
+            },
+            gallery_settings: {
+                catalog_url: '',
+                steam_path: ''
             }
         };
         this.previousSettings = null;
@@ -86,6 +90,10 @@ export class SettingsManager {
                         interval_minutes: 15,
                         max_snapshots_per_preset: 10,
                         include_entangled: false
+                    },
+                    gallery_settings: {
+                        catalog_url: '',
+                        steam_path: ''
                     }
                 };
 
@@ -222,6 +230,20 @@ export class SettingsManager {
                 hasError = true;
             }
 
+            // Auto-detect Steam path if not configured (silent, non-blocking)
+            if (!this.settings.gallery_settings?.steam_path) {
+                try {
+                    const steamPath = await window.__TAURI__.core.invoke('detect_steam_path');
+                    if (!this.settings.gallery_settings) {
+                        this.settings.gallery_settings = { catalog_url: '', steam_path: '' };
+                    }
+                    this.settings.gallery_settings.steam_path = steamPath;
+                    this.logAction('DEBUG', `Auto-detected Steam path: ${steamPath}`);
+                } catch (e) {
+                    // Silent - Steam not required
+                }
+            }
+
             if (!hasError) {
                 this.logAction('INFO', 'Configuration loaded successfully');
             }
@@ -274,6 +296,13 @@ export class SettingsManager {
                 include_entangled: false
             };
         }
+        // Ensure gallery_settings defaults
+        if (!this.settings.gallery_settings) {
+            this.settings.gallery_settings = {
+                catalog_url: '',
+                steam_path: ''
+            };
+        }
 
         state.currentPresets = Object.keys(presets).reduce((acc, presetName) => {
             acc[presetName] = presets[presetName].map(mod => ({
@@ -319,6 +348,11 @@ export class SettingsManager {
         if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings.backup_interval_minutes;
         if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
         if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = this.settings.save_monitor_settings?.max_snapshots_per_preset ?? 10;
+
+        const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
+        const gallerySteamPathInput = document.getElementById('gallery-steam-path');
+        if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings?.catalog_url || '';
+        if (gallerySteamPathInput) gallerySteamPathInput.value = this.settings.gallery_settings?.steam_path || '';
 
         // Show/hide dev data directory section
         this._updateDevDataSection();
@@ -380,6 +414,15 @@ export class SettingsManager {
                 const val = parseInt(monitorMaxSnapshotsInput.value);
                 this.settings.save_monitor_settings.max_snapshots_per_preset = isNaN(val) || val < 1 ? 10 : val;
             }
+            // Gallery settings
+            if (!this.settings.gallery_settings) {
+                this.settings.gallery_settings = {};
+            }
+            const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
+            const gallerySteamPathInput = document.getElementById('gallery-steam-path');
+            if (galleryCatalogUrlInput) this.settings.gallery_settings.catalog_url = galleryCatalogUrlInput.value.trim();
+            if (gallerySteamPathInput) this.settings.gallery_settings.steam_path = gallerySteamPathInput.value.trim();
+
             this.settings.version = await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown');
 
             // In dev mode, ensure we operate against dev_data regardless of DOM edits
@@ -613,6 +656,10 @@ export class SettingsManager {
                     interval_minutes: 15,
                     max_snapshots_per_preset: 10,
                     include_entangled: false
+                },
+                gallery_settings: {
+                    catalog_url: '',
+                    steam_path: ''
                 }
             };
             state.isDarkMode = false;
@@ -643,6 +690,10 @@ export class SettingsManager {
             const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
             if (monitorIntervalInput) monitorIntervalInput.value = 15;
             if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = 10;
+            const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
+            const gallerySteamPathInput = document.getElementById('gallery-steam-path');
+            if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = '';
+            if (gallerySteamPathInput) gallerySteamPathInput.value = '';
             this.uiManager.applyDarkMode();
 
             if (effectiveNoitaDir) {
@@ -689,6 +740,10 @@ export class SettingsManager {
             if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings?.backup_interval_minutes ?? 0;
             if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
             if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = this.settings.save_monitor_settings?.max_snapshots_per_preset ?? 10;
+            const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
+            const gallerySteamPathInput = document.getElementById('gallery-steam-path');
+            if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings?.catalog_url || '';
+            if (gallerySteamPathInput) gallerySteamPathInput.value = this.settings.gallery_settings?.steam_path || '';
             this.uiManager.applyDarkMode();
 
             this.logAction('DEBUG', 'Restored Previous Settings');
