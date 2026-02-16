@@ -23,7 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 
-# Dev mode data directory (settings, presets, logs, mod_config.xml)
-dev_data/
+# Ai directories and files
 /CLAUDE.md
 /.claude/
+
+# Dev mode data directory (settings, presets, logs, mod_config.xml)
+dev_data/
+
