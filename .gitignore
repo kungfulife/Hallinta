@@ -26,3 +26,4 @@ dist-ssr
 # Dev mode data directory (settings, presets, logs, mod_config.xml)
 dev_data/
 /CLAUDE.md
+/.claude/
