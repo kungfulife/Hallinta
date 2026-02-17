@@ -16,22 +16,30 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Quick switching between different mod configurations
 - Import and export presets as JSON files with checksum verification
 - Automatic preset synchronization with mod_config.xml
+- Alphabetical preset sorting (Default always first)
 - Conflict resolution when external changes detected
 
 ### Preset Vault
-- Browse and download presets from a developer-maintained catalog
+- Browse and download presets from a configurable catalog URL
 - Search and tag-based filtering
 - One-click download with JSON validation and checksum verification
-- Import presets directly from Google Drive share links
-- Workshop mod check: detects missing Steam Workshop mods on import
+- Import presets directly from Google Drive share links *(in development)*
+- Workshop mod check: detects missing Steam Workshop mods on import *(in development)*
 - Per-mod Steam Subscribe buttons for quick installation
+- In-app guide for self-hosting a preset catalog
 
 ### Backup & Restore
 - Manual and automatic backups of Noita save data (save00, save01) and presets
+- Save monitoring with per-preset snapshots for crash recovery
 - Configurable auto-backup interval
 - Auto-deletion of old backups (configurable retention period)
 - Selective restore with per-component options
 - Upgrade backups created automatically on version change (keeps last 5)
+
+### Entangled Worlds
+- Optional support for [Noita Entangled Worlds](https://github.com/IntQuant/noita_entangled_worlds) multiplayer mod directories
+- Include entangled save data in backups for crash recovery
+- Auto-detection on Windows and Linux
 
 ### Application Logs
 - Always-on session logging for reliable crash diagnostics
@@ -57,11 +65,11 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ### Settings & Configuration
 - Persistent settings stored in system data directories
+- User-configurable preset catalog URL
 - Configurable log level controls recording verbosity
 - Optional startup system diagnostics collection (disabled by default)
 - Backup scheduling and retention settings
 - Steam path auto-detection during initial setup
-- Developer-managed catalog source (Catalog URL hidden from user settings)
 - Version upgrade detection with automatic backups
 - Settings validation and error recovery
 - System Information and Open Source Libraries credits panels
@@ -84,8 +92,8 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 - **Header**: `Mod List` / `Preset Vault` tabs, search bar, preset controls, settings access
 - **Mod List View**: Main mod list with drag-and-drop reordering
-- **Preset Vault**: Browse, search, and download curated presets
-- **Settings**: Directory configuration, appearance, backup, logging, preset import checks
+- **Preset Vault**: Browse, search, and download presets from a configured catalog
+- **Settings**: Directory configuration, appearance, backup, logging, catalog URL, Steam path
 - **Status Bar**: Click for application logs
 
 ## Technical Details
@@ -100,6 +108,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 - Linux/macOS directory detection improvements
 - Enhanced Entangled Worlds multiplayer mod support
+- Further Workshop integration and Google Drive link testing
 
 ## Building
 
@@ -113,14 +122,15 @@ cargo tauri build
 
 ## Latest Version
 
-Current version: **0.7.4**
+Current version: **0.7.5**
 
 Latest update highlights:
-- Consolidated scrollbar styling into shared utility classes, eliminating duplication
-- Added themed scrollbar to gallery grid, log viewer, backup list, and missing mods modal
-- Removed dead CSS and JS code left over from the SelectEnhancer migration
-- Refactored view-switching animation logic for cleaner code
-- Fixed Escape key in open dropdowns no longer accidentally closing settings or views
-- Updated application version to `0.7.4`
+- Preset dropdown is now sorted alphabetically (Default always first)
+- Catalog URL is now user-configurable in Settings > Preset Vault
+- Added `?` help button with a guide for self-hosting a preset catalog
+- Preset Vault shows a friendly message when no catalog URL is configured
+- Settings now returns to Preset Vault view when opened from the vault
+- Added "beta" badge to Import by Link and workshop detection note in missing mods modal
+- Updated application version to `0.7.5`
 
 For older release notes, see `UPDATEHISTORY.md`.

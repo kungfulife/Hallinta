@@ -2,6 +2,15 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.7.5
+- Preset dropdown is now sorted alphabetically (Default always first)
+- Catalog URL is now user-configurable in Settings > Preset Vault
+- Added `?` help button with a guide for self-hosting a preset catalog
+- Preset Vault shows a friendly message when no catalog URL is configured
+- Settings now returns to Preset Vault view when opened from the vault
+- Added "beta" badge to Import by Link and workshop detection note in missing mods modal
+- Updated application version to `0.7.5`
+
 ## 0.7.4
 - Consolidated scrollbar styling into shared `.themed-scrollbar` and `.themed-scrollbar-compact` utility classes in `base.css`, replacing three duplicated scrollbar blocks across `mod-list.css`, `settings.css`, and `components.css`
 - Added consistent themed scrollbar styling to previously unstyled scrollable areas: gallery grid, log content (modal, fullscreen, and detached window), backup selection list, and missing mods list

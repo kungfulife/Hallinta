@@ -111,7 +111,7 @@
         <div class="gallery-toolbar">
             <input type="text" id="gallery-search" placeholder="Search presets..." oninput="filterGallery()">
             <div id="gallery-tags" class="gallery-tag-filters"></div>
-            <button onclick="downloadByShareLink()">Import by Link</button>
+            <button onclick="downloadByShareLink()">Import by Link <span class="in-dev-badge">beta</span></button>
             <button onclick="refreshGallery()">Refresh</button>
         </div>
         <div id="gallery-content" class="gallery-grid themed-scrollbar"></div>
@@ -218,7 +218,17 @@
                 </section>
 
                 <section class="settings-card">
-                    <h3>Preset Vault</h3>
+                    <div class="settings-card-heading">
+                        <h3>Preset Vault</h3>
+                        <button class="settings-help-btn" onclick="showVaultHelp()" title="How to host a preset catalog">?</button>
+                    </div>
+
+                    <div class="settings-field">
+                        <label for="gallery-catalog-url">Catalog URL</label>
+                        <input type="text" id="gallery-catalog-url" placeholder="https://example.com/catalog.json">
+                    </div>
+
+                    <p class="dev-info-text">URL to a JSON preset catalog. The Preset Vault tab loads presets from this source.</p>
 
                     <div class="setting-item">
                         <label for="gallery-steam-path">Steam Path</label>
@@ -229,7 +239,6 @@
                     </div>
 
                     <p class="dev-info-text">Steam path is used to check if required Workshop mods are already installed during preset imports.</p>
-                    <p class="dev-info-text">Preset catalog source is managed by Hallinta developers and updates automatically.</p>
                 </section>
 
                 <section class="settings-card settings-card-wide">

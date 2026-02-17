@@ -18,6 +18,13 @@ export class GalleryManager {
     async openGallery() {
         state.galleryView = true;
         this.uiManager.changeView('gallery');
+
+        const catalogUrl = this.settingsManager.settings.gallery_settings?.catalog_url || '';
+        if (!catalogUrl.trim()) {
+            this._renderNotConfiguredState();
+            return;
+        }
+
         this._renderLoadingState();
         try {
             const catalog = await this.fetchCatalog(false);
@@ -41,7 +48,7 @@ export class GalleryManager {
 
         const catalogUrl = getCatalogUrl(this.settingsManager.settings.gallery_settings?.catalog_url || '');
         if (!catalogUrl) {
-            throw new Error('Preset catalog URL is not configured by the developer build.');
+            throw new Error('No catalog URL configured. Go to Settings > Preset Vault to add one.');
         }
 
         const catalog = await window.__TAURI__.core.invoke('fetch_catalog', { catalogUrl });
@@ -270,6 +277,7 @@ export class GalleryManager {
             <div class="modal-content-checklist">
                 <h3>Missing Workshop Mods</h3>
                 <p>${missingMods.length} mod(s) from this preset are not installed. You can subscribe to them on Steam before continuing.</p>
+                <p class="dev-info-text" style="margin-top:0.25rem">(Workshop detection is in development and may not detect all installed mods.)</p>
                 <div class="missing-mods-list themed-scrollbar-compact">${rows}</div>
                 <div class="modal-buttons">
                     <button id="modal-confirm">Continue Import</button>
@@ -367,6 +375,15 @@ export class GalleryManager {
         const allTags = this._getAllTags(catalog.presets);
         this._renderTags(allTags);
         this._filterAndRender(catalog.presets);
+    }
+
+    _renderNotConfiguredState() {
+        const content = document.getElementById('gallery-content');
+        if (content) {
+            content.innerHTML = '<div class="gallery-empty"><p>No catalog URL configured.</p><p>Go to Settings > Preset Vault to add one.</p></div>';
+        }
+        const tagsContainer = document.getElementById('gallery-tags');
+        if (tagsContainer) tagsContainer.innerHTML = '';
     }
 
     _renderLoadingState() {
