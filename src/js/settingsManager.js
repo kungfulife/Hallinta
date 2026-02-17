@@ -369,6 +369,8 @@ export class SettingsManager {
         if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
         if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = this.settings.save_monitor_settings?.max_snapshots_per_preset ?? 10;
 
+        const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
+        if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings?.catalog_url || '';
         const gallerySteamPathInput = document.getElementById('gallery-steam-path');
         if (gallerySteamPathInput) gallerySteamPathInput.value = this.settings.gallery_settings?.steam_path || '';
 
@@ -436,8 +438,9 @@ export class SettingsManager {
             if (!this.settings.gallery_settings) {
                 this.settings.gallery_settings = {};
             }
+            const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
             const gallerySteamPathInput = document.getElementById('gallery-steam-path');
-            this.settings.gallery_settings.catalog_url = getCatalogUrl(this.settings.gallery_settings.catalog_url || '');
+            if (galleryCatalogUrlInput) this.settings.gallery_settings.catalog_url = galleryCatalogUrlInput.value.trim();
             if (gallerySteamPathInput) this.settings.gallery_settings.steam_path = gallerySteamPathInput.value.trim();
 
             this.settings.version = await window.__TAURI__.core.invoke('get_version').catch(() => 'unknown');
@@ -508,10 +511,12 @@ export class SettingsManager {
                 this.logAction('INFO', 'Configuration saved successfully');
             }
 
-            this.uiManager.changeView('main');
+            const targetView = state.galleryView ? 'gallery' : 'main';
+            this.uiManager.changeView(targetView);
         } catch (error) {
             this.logAction('ERROR', `Critical error during save: ${error.message}`);
-            this.uiManager.changeView('main');
+            const targetView = state.galleryView ? 'gallery' : 'main';
+            this.uiManager.changeView(targetView);
         }
     }
 
@@ -707,8 +712,10 @@ export class SettingsManager {
             const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
             if (monitorIntervalInput) monitorIntervalInput.value = 15;
             if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = 10;
-            const gallerySteamPathInput = document.getElementById('gallery-steam-path');
+            const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
             this.settings.gallery_settings.catalog_url = getCatalogUrl('');
+            if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings.catalog_url;
+            const gallerySteamPathInput = document.getElementById('gallery-steam-path');
             if (gallerySteamPathInput) gallerySteamPathInput.value = '';
             this.uiManager.applyDarkMode();
 
@@ -756,8 +763,9 @@ export class SettingsManager {
             if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings?.backup_interval_minutes ?? 0;
             if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
             if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = this.settings.save_monitor_settings?.max_snapshots_per_preset ?? 10;
+            const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
+            if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings?.catalog_url || '';
             const gallerySteamPathInput = document.getElementById('gallery-steam-path');
-            this.settings.gallery_settings.catalog_url = getCatalogUrl(this.settings.gallery_settings?.catalog_url || '');
             if (gallerySteamPathInput) gallerySteamPathInput.value = this.settings.gallery_settings?.steam_path || '';
             this.uiManager.applyDarkMode();
 

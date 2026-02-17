@@ -416,6 +416,46 @@ export class UIManager {
         document.addEventListener('keydown', escapeHandler);
     }
 
+    showInfoModal(htmlContent, buttonText = 'Close') {
+        if (state.isModalVisible) {
+            this.logAction('WARN', 'A modal is already open. New request ignored.');
+            return;
+        }
+        state.isModalVisible = true;
+
+        const modal = document.createElement('div');
+        modal.className = 'custom-modal';
+        modal.innerHTML = `
+            <div class="modal-content-checklist">
+                ${htmlContent}
+                <div class="modal-buttons">
+                    <button id="modal-confirm">${buttonText}</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const closeModal = () => {
+            if (modal.parentNode) document.body.removeChild(modal);
+            document.removeEventListener('keydown', escapeHandler);
+            state.isModalVisible = false;
+        };
+
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.logAction('DEBUG', 'Escape keybind triggered: close info modal');
+                closeModal();
+            }
+        };
+
+        modal.querySelector('#modal-confirm').addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+        document.addEventListener('keydown', escapeHandler);
+    }
+
     showMissingModsModal(missingMods, onContinue) {
         const modNames = missingMods.map(m => m.name).join(', ');
         this.showConfirmModal(

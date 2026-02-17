@@ -34,6 +34,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         const isInSettings = button && button.textContent === 'Cancel';
 
         if (isInSettings) {
+            state.galleryView = false;
             settingsManager.restorePreviousSettings();
             uiManager.changeView('main');
             return;
@@ -66,6 +67,33 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     window.filterGallery = () => galleryManager.filterAndRender();
     window.refreshGallery = () => galleryManager.refreshGallery();
     window.downloadByShareLink = () => galleryManager.downloadByShareLink();
+    window.showVaultHelp = () => {
+        uiManager.showInfoModal(`
+            <h3>Hosting a Preset Catalog</h3>
+            <p>The Preset Vault loads presets from a single JSON file hosted at any URL.</p>
+            <p><strong>Catalog JSON structure:</strong></p>
+            <pre style="background:var(--bg-color);border:1px solid var(--border-color);border-radius:6px;padding:0.75em;font-size:0.85em;overflow-x:auto;white-space:pre">{
+  "catalog_version": "1.0",
+  "last_updated": "2025-01-01",
+  "presets": [
+    {
+      "id": "unique-id",
+      "name": "Preset Name",
+      "description": "What this preset does",
+      "author": "Author Name",
+      "tags": ["tag1", "tag2"],
+      "mod_count": 10,
+      "version": "1.0",
+      "checksum": "sha256-hash",
+      "download_url": "https://example.com/preset.json"
+    }
+  ]
+}</pre>
+            <p>Each <code>download_url</code> points to a standard Hallinta preset export file (created via Export Presets).</p>
+            <p>The catalog can be hosted anywhere: a web server, GitHub Pages, a local network, or any service that serves JSON files.</p>
+        `, 'Got it');
+    };
+
     window.detectSteamPath = async () => {
         try {
             const steamPath = await window.__TAURI__.core.invoke('detect_steam_path');
@@ -495,12 +523,12 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
         if (isInSettings) {
             settingsManager.restorePreviousSettings();
-            uiManager.changeView('main');
-        } else {
-            // Close gallery if open before entering settings
-            if (galleryManager.isGalleryOpen()) {
-                galleryManager.closeGallery();
+            if (state.galleryView) {
+                uiManager.changeView('gallery');
+            } else {
+                uiManager.changeView('main');
             }
+        } else {
             settingsManager.storeCurrentSettings();
             uiManager.changeView('settings');
         }
@@ -730,7 +758,11 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 } else if (settingsPage && settingsPage.style.display === 'block') {
                     uiManager.logAction('DEBUG', 'Escape keybind triggered: cancel settings changes', 'EventHandler');
                     settingsManager.restorePreviousSettings();
-                    uiManager.changeView('main');
+                    if (state.galleryView) {
+                        uiManager.changeView('gallery');
+                    } else {
+                        uiManager.changeView('main');
+                    }
                 }
             }
         });

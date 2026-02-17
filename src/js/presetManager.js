@@ -25,7 +25,13 @@ export class PresetManager {
         createOption.textContent = 'Create New Preset';
         selector.appendChild(createOption);
 
-        Object.keys(state.currentPresets).forEach(preset => {
+        const sortedPresets = Object.keys(state.currentPresets).sort((a, b) => {
+            if (a === 'Default') return -1;
+            if (b === 'Default') return 1;
+            return a.localeCompare(b, undefined, { sensitivity: 'base' });
+        });
+
+        sortedPresets.forEach(preset => {
             const option = document.createElement('option');
             option.value = preset;
             option.textContent = preset;
