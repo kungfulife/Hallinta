@@ -90,7 +90,9 @@ export class UIManager {
     }
 
     renderModList() {
-        this.logAction('DEBUG', 'Rendering mod list');
+        if (!state.saveMonitorLockdownActive) {
+            this.logAction('DEBUG', 'Rendering mod list');
+        }
         const modList = document.getElementById('mod-list');
         modList.innerHTML = '';
 
@@ -101,6 +103,7 @@ export class UIManager {
 
             li.addEventListener('click', (e) => {
                 if (e.button !== 2) {
+                    if (state.saveMonitorLockdownActive) return;
                     e.stopPropagation();
                     this.modManager.toggleMod(index);
                     this.renderModList();
@@ -164,7 +167,9 @@ export class UIManager {
     }
 
     filterMods() {
-        this.logAction('DEBUG', 'Filtering mods');
+        if (!state.saveMonitorLockdownActive) {
+            this.logAction('DEBUG', 'Filtering mods');
+        }
         const searchTerm = document.querySelector('.search-bar').value.toLowerCase();
         const filterSelect = document.getElementById('mod-filter-mode');
         const filterMode = filterSelect ? filterSelect.value : 'all';
@@ -477,6 +482,7 @@ export class UIManager {
     }
 
     toggleMod() {
+        if (state.saveMonitorLockdownActive) return;
         if (state.contextMenuTarget !== null) {
             this.modManager.toggleMod(state.contextMenuTarget);
             this.renderModList();
@@ -485,6 +491,7 @@ export class UIManager {
     }
 
     deleteMod() {
+        if (state.saveMonitorLockdownActive) return;
         if (state.contextMenuTarget !== null) {
             const modName = state.currentMods[state.contextMenuTarget].name;
             this.showConfirmModal(
@@ -506,6 +513,7 @@ export class UIManager {
     }
 
     reorderMod() {
+        if (state.saveMonitorLockdownActive) return;
         if (state.contextMenuTarget !== null) {
             const modName = state.currentMods[state.contextMenuTarget].name;
             this.showInputModal(
@@ -531,6 +539,7 @@ export class UIManager {
     }
 
     async openWorkshop() {
+        if (state.saveMonitorLockdownActive) return;
         if (state.contextMenuTarget !== null) {
             const mod = state.currentMods[state.contextMenuTarget];
             if (mod.workshopId !== '0' && window.__TAURI__) {
@@ -549,6 +558,7 @@ export class UIManager {
     }
 
     async copyWorkshopLink() {
+        if (state.saveMonitorLockdownActive) return;
         if (state.contextMenuTarget !== null) {
             const mod = state.currentMods[state.contextMenuTarget];
             const url = `https://steamcommunity.com/sharedfiles/filedetails/?id=${mod.workshopId}`;
@@ -563,6 +573,19 @@ export class UIManager {
     }
 
     logAction(level, message, module = 'UIManager') {
+        if (state.saveMonitorLockdownActive) {
+            const blockedModules = new Set(['ModManager', 'PresetManager', 'GalleryManager']);
+            if (blockedModules.has(module)) {
+                return;
+            }
+            if (
+                module === 'UIManager' &&
+                /mod list|mod_config|preset|reorder|workshop/i.test(message)
+            ) {
+                return;
+            }
+        }
+
         const normalizedLevel = level.toUpperCase();
         const logLevelOrder = window.logUtils?.logLevelOrder || {'DEV': -1, 'DEBUG': 0, 'INFO': 1, 'WARN': 2, 'ERROR': 3};
         const currentLogLevel = this.settingsManager?.settings?.log_settings?.log_level?.toUpperCase() || 'INFO';

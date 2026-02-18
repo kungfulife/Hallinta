@@ -2,6 +2,8 @@ import {deepCopyMods, state} from './state.js';
 import {updateDragVisualNumbersByDom} from './reorderUtils.js';
 
 export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager, saveMonitorManager, galleryManager, selectEnhancer) {
+    const blockWhenMonitorLocked = (actionLabel) => saveMonitorManager.isInteractionBlocked(actionLabel);
+
     window.changeDirectory = (type) => settingsManager.changeDirectory(type);
     window.findDefaultDirectory = (type) => settingsManager.findDefaultDirectory(type);
     window.openDirectory = (type) => settingsManager.openDirectory(type);
@@ -10,13 +12,34 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     window.saveAndClose = () => settingsManager.saveAndClose();
     window.toggleDarkMode = () => uiManager.toggleDarkMode();
     window.filterMods = () => uiManager.filterMods();
-    window.onPresetChange = () => presetManager.onPresetChange();
-    window.renameCurrentPreset = () => presetManager.renameCurrentPreset();
-    window.deleteCurrentPreset = () => presetManager.deleteCurrentPreset();
-    window.importRegular = () => modManager.importRegular();
-    window.exportModList = () => modManager.exportModList();
-    window.createBackup = () => backupManager.createBackup();
-    window.openRestoreUI = () => backupManager.openRestoreUI();
+    window.onPresetChange = () => {
+        if (blockWhenMonitorLocked('Preset selection')) return;
+        presetManager.onPresetChange();
+    };
+    window.renameCurrentPreset = () => {
+        if (blockWhenMonitorLocked('Preset renaming')) return;
+        presetManager.renameCurrentPreset();
+    };
+    window.deleteCurrentPreset = () => {
+        if (blockWhenMonitorLocked('Preset deletion')) return;
+        presetManager.deleteCurrentPreset();
+    };
+    window.importRegular = () => {
+        if (blockWhenMonitorLocked('Mod import')) return;
+        modManager.importRegular();
+    };
+    window.exportModList = () => {
+        if (blockWhenMonitorLocked('Mod export')) return;
+        modManager.exportModList();
+    };
+    window.createBackup = () => {
+        if (blockWhenMonitorLocked('Manual backup creation')) return;
+        backupManager.createBackup();
+    };
+    window.openRestoreUI = () => {
+        if (blockWhenMonitorLocked('Backup restore')) return;
+        backupManager.openRestoreUI();
+    };
     window.toggleSaveMonitor = () => {
         if (saveMonitorManager.isRunning) {
             saveMonitorManager.stop();
@@ -25,8 +48,14 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
     window.updateLogLevelColor = () => settingsManager.updateLogLevelSelectColor();
-    window.exportPresets = () => presetManager.exportPresets();
-    window.importPresets = () => presetManager.importPresets();
+    window.exportPresets = () => {
+        if (blockWhenMonitorLocked('Preset export')) return;
+        presetManager.exportPresets();
+    };
+    window.importPresets = () => {
+        if (blockWhenMonitorLocked('Preset import')) return;
+        presetManager.importPresets();
+    };
 
     // Preset Vault handlers
     window.showModListView = () => {
@@ -50,6 +79,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     window.showLoadoutView = window.showModListView;
 
     window.showPresetVaultView = () => {
+        if (blockWhenMonitorLocked('Preset Vault access')) return;
         if (galleryManager.isGalleryOpen()) {
             return;
         }
@@ -64,9 +94,18 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
     // Backward compatibility for older inline hooks
     window.toggleGalleryView = () => window.showPresetVaultView();
-    window.filterGallery = () => galleryManager.filterAndRender();
-    window.refreshGallery = () => galleryManager.refreshGallery();
-    window.downloadByShareLink = () => galleryManager.downloadByShareLink();
+    window.filterGallery = () => {
+        if (blockWhenMonitorLocked('Preset Vault filtering')) return;
+        galleryManager.filterAndRender();
+    };
+    window.refreshGallery = () => {
+        if (blockWhenMonitorLocked('Preset Vault refresh')) return;
+        galleryManager.refreshGallery();
+    };
+    window.downloadByShareLink = () => {
+        if (blockWhenMonitorLocked('Preset import by link')) return;
+        galleryManager.downloadByShareLink();
+    };
     window.showVaultHelp = () => {
         uiManager.showInfoModal(`
             <h3>Hosting a Preset Catalog</h3>
@@ -95,6 +134,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     };
 
     window.detectSteamPath = async () => {
+        if (blockWhenMonitorLocked('Steam path detection')) return;
         try {
             const steamPath = await window.__TAURI__.core.invoke('detect_steam_path');
             const input = document.getElementById('gallery-steam-path');
@@ -104,11 +144,26 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             uiManager.logAction('WARN', `Could not detect Steam path: ${error}`, 'EventHandler');
         }
     };
-    window.toggleMod = () => uiManager.toggleMod();
-    window.reorderMod = () => uiManager.reorderMod();
-    window.deleteMod = () => uiManager.deleteMod();
-    window.openWorkshop = () => uiManager.openWorkshop();
-    window.copyWorkshopLink = () => uiManager.copyWorkshopLink();
+    window.toggleMod = () => {
+        if (blockWhenMonitorLocked('Mod toggling')) return;
+        uiManager.toggleMod();
+    };
+    window.reorderMod = () => {
+        if (blockWhenMonitorLocked('Mod reordering')) return;
+        uiManager.reorderMod();
+    };
+    window.deleteMod = () => {
+        if (blockWhenMonitorLocked('Mod deletion')) return;
+        uiManager.deleteMod();
+    };
+    window.openWorkshop = () => {
+        if (blockWhenMonitorLocked('Workshop link opening')) return;
+        uiManager.openWorkshop();
+    };
+    window.copyWorkshopLink = () => {
+        if (blockWhenMonitorLocked('Workshop link copy')) return;
+        uiManager.copyWorkshopLink();
+    };
 
     // --- Log Viewer ---
 
@@ -589,7 +644,13 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
     const performFileCheck = async () => {
         if (fileCheckInProgress) return;
-        if (state.isModalVisible || state.isReordering || state.isRestoring || !settingsManager.settings.noita_dir) {
+        if (
+            state.saveMonitorLockdownActive ||
+            state.isModalVisible ||
+            state.isReordering ||
+            state.isRestoring ||
+            !settingsManager.settings.noita_dir
+        ) {
             return;
         }
 
@@ -689,6 +750,10 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         const modList = document.getElementById('mod-list');
         if (modList) {
             modList.addEventListener('contextmenu', (event) => {
+                if (state.saveMonitorLockdownActive) {
+                    event.preventDefault();
+                    return;
+                }
                 const item = event.target.closest('.mod-item');
 
                 if (!item) return;
@@ -822,6 +887,11 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             backupManager.startAutoBackup(backupInterval);
         }
 
+        const startInMonitorMode = !!settingsManager.settings.save_monitor_settings?.start_in_monitor_mode;
+        if (startInMonitorMode) {
+            await saveMonitorManager.start(false, { startup: true });
+        }
+
         // Log filter event listeners (modal + fullscreen)
         ['log-filter-level', 'log-fs-filter-level'].forEach(id => {
             const el = document.getElementById(id);
@@ -843,7 +913,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
 
         const list = document.getElementById('mod-list');
         if (list) {
-            new Sortable(list, {
+            const sortableInstance = new Sortable(list, {
                 animation: 150,
                 ghostClass: 'sortable-ghost',
                 chosenClass: 'sortable-chosen',
@@ -851,6 +921,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 fallbackClass: 'sortable-fallback',
                 fallbackOnBody: true,
                 forceFallback: true,
+                disabled: !!state.saveMonitorLockdownActive,
                 // Reduce click/drag ambiguity:
                 // - delay prevents immediate drag capture on press (lower = faster drag start)
                 // - fallbackTolerance requires real pointer movement before drag starts
@@ -860,6 +931,9 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 fallbackTolerance: 5,
                 touchStartThreshold: 4,
                 onStart: () => {
+                    if (state.saveMonitorLockdownActive) {
+                        return;
+                    }
                     uiManager.logAction('DEBUG', 'Starting mod reorder', 'EventHandler');
                     state.isReordering = true;
                     dragCancelRequested = false;
@@ -867,6 +941,11 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                     dragStartIndex = null;
                 },
                 onEnd: (evt) => {
+                    if (state.saveMonitorLockdownActive) {
+                        state.isReordering = false;
+                        state.pendingReorder = false;
+                        return;
+                    }
                     clearDragTargetCandidate();
                     if (dragCancelRequested && dragSnapshotMods) {
                         state.currentMods = deepCopyMods(dragSnapshotMods);
@@ -897,10 +976,12 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                     }, 100);
                 },
                 onChoose: (evt) => {
+                    if (state.saveMonitorLockdownActive) return;
                     dragStartIndex = evt.oldIndex;
                     updateDragVisualNumbersByDom(list, evt.oldIndex, evt.oldIndex, evt.item);
                 },
                 onMove: (evt) => {
+                    if (state.saveMonitorLockdownActive) return false;
                     let targetIndex = dragStartIndex ?? 0;
                     if (list) {
                         targetIndex = resolveTargetIndex(list, evt);
@@ -920,6 +1001,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                     return true;
                 },
             });
+            window.__hallintaSortable = sortableInstance;
         }
 
         setInterval(async () => {

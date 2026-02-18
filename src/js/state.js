@@ -32,5 +32,6 @@ export const state = {
     isModalVisible: false,
     backupInProgress: false,
     isRestoring: false,
-    galleryView: false
+    galleryView: false,
+    saveMonitorLockdownActive: false
 };

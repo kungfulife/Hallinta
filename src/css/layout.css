@@ -31,3 +31,31 @@ h1 {
     overflow: hidden;
     position: relative;
 }
+
+/* Save Monitor Lockdown Mode */
+body.monitor-lockdown .container {
+    padding: 0.55rem;
+}
+
+body.monitor-lockdown h1 {
+    display: none;
+}
+
+body.monitor-lockdown .main-content {
+    align-items: center;
+    justify-content: center;
+}
+
+body.monitor-lockdown .mod-list {
+    display: none;
+}
+
+body.monitor-lockdown .sidebar {
+    margin: 0 auto;
+    max-width: 420px;
+    width: min(100%, 420px);
+}
+
+body.monitor-lockdown .monitor-lockdown-hide {
+    display: none !important;
+}

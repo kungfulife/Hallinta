@@ -99,20 +99,20 @@
         </div>
 
         <div class="sidebar">
-            <div class="split-button">
-                <button class="split-btn-main" onclick="importRegular()">Import</button>
+            <div class="split-button monitor-lockdown-hide">
+                <button id="sidebar-import-btn" class="split-btn-main" onclick="importRegular()">Import</button>
             </div>
-            <button onclick="exportModList()">Export</button>
+            <button id="sidebar-export-btn" class="monitor-lockdown-hide" onclick="exportModList()">Export</button>
 
-            <hr class="sidebar-separator">
+            <hr class="sidebar-separator monitor-lockdown-hide">
 
-            <button onclick="exportPresets()">Export Presets</button>
-            <button onclick="importPresets()">Import Presets</button>
+            <button id="sidebar-export-presets-btn" class="monitor-lockdown-hide" onclick="exportPresets()">Export Presets</button>
+            <button id="sidebar-import-presets-btn" class="monitor-lockdown-hide" onclick="importPresets()">Import Presets</button>
 
-            <hr class="sidebar-separator">
+            <hr class="sidebar-separator monitor-lockdown-hide">
 
-            <button onclick="createBackup()">Create Backup</button>
-            <button onclick="openRestoreUI()">Restore Backup</button>
+            <button id="sidebar-create-backup-btn" class="monitor-lockdown-hide" onclick="createBackup()">Create Backup</button>
+            <button id="sidebar-restore-backup-btn" class="monitor-lockdown-hide" onclick="openRestoreUI()">Restore Backup</button>
 
             <hr class="sidebar-separator">
 
@@ -139,7 +139,7 @@
             </div>
 
             <div class="settings-grid">
-                <section class="settings-card">
+                <section class="settings-card settings-card-non-monitor">
                     <h3>Game Directories</h3>
 
                     <div class="settings-field">
@@ -172,7 +172,7 @@
                     </div>
                 </section>
 
-                <section class="settings-card">
+                <section class="settings-card settings-card-non-monitor">
                     <h3>Application Behavior</h3>
 
                     <div class="button-group">
@@ -200,38 +200,44 @@
                     <p class="dev-info-text">When enabled, Hallinta adds extra details (your OS, app version, and folders) to startup logs for troubleshooting.</p>
                 </section>
 
-                <section class="settings-card">
+                <section class="settings-card settings-card-monitor">
                     <h3>Backup & Save Monitor</h3>
 
-                    <div class="setting-item-inline">
+                    <div class="setting-item-inline non-monitor-setting">
                         <span>Delete backups older than</span>
                         <input type="number" id="auto-delete-days" min="0" max="365" value="30" placeholder="0 = keep all">
                         <span>days (0 = keep all)</span>
                     </div>
 
-                    <div class="setting-item-inline">
+                    <div class="setting-item-inline non-monitor-setting">
                         <span>Auto-backup every</span>
                         <input type="number" id="backup-interval" min="0" max="1440" value="0" placeholder="0 = off">
                         <span>minutes (0 = off)</span>
                     </div>
 
-                    <p class="dev-info-text">Upgrade backups are created automatically on version changes (keeps last 5).</p>
+                    <p class="dev-info-text non-monitor-setting">Upgrade backups are created automatically on version changes (keeps last 5).</p>
 
-                    <div class="setting-item-inline">
+                    <div class="setting-item-inline monitor-related-setting">
                         <span>Snapshot interval</span>
                         <input type="number" id="monitor-interval" min="1" max="1440" value="15">
                         <span>minutes</span>
                     </div>
 
-                    <div class="setting-item-inline">
+                    <div class="setting-item-inline monitor-related-setting">
                         <span>Max snapshots per preset</span>
                         <input type="number" id="monitor-max-snapshots" min="1" max="100" value="10">
                     </div>
 
-                    <p class="dev-info-text">When the snapshot limit is reached, the oldest ones are removed automatically.</p>
+                    <div class="setting-item setting-item-checkbox monitor-related-setting">
+                        <input type="checkbox" id="monitor-start-mode">
+                        <label for="monitor-start-mode">Start in Save Monitoring Mode on launch</label>
+                    </div>
+
+                    <p class="dev-info-text monitor-related-setting">When enabled, Hallinta starts Save Monitor immediately and enters monitoring-only lockdown mode.</p>
+                    <p class="dev-info-text monitor-related-setting">When the snapshot limit is reached, the oldest ones are removed automatically.</p>
                 </section>
 
-                <section class="settings-card">
+                <section class="settings-card settings-card-non-monitor">
                     <div class="settings-card-heading">
                         <h3>Preset Vault</h3>
                         <button class="settings-help-btn" onclick="showVaultHelp()" title="How to host a preset catalog">?</button>
@@ -255,7 +261,7 @@
                     <p class="dev-info-text">Steam path is used to check if required Workshop mods are already installed during preset imports.</p>
                 </section>
 
-                <section class="settings-card settings-card-wide">
+                <section class="settings-card settings-card-wide settings-card-non-monitor">
                     <h3>Appearance & App Info</h3>
 
                     <div class="dark-mode-toggle">
