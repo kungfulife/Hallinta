@@ -382,6 +382,16 @@
         </div>
     </div>
 
+    <div id="backup-progress-overlay" class="backup-progress-overlay" aria-hidden="true">
+        <div class="backup-progress-card">
+            <h3 id="backup-progress-title">Backup in progress</h3>
+            <p id="backup-progress-detail">Please wait while Hallinta processes backup data.</p>
+            <div class="backup-progress-track" role="progressbar" aria-label="Backup in progress">
+                <div id="backup-progress-indicator" class="backup-progress-indicator"></div>
+            </div>
+        </div>
+    </div>
+
     <button class="status-bar" id="status-bar" onclick="openLogs()">Ready - Loaded from Noita XML file</button>
 </div>
 </body>

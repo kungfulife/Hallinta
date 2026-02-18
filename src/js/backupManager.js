@@ -7,6 +7,7 @@ export class BackupManager {
         this.settingsManager = settingsManager;
         this.presetManager = presetManager;
         this._autoBackupInterval = null;
+        this._backupOverlayDepth = 0;
     }
 
     async createBackup() {
@@ -43,6 +44,10 @@ export class BackupManager {
                 state.backupInProgress = true;
                 this.logAction('DEBUG', 'Starting backup creation...');
                 this.uiManager.logAction('INFO', 'Creating backup... This may take a moment.');
+                this._startBackupOverlay(
+                    'Creating Backup',
+                    'Preparing and compressing selected save data.'
+                );
 
                 try {
                     const includeSave01 = selected.includes('save01');
@@ -62,6 +67,7 @@ export class BackupManager {
                     this.logAction('ERROR', `Failed to create backup: ${error}`);
                 } finally {
                     state.backupInProgress = false;
+                    this._endBackupOverlay();
                 }
             },
             () => {
@@ -215,6 +221,10 @@ export class BackupManager {
         state.isRestoring = true;
         this.logAction('DEBUG', `Starting restore from: ${filename}`);
         this.uiManager.logAction('INFO', 'Restoring backup... Please wait.');
+        this._startBackupOverlay(
+            'Restoring Backup',
+            'Applying backup files and refreshing your loadout data.'
+        );
 
         try {
             const noitaDir = this.settingsManager._isDevBuild && this.settingsManager._realNoitaDir
@@ -234,6 +244,10 @@ export class BackupManager {
             if (presetsRestored) {
                 // Reload presets from disk
                 try {
+                    this._updateBackupOverlay(
+                        'Restoring Backup',
+                        'Reloading restored presets into the application.'
+                    );
                     const presets = await window.__TAURI__.core.invoke('load_presets');
                     state.currentPresets = Object.keys(presets).reduce((acc, presetName) => {
                         acc[presetName] = presets[presetName].map(mod => ({
@@ -261,6 +275,7 @@ export class BackupManager {
             this.logAction('ERROR', `Failed to restore backup: ${error}`);
         } finally {
             state.isRestoring = false;
+            this._endBackupOverlay();
         }
     }
 
@@ -279,6 +294,10 @@ export class BackupManager {
             if (!noitaDir) return;
 
             state.backupInProgress = true;
+            this._startBackupOverlay(
+                'Auto Backup Running',
+                'Creating a scheduled backup snapshot.'
+            );
             try {
                 const filename = await window.__TAURI__.core.invoke('create_backup', {
                     noitaDir,
@@ -290,6 +309,7 @@ export class BackupManager {
                 this.logAction('ERROR', `Auto-backup failed: ${error}`);
             } finally {
                 state.backupInProgress = false;
+                this._endBackupOverlay();
             }
         }, intervalMinutes * 60 * 1000);
     }
@@ -312,6 +332,40 @@ export class BackupManager {
             }
         } catch (error) {
             this.logAction('ERROR', `Failed to cleanup old backups: ${error}`);
+        }
+    }
+
+    _setBackupOverlayVisible(visible) {
+        const overlay = document.getElementById('backup-progress-overlay');
+        if (!overlay) return;
+
+        overlay.classList.toggle('active', visible);
+        overlay.setAttribute('aria-hidden', visible ? 'false' : 'true');
+        document.body.classList.toggle('backup-overlay-open', visible);
+    }
+
+    _updateBackupOverlay(title, detail) {
+        const titleEl = document.getElementById('backup-progress-title');
+        const detailEl = document.getElementById('backup-progress-detail');
+
+        if (titleEl && title) {
+            titleEl.textContent = title;
+        }
+        if (detailEl && detail) {
+            detailEl.textContent = detail;
+        }
+    }
+
+    _startBackupOverlay(title, detail) {
+        this._backupOverlayDepth += 1;
+        this._updateBackupOverlay(title, detail);
+        this._setBackupOverlayVisible(true);
+    }
+
+    _endBackupOverlay() {
+        this._backupOverlayDepth = Math.max(0, this._backupOverlayDepth - 1);
+        if (this._backupOverlayDepth === 0) {
+            this._setBackupOverlayVisible(false);
         }
     }
 
