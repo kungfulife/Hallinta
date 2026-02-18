@@ -6,6 +6,9 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 - Introduced a phased rollout plan for 0.7.6 to ship and validate changes in testable chunks
 - Phase 1 complete: regrouped log viewer toolbar controls into clearer button clusters (modal, fullscreen, and detached log window)
 - Phase 2 complete: panic crash handling now captures stack traces and writes them into session logs
+- Phase 3 complete: backup and restore operations now display a full-screen progress overlay with animated progress indication
+- Added backup progress overlay UI (`backup-progress-overlay`) that blocks interaction while backup/restore work is running
+- Wired overlay lifecycle to manual backup, restore backup, and scheduled auto-backup paths
 - Added panic crash session marker support (`SESSION CRASH`) for clearer crash diagnostics
 - Added `Open File` action in log viewer to open the current session log file directly
 - Added `Open Folder` action in log viewer to open the logs directory directly
@@ -13,7 +16,6 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 - Added backend `open_file` command for cross-platform file opening
 - Startup dark/light theme is now applied earlier from persisted preference to prevent incorrect initial mode on launch
 - In Application Logs, moved fullscreen/separate-window/close controls to the right side for cleaner action grouping
-- Remaining planned phases for 0.7.6: Phase 3 (full-UI waiting/progress overlay for backup operations)
 - Remaining planned phases for 0.7.6: Phase 4 (save-monitor lockdown mode: UI restrictions, logging suppression for mod-list operations, compact monitoring layout)
 - Updated application version to `0.7.6`
 

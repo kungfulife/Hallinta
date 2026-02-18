@@ -130,6 +130,7 @@ Latest update highlights:
 - 0.7.6 uses a phased rollout approach for safer validation and iterative fixes
 - Phase 1 complete: log viewer toolbar now uses grouped controls to reduce clutter
 - Phase 2 complete: crash panics now capture and log stack traces automatically
+- Phase 3 complete: backup and restore now show a full-screen progress overlay with animated progress feedback
 - Added log viewer actions to open the current log file and open the logs directory
 - Startup theme is now applied immediately from persisted preference to prevent wrong-mode flash
 - Fullscreen/Separate/Close controls in Application Logs are now right-aligned for clearer layout
@@ -138,7 +139,7 @@ Latest update highlights:
 0.7.6 phased plan:
 1. Phase 1 (complete): Log viewer actions + toolbar regrouping
 2. Phase 2 (complete): Capture crash stack traces in logs
-3. Phase 3 (planned): Full-screen waiting/progress overlay during backup operations
+3. Phase 3 (complete): Full-screen waiting/progress overlay during backup operations
 4. Phase 4 (planned): Save Monitor lockdown mode (restricted UI + compact monitoring-first layout)
 
 For older release notes, see `UPDATEHISTORY.md`.
