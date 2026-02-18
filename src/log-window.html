@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hallinta - Application Logs</title>
+    <script>
+        (() => {
+            try {
+                const theme = localStorage.getItem('hallinta-theme');
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                } else if (theme === 'light') {
+                    document.documentElement.classList.remove('dark-mode');
+                }
+            } catch (_) {
+                // Ignore localStorage access issues
+            }
+        })();
+    </script>
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/settings.css">
@@ -40,9 +54,15 @@
 <div class="log-window-container">
     <div class="log-header log-toolbar">
         <h3>Application Logs</h3>
-        <div class="log-controls">
-            <button id="lw-copy-btn" title="Copy Logs">📋</button>
-            <button id="lw-return-btn" title="Return logs to main app window">Return to App</button>
+        <div class="log-controls log-controls-grouped">
+            <div class="log-control-group">
+                <button id="lw-copy-btn" title="Copy Logs">📋</button>
+                <button id="lw-open-file-btn" title="Open current session log file">Open File</button>
+                <button id="lw-open-dir-btn" title="Open logs directory">Open Folder</button>
+            </div>
+            <div class="log-control-group log-control-group-right">
+                <button id="lw-return-btn" title="Return logs to main app window">Return to App</button>
+            </div>
         </div>
     </div>
     <div class="log-filters">
@@ -64,7 +84,11 @@
         try {
             const settings = await window.__TAURI__.core.invoke('load_settings');
             if (settings.dark_mode) {
+                document.documentElement.classList.add('dark-mode');
                 document.body.classList.add('dark-mode');
+            } else {
+                document.documentElement.classList.remove('dark-mode');
+                document.body.classList.remove('dark-mode');
             }
             currentLogLevel = settings.log_settings?.log_level || 'INFO';
         } catch (e) {
@@ -106,6 +130,26 @@
                 await navigator.clipboard.writeText(text);
             } catch (e) {
                 // Ignore clipboard errors
+            }
+        });
+
+        // Open current log file
+        document.getElementById('lw-open-file-btn').addEventListener('click', async () => {
+            try {
+                const filePath = await window.__TAURI__.core.invoke('get_current_log_file_path');
+                await window.__TAURI__.core.invoke('open_file', { path: filePath });
+            } catch (e) {
+                // Ignore open failures in detached viewer
+            }
+        });
+
+        // Open logs directory
+        document.getElementById('lw-open-dir-btn').addEventListener('click', async () => {
+            try {
+                const logsDir = await window.__TAURI__.core.invoke('get_logs_directory');
+                await window.__TAURI__.core.invoke('open_directory', { directory: logsDir });
+            } catch (e) {
+                // Ignore open failures in detached viewer
             }
         });
 

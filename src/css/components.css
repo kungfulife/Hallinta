@@ -243,9 +243,38 @@ input:checked + .slider:before {
 }
 
 .log-toolbar .log-controls {
+    align-items: center;
+    flex: 1;
+    flex-wrap: wrap;
     gap: 0.45rem;
     justify-content: flex-end;
     margin-left: auto;
+    min-width: 0;
+}
+
+.log-controls-grouped {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.log-controls-grouped .log-control-group {
+    align-items: center;
+    background: color-mix(in srgb, var(--button-bg) 92%, var(--accent-color) 8%);
+    border: 1px solid color-mix(in srgb, var(--border-color) 90%, var(--accent-color) 10%);
+    border-radius: 10px;
+    display: inline-flex;
+    gap: 0.32rem;
+    padding: 0.24rem;
+}
+
+.log-controls-grouped .log-control-group-right {
+    margin-left: auto;
+}
+
+.dark-mode .log-controls-grouped .log-control-group {
+    background: color-mix(in srgb, var(--button-bg) 88%, #ffffff 12%);
 }
 
 .log-toolbar .log-controls button {
@@ -280,6 +309,19 @@ input:checked + .slider:before {
         justify-content: flex-start;
         margin-left: 0;
         width: 100%;
+    }
+
+    .log-controls-grouped .log-control-group {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .log-controls-grouped .log-control-group-right {
+        margin-left: 0;
+    }
+
+    .log-controls-grouped .log-control-group button {
+        flex: 1 1 auto;
     }
 }
 

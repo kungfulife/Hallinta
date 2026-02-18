@@ -391,6 +391,26 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         }
     };
 
+    window.openCurrentLogFile = async () => {
+        try {
+            const filePath = await window.__TAURI__.core.invoke('get_current_log_file_path');
+            await window.__TAURI__.core.invoke('open_file', { path: filePath });
+            uiManager.logAction('INFO', 'Opened current session log file', 'EventHandler');
+        } catch (error) {
+            uiManager.logAction('ERROR', `Error opening log file: ${error}`, 'EventHandler');
+        }
+    };
+
+    window.openLogsDirectory = async () => {
+        try {
+            const logsDirectory = await window.__TAURI__.core.invoke('get_logs_directory');
+            await window.__TAURI__.core.invoke('open_directory', { directory: logsDirectory });
+            uiManager.logAction('INFO', 'Opened logs directory', 'EventHandler');
+        } catch (error) {
+            uiManager.logAction('ERROR', `Error opening logs directory: ${error}`, 'EventHandler');
+        }
+    };
+
     const refreshLogs = async () => {
         // Don't refresh in-app views when detached to separate window
         if (logViewMode === 'detached') return;
