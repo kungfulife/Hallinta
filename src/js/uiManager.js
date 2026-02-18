@@ -196,7 +196,13 @@ export class UIManager {
     }
 
     applyDarkMode() {
+        document.documentElement.classList.toggle('dark-mode', state.isDarkMode);
         document.body.classList.toggle('dark-mode', state.isDarkMode);
+        try {
+            localStorage.setItem('hallinta-theme', state.isDarkMode ? 'dark' : 'light');
+        } catch (_) {
+            // Ignore localStorage access issues
+        }
     }
 
     // ShowConfirmModal allows you to display a customizable two option request to the user.

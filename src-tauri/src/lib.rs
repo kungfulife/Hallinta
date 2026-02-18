@@ -13,6 +13,9 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    logging::install_panic_logging_hook();
+    logging::init_log_session();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -33,12 +36,15 @@ pub fn run() {
             app::is_dev_build,
             app::get_version,
             app::open_directory,
+            app::open_file,
             files::check_file_modified,
             files::get_file_modified_time,
             logging::add_log_entry,
             logging::get_log_entries,
             logging::clear_log_buffer,
             logging::flush_log_buffer,
+            logging::get_logs_directory,
+            logging::get_current_log_file_path,
             files::write_file,
             files::read_file,
             files::check_file_exists,

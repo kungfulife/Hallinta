@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hallinta - Noita Mod Manager</title>
+    <script>
+        (() => {
+            try {
+                const theme = localStorage.getItem('hallinta-theme');
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                } else if (theme === 'light') {
+                    document.documentElement.classList.remove('dark-mode');
+                }
+            } catch (_) {
+                // Ignore localStorage access issues
+            }
+        })();
+    </script>
 
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/layout.css">
@@ -286,11 +300,17 @@
         <div class="log-modal-content">
             <div class="log-header log-toolbar">
                 <h3>Application Logs</h3>
-                <div class="log-controls">
-                    <button onclick="toggleLogFullscreen()" title="Toggle Fullscreen">⛶</button>
-                    <button onclick="openLogWindow()" title="Open in Separate Window">⧉</button>
-                    <button onclick="copyLogs()" title="Copy Logs">📋</button>
-                    <button onclick="closeLogs()">Close</button>
+                <div class="log-controls log-controls-grouped">
+                    <div class="log-control-group">
+                        <button onclick="copyLogs()" title="Copy Logs">📋</button>
+                        <button onclick="openCurrentLogFile()" title="Open current session log file">Open File</button>
+                        <button onclick="openLogsDirectory()" title="Open logs directory">Open Folder</button>
+                    </div>
+                    <div class="log-control-group log-control-group-right">
+                        <button onclick="toggleLogFullscreen()" title="Toggle Fullscreen">⛶</button>
+                        <button onclick="openLogWindow()" title="Open in Separate Window">⧉</button>
+                        <button onclick="closeLogs()">Close</button>
+                    </div>
                 </div>
             </div>
             <div class="log-filters">
@@ -311,11 +331,17 @@
         <div class="log-fullscreen-content">
             <div class="log-header log-toolbar">
                 <h3>Application Logs</h3>
-                <div class="log-controls">
-                    <button onclick="toggleLogFullscreen()" title="Exit Fullscreen">⛶</button>
-                    <button onclick="openLogWindow()" title="Open in Separate Window">⧉</button>
-                    <button onclick="copyLogs()" title="Copy Logs">📋</button>
-                    <button onclick="closeLogs()">Close</button>
+                <div class="log-controls log-controls-grouped">
+                    <div class="log-control-group">
+                        <button onclick="copyLogs()" title="Copy Logs">📋</button>
+                        <button onclick="openCurrentLogFile()" title="Open current session log file">Open File</button>
+                        <button onclick="openLogsDirectory()" title="Open logs directory">Open Folder</button>
+                    </div>
+                    <div class="log-control-group log-control-group-right">
+                        <button onclick="toggleLogFullscreen()" title="Exit Fullscreen">⛶</button>
+                        <button onclick="openLogWindow()" title="Open in Separate Window">⧉</button>
+                        <button onclick="closeLogs()">Close</button>
+                    </div>
                 </div>
             </div>
             <div class="log-filters">

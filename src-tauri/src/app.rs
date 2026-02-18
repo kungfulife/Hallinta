@@ -194,6 +194,44 @@ pub(crate) async fn open_directory(directory: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub(crate) async fn open_file(path: String) -> Result<(), String> {
+    let file_path = Path::new(&path);
+    if !file_path.exists() {
+        return Err("File does not exist".to_string());
+    }
+    if !file_path.is_file() {
+        return Err("Path is not a file".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(&["/C", "start", ""])
+            .arg(file_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(file_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(file_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub(crate) fn open_workshop_item(workshop_id: String) -> Result<(), String> {
     if workshop_id == "0" || workshop_id.is_empty() {
         return Err("No workshop ID provided.".to_string());

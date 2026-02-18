@@ -43,12 +43,14 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ### Application Logs
 - Always-on session logging for reliable crash diagnostics
+- Panic crash handler now writes panic payload, location, thread, and stack trace to session logs
 - Three viewing modes: modal overlay, fullscreen panel, separate OS window
 - Level-based filtering (Debug, Info, Warn, Error)
 - Search within log entries
 - Auto-refresh with smart scroll (preserves position when reading history)
 - Color-coded log levels with left-border indicators
 - Copy filtered logs to clipboard
+- Open current session log file or logs folder directly from the log viewer
 
 ### Smart Directory Detection
 - **Noita Save Directory**: Automatically finds Windows save location
@@ -122,15 +124,21 @@ cargo tauri build
 
 ## Latest Version
 
-Current version: **0.7.5**
+Current version: **0.7.6**
 
 Latest update highlights:
-- Preset dropdown is now sorted alphabetically (Default always first)
-- Catalog URL is now user-configurable in Settings > Preset Vault
-- Added `?` help button with a guide for self-hosting a preset catalog
-- Preset Vault shows a friendly message when no catalog URL is configured
-- Settings now returns to Preset Vault view when opened from the vault
-- Added "beta" badge to Import by Link and workshop detection note in missing mods modal
-- Updated application version to `0.7.5`
+- 0.7.6 uses a phased rollout approach for safer validation and iterative fixes
+- Phase 1 complete: log viewer toolbar now uses grouped controls to reduce clutter
+- Phase 2 complete: crash panics now capture and log stack traces automatically
+- Added log viewer actions to open the current log file and open the logs directory
+- Startup theme is now applied immediately from persisted preference to prevent wrong-mode flash
+- Fullscreen/Separate/Close controls in Application Logs are now right-aligned for clearer layout
+- Updated application version to `0.7.6`
+
+0.7.6 phased plan:
+1. Phase 1 (complete): Log viewer actions + toolbar regrouping
+2. Phase 2 (complete): Capture crash stack traces in logs
+3. Phase 3 (planned): Full-screen waiting/progress overlay during backup operations
+4. Phase 4 (planned): Save Monitor lockdown mode (restricted UI + compact monitoring-first layout)
 
 For older release notes, see `UPDATEHISTORY.md`.
