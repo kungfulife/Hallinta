@@ -4,6 +4,10 @@ export class ModManager {
         this.uiManager = uiManager;
     }
 
+    _isLockedForSaveMonitor() {
+        return !!state.saveMonitorLockdownActive;
+    }
+
     async loadModConfigFromDirectory(directory, options = {}) {
         const { startupSync = false } = options;
         try {
@@ -207,6 +211,7 @@ export class ModManager {
     }
 
     toggleMod(index) {
+        if (this._isLockedForSaveMonitor()) return;
         state.currentMods[index].enabled = !state.currentMods[index].enabled;
         this.uiManager.updateModCount();
         this.saveModConfigToFile();
@@ -215,6 +220,7 @@ export class ModManager {
     }
 
     deleteMod(index) {
+        if (this._isLockedForSaveMonitor()) return '';
         const modName = state.currentMods[index].name;
         state.currentMods.splice(index, 1);
         state.currentMods.forEach((mod, i) => {
@@ -229,6 +235,7 @@ export class ModManager {
     }
 
     reorderMod(oldIndex, newIndex) {
+        if (this._isLockedForSaveMonitor()) return;
         state.isReordering = true;
         const movedMod = state.currentMods.splice(oldIndex, 1)[0];
         state.currentMods.splice(newIndex, 0, movedMod);
@@ -242,6 +249,11 @@ export class ModManager {
     }
 
     async finishReordering() {
+        if (this._isLockedForSaveMonitor()) {
+            state.isReordering = false;
+            state.pendingReorder = false;
+            return;
+        }
         state.isReordering = false;
         if (state.pendingReorder) {
             state.pendingReorder = false;
@@ -255,6 +267,7 @@ export class ModManager {
     }
 
     async exportModList() {
+        if (this._isLockedForSaveMonitor()) return;
         this.logAction('DEBUG', 'Exporting enabled mods...');
         try {
             const enabledMods = state.currentMods
@@ -289,6 +302,7 @@ export class ModManager {
     }
 
     async importRegular() {
+        if (this._isLockedForSaveMonitor()) return;
         this.logAction('DEBUG', 'Import mod list requested');
         try {
             const selectedPath = await window.__TAURI__.dialog.open({

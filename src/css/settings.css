@@ -258,3 +258,19 @@
 .dark-mode .settings-intro {
     background: linear-gradient(135deg, rgba(77, 166, 255, 0.16), rgba(77, 166, 255, 0.04));
 }
+
+body.monitor-lockdown .settings-card-non-monitor {
+    display: none !important;
+}
+
+body.monitor-lockdown .non-monitor-setting {
+    display: none !important;
+}
+
+body.monitor-lockdown .settings-grid {
+    grid-template-columns: 1fr;
+}
+
+body.monitor-lockdown .settings-card-monitor {
+    grid-column: span 1;
+}

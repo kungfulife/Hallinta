@@ -7,13 +7,32 @@ export class SaveMonitorManager {
         this._monitorInterval = null;
         this._isRunning = false;
         this._includeEntangled = false;
+        this._lastBlockedNoticeAt = 0;
     }
 
     get isRunning() {
         return this._isRunning;
     }
 
-    async start(askEntangled = true) {
+    get isLockdownActive() {
+        return !!state.saveMonitorLockdownActive;
+    }
+
+    isInteractionBlocked(actionLabel = 'This action') {
+        if (!this.isLockdownActive) return false;
+        const now = Date.now();
+        if (now - this._lastBlockedNoticeAt > 1200) {
+            this._lastBlockedNoticeAt = now;
+            this.uiManager.logAction(
+                'INFO',
+                `${actionLabel} is disabled while Save Monitor mode is active.`,
+                'SaveMonitor'
+            );
+        }
+        return true;
+    }
+
+    async start(askEntangled = true, options = {}) {
         if (this._isRunning) {
             this.logAction('WARN', 'Save Monitor is already running');
             return;
@@ -21,6 +40,7 @@ export class SaveMonitorManager {
 
         const settings = this.settingsManager.settings.save_monitor_settings || {};
         const intervalMinutes = settings.interval_minutes || 15;
+        const startupLaunch = !!options.startup;
 
         const noitaDir = this.settingsManager._isDevBuild && this.settingsManager._realNoitaDir
             ? this.settingsManager._realNoitaDir
@@ -49,8 +69,14 @@ export class SaveMonitorManager {
         }
 
         this._isRunning = true;
+        this._setLockdownMode(true);
         this._updateUI();
-        this.logAction('INFO', `Save Monitor started (every ${intervalMinutes} min)`);
+        this.logAction(
+            'INFO',
+            startupLaunch
+                ? `Save Monitor started on launch (every ${intervalMinutes} min)`
+                : `Save Monitor started (every ${intervalMinutes} min)`
+        );
 
         // Take an initial snapshot
         await this._takeSnapshot();
@@ -70,6 +96,7 @@ export class SaveMonitorManager {
         }
 
         this._isRunning = false;
+        this._setLockdownMode(false);
         this._updateUI();
         this.logAction('INFO', 'Save Monitor stopped');
     }
@@ -108,6 +135,7 @@ export class SaveMonitorManager {
     }
 
     _updateUI() {
+        this._syncLockdownClasses();
         const btn = document.getElementById('save-monitor-toggle');
         if (btn) {
             btn.textContent = this._isRunning ? 'Stop Save Monitor' : 'Start Save Monitor';
@@ -122,6 +150,29 @@ export class SaveMonitorManager {
                 ? 'save-monitor-status active'
                 : 'save-monitor-status';
         }
+    }
+
+    _setLockdownMode(active) {
+        state.saveMonitorLockdownActive = !!active;
+        this._syncLockdownClasses();
+
+        if (active && state.galleryView && typeof window.showModListView === 'function') {
+            window.showModListView();
+        }
+
+        const menu = document.getElementById('mod-context-menu');
+        if (menu) {
+            menu.style.display = 'none';
+        }
+
+        const sortable = window.__hallintaSortable;
+        if (sortable && typeof sortable.option === 'function') {
+            sortable.option('disabled', !!active);
+        }
+    }
+
+    _syncLockdownClasses() {
+        document.body.classList.toggle('monitor-lockdown', this.isLockdownActive);
     }
 
     async confirmStopOnClose() {

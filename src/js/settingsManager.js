@@ -25,7 +25,8 @@ export class SettingsManager {
             save_monitor_settings: {
                 interval_minutes: 15,
                 max_snapshots_per_preset: 10,
-                include_entangled: false
+                include_entangled: false,
+                start_in_monitor_mode: false
             },
             gallery_settings: {
                 catalog_url: getCatalogUrl(''),
@@ -90,7 +91,8 @@ export class SettingsManager {
                     save_monitor_settings: {
                         interval_minutes: 15,
                         max_snapshots_per_preset: 10,
-                        include_entangled: false
+                        include_entangled: false,
+                        start_in_monitor_mode: false
                     },
                     gallery_settings: {
                         catalog_url: getCatalogUrl(''),
@@ -312,8 +314,12 @@ export class SettingsManager {
             this.settings.save_monitor_settings = {
                 interval_minutes: 15,
                 max_snapshots_per_preset: 10,
-                include_entangled: false
+                include_entangled: false,
+                start_in_monitor_mode: false
             };
+        }
+        if (typeof this.settings.save_monitor_settings.start_in_monitor_mode !== 'boolean') {
+            this.settings.save_monitor_settings.start_in_monitor_mode = false;
         }
         // Ensure gallery_settings defaults
         if (!this.settings.gallery_settings) {
@@ -352,6 +358,7 @@ export class SettingsManager {
         const backupIntervalInput = document.getElementById('backup-interval');
         const monitorIntervalInput = document.getElementById('monitor-interval');
         const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
+        const monitorStartModeCheckbox = document.getElementById('monitor-start-mode');
 
         // In dev mode, show the real Noita path in the input field (not dev_data)
         if (noitaDirElement) {
@@ -368,6 +375,7 @@ export class SettingsManager {
         if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings.backup_interval_minutes;
         if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
         if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = this.settings.save_monitor_settings?.max_snapshots_per_preset ?? 10;
+        if (monitorStartModeCheckbox) monitorStartModeCheckbox.checked = !!this.settings.save_monitor_settings?.start_in_monitor_mode;
 
         const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
         if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings?.catalog_url || '';
@@ -403,6 +411,7 @@ export class SettingsManager {
             const backupIntervalInput = document.getElementById('backup-interval');
             const monitorIntervalInput = document.getElementById('monitor-interval');
             const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
+            const monitorStartModeCheckbox = document.getElementById('monitor-start-mode');
 
             this.settings.noita_dir = noitaDirElement ? noitaDirElement.value : '';
             this.settings.entangled_dir = entangledDirElement ? entangledDirElement.value : '';
@@ -433,6 +442,9 @@ export class SettingsManager {
             if (monitorMaxSnapshotsInput) {
                 const val = parseInt(monitorMaxSnapshotsInput.value);
                 this.settings.save_monitor_settings.max_snapshots_per_preset = isNaN(val) || val < 1 ? 10 : val;
+            }
+            if (monitorStartModeCheckbox) {
+                this.settings.save_monitor_settings.start_in_monitor_mode = !!monitorStartModeCheckbox.checked;
             }
             // Gallery settings
             if (!this.settings.gallery_settings) {
@@ -677,7 +689,8 @@ export class SettingsManager {
                 save_monitor_settings: {
                     interval_minutes: 15,
                     max_snapshots_per_preset: 10,
-                    include_entangled: false
+                    include_entangled: false,
+                    start_in_monitor_mode: false
                 },
                 gallery_settings: {
                     catalog_url: getCatalogUrl(''),
@@ -710,8 +723,10 @@ export class SettingsManager {
             if (backupIntervalInput) backupIntervalInput.value = 0;
             const monitorIntervalInput = document.getElementById('monitor-interval');
             const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
+            const monitorStartModeCheckbox = document.getElementById('monitor-start-mode');
             if (monitorIntervalInput) monitorIntervalInput.value = 15;
             if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = 10;
+            if (monitorStartModeCheckbox) monitorStartModeCheckbox.checked = false;
             const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
             this.settings.gallery_settings.catalog_url = getCatalogUrl('');
             if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings.catalog_url;
@@ -748,6 +763,7 @@ export class SettingsManager {
             const backupIntervalInput = document.getElementById('backup-interval');
             const monitorIntervalInput = document.getElementById('monitor-interval');
             const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
+            const monitorStartModeCheckbox = document.getElementById('monitor-start-mode');
             // In dev mode, show the real Noita path in the input field
             if (noitaDirElement) {
                 noitaDirElement.value = (this._isDevBuild && this._realNoitaDir) ? this._realNoitaDir : this.settings.noita_dir;
@@ -763,6 +779,9 @@ export class SettingsManager {
             if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings?.backup_interval_minutes ?? 0;
             if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
             if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = this.settings.save_monitor_settings?.max_snapshots_per_preset ?? 10;
+            if (monitorStartModeCheckbox) {
+                monitorStartModeCheckbox.checked = !!this.settings.save_monitor_settings?.start_in_monitor_mode;
+            }
             const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
             if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings?.catalog_url || '';
             const gallerySteamPathInput = document.getElementById('gallery-steam-path');

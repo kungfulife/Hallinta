@@ -12,6 +12,10 @@ export class PresetManager {
         this._galleryManager = galleryManager;
     }
 
+    _isLockedForSaveMonitor() {
+        return !!state.saveMonitorLockdownActive;
+    }
+
     loadPresets() {
         const selector = document.getElementById('preset-dropdown');
         if (!selector) {
@@ -48,6 +52,7 @@ export class PresetManager {
     }
 
     async onPresetChange() {
+        if (this._isLockedForSaveMonitor()) return;
         const selector = document.getElementById('preset-dropdown');
         if (!selector) {
             this.logAction('ERROR', 'Preset dropdown element not found');
@@ -120,6 +125,7 @@ export class PresetManager {
     }
 
     async deleteCurrentPreset() {
+        if (this._isLockedForSaveMonitor()) return;
         this.logAction('DEBUG', `Attempting to delete preset: ${state.selectedPreset}`);
         if (state.selectedPreset === 'Default') {
             this.logAction('WARN', 'Cannot delete default preset');
@@ -150,6 +156,7 @@ export class PresetManager {
     }
 
     async renameCurrentPreset() {
+        if (this._isLockedForSaveMonitor()) return;
         this.logAction('DEBUG', `Attempting to rename preset: ${state.selectedPreset}`);
         if (state.selectedPreset === 'Default') {
             this.logAction('ERROR', 'Cannot rename default preset');
@@ -199,6 +206,7 @@ export class PresetManager {
     }
 
     async exportPresets() {
+        if (this._isLockedForSaveMonitor()) return;
         this.logAction('DEBUG', 'Export presets requested');
         const presetNames = Object.keys(state.currentPresets);
         if (presetNames.length === 0) {
@@ -270,6 +278,7 @@ export class PresetManager {
     }
 
     async importPresets() {
+        if (this._isLockedForSaveMonitor()) return;
         this.logAction('DEBUG', 'Import presets requested');
         try {
             const selectedPath = await window.__TAURI__.dialog.open({

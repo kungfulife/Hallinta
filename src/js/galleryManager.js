@@ -15,7 +15,12 @@ export class GalleryManager {
         return state.galleryView;
     }
 
+    _isLockedForSaveMonitor() {
+        return !!state.saveMonitorLockdownActive;
+    }
+
     async openGallery() {
+        if (this._isLockedForSaveMonitor()) return;
         state.galleryView = true;
         this.uiManager.changeView('gallery');
 
@@ -69,6 +74,7 @@ export class GalleryManager {
     }
 
     async downloadPreset(entry) {
+        if (this._isLockedForSaveMonitor()) return;
         const downloadBtn = document.querySelector(`[data-preset-id="${entry.id}"] .gallery-card-download`);
         if (downloadBtn) {
             downloadBtn.classList.add('downloading');
@@ -140,6 +146,7 @@ export class GalleryManager {
     }
 
     async downloadByShareLink() {
+        if (this._isLockedForSaveMonitor()) return;
         this.uiManager.showInputModal(
             'Enter a Google Drive share link to a Hallinta preset file:',
             '',
@@ -330,6 +337,7 @@ export class GalleryManager {
     }
 
     async _importPresetData(importData) {
+        if (this._isLockedForSaveMonitor()) return;
         const importedNames = Object.keys(importData.presets);
         let imported = 0;
 

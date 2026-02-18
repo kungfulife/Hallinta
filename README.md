@@ -31,6 +31,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 ### Backup & Restore
 - Manual and automatic backups of Noita save data (save00, save01) and presets
 - Save monitoring with per-preset snapshots for crash recovery
+- Save Monitor Lockdown Mode (monitoring-focused UI that blocks mod/preset mutations while active)
 - Configurable auto-backup interval
 - Auto-deletion of old backups (configurable retention period)
 - Selective restore with per-component options
@@ -127,19 +128,15 @@ cargo tauri build
 Current version: **0.7.6**
 
 Latest update highlights:
-- 0.7.6 uses a phased rollout approach for safer validation and iterative fixes
-- Phase 1 complete: log viewer toolbar now uses grouped controls to reduce clutter
-- Phase 2 complete: crash panics now capture and log stack traces automatically
-- Phase 3 complete: backup and restore now show a full-screen progress overlay with animated progress feedback
+- Added Save Monitor Lockdown Mode:
+  - while Save Monitor runs, mod/preset/list mutation actions are blocked
+  - non-monitor controls are hidden and the main UI compacts into a monitoring-focused layout
+  - app can auto-start directly in monitoring mode via a new Save Monitor setting
 - Added log viewer actions to open the current log file and open the logs directory
+- Regrouped log viewer toolbar controls for better clarity, with fullscreen/separate-window/close actions aligned to the right
+- Added panic crash logging with payload, location, thread, stack trace, and `SESSION CRASH` marker
+- Backup/restore operations now show a full-screen progress overlay with animated progress feedback
 - Startup theme is now applied immediately from persisted preference to prevent wrong-mode flash
-- Fullscreen/Separate/Close controls in Application Logs are now right-aligned for clearer layout
 - Updated application version to `0.7.6`
-
-0.7.6 phased plan:
-1. Phase 1 (complete): Log viewer actions + toolbar regrouping
-2. Phase 2 (complete): Capture crash stack traces in logs
-3. Phase 3 (complete): Full-screen waiting/progress overlay during backup operations
-4. Phase 4 (planned): Save Monitor lockdown mode (restricted UI + compact monitoring-first layout)
 
 For older release notes, see `UPDATEHISTORY.md`.

@@ -162,3 +162,18 @@
 .dark-mode .header {
     box-shadow: 0 10px 22px rgba(0, 0, 0, 0.34);
 }
+
+body.monitor-lockdown .view-tabs,
+body.monitor-lockdown #search-bar,
+body.monitor-lockdown #preset-controls,
+body.monitor-lockdown #mod-filter-mode,
+body.monitor-lockdown .ux-select[data-select-id="mod-filter-mode"],
+body.monitor-lockdown .ux-select[data-select-id="preset-dropdown"] {
+    display: none !important;
+}
+
+body.monitor-lockdown .header {
+    margin-bottom: 0.55rem;
+    min-height: 52px;
+    padding: 0.42rem 0.58rem;
+}
