@@ -106,3 +106,73 @@
     color: #4caf50;
     font-weight: 600;
 }
+
+/* Monitor Dashboard Panel */
+.monitor-panel {
+    display: none;
+}
+
+body.compact-mode .monitor-panel {
+    align-items: center;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-top: 0.5rem;
+    padding: 1.2rem 1rem;
+}
+
+.monitor-panel-title {
+    color: var(--text-color);
+    font-size: 1.05em;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.monitor-panel-indicator {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.monitor-panel-indicator.active {
+    color: #4caf50;
+    font-weight: 500;
+}
+
+.monitor-pulse {
+    animation: pulse-glow 2s ease-in-out infinite;
+    background: #4caf50;
+    border-radius: 50%;
+    height: 10px;
+    width: 10px;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.5);
+        opacity: 1;
+    }
+    50% {
+        box-shadow: 0 0 8px 4px rgba(76, 175, 80, 0.25);
+        opacity: 0.8;
+    }
+}
+
+.monitor-preset-label {
+    color: var(--text-secondary);
+    font-size: 0.9em;
+}
+
+.monitor-preset-name {
+    color: var(--accent-color);
+    font-weight: 600;
+}
+
+.monitor-snapshot-info {
+    color: var(--text-secondary);
+    font-size: 0.82em;
+    min-height: 1.1em;
+}

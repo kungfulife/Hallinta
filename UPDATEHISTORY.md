@@ -2,6 +2,28 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.7.8
+- Decoupled Compact Mode from Save Monitor into an independent UI toggle
+  - Added compact mode toggle button in the header bar
+  - Added Compact Mode checkbox in Settings > Application Behavior
+  - Compact mode persists across sessions via `compact_mode` in settings
+  - Save Monitor now only blocks mutation actions (mod/preset/gallery) without changing the UI layout
+  - Compact mode and Save Monitor can be used independently or together
+- Removed the in-app log viewer entirely (modal, fullscreen, and detached window modes)
+  - Users can check log files directly via Settings > Open Settings Folder
+  - Removed status bar from the bottom of the application
+  - Removed PhraseManager (status bar easter egg phrases)
+  - Stripped `logUtils.js` to only the `escapeHtml` utility (used by system info and open source panels)
+  - Removed `get_log_entries`, `get_logs_directory`, `get_current_log_file_path` backend commands
+  - Core logging (session files, panic handler, flush buffer) remains fully intact
+- Changed Save Monitor default snapshot interval from 15 minutes to 3 minutes
+- Renamed "Find Default" buttons to "Auto-detect" in Settings directory fields
+- Renamed "Start in Save Monitoring Mode on launch" to "Start Save Monitor on launch"
+- Added `core:window:allow-center` permission to fix window centering errors
+- Removed `log-window` from Tauri capabilities (no longer needed)
+- Renamed internal CSS class `monitor-lockdown` to `compact-mode` throughout
+- Updated application version to `0.7.8`
+
 ## 0.7.6
 - Added Save Monitor Lockdown Mode:
   - blocks mod list/preset/gallery mutation actions while Save Monitor is running

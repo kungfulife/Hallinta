@@ -3,6 +3,7 @@ import {updateDragVisualNumbersByDom} from './reorderUtils.js';
 
 export function setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager, saveMonitorManager, galleryManager, selectEnhancer) {
     const blockWhenMonitorLocked = (actionLabel) => saveMonitorManager.isInteractionBlocked(actionLabel);
+    window._hallintaSaveMonitorRunning = () => saveMonitorManager.isRunning;
 
     window.changeDirectory = (type) => settingsManager.changeDirectory(type);
     window.findDefaultDirectory = (type) => settingsManager.findDefaultDirectory(type);
@@ -40,13 +41,85 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         if (blockWhenMonitorLocked('Backup restore')) return;
         backupManager.openRestoreUI();
     };
-    window.toggleSaveMonitor = () => {
+    window.toggleSaveMonitor = async () => {
         if (saveMonitorManager.isRunning) {
-            saveMonitorManager.stop();
+            await saveMonitorManager.stop();
         } else {
-            saveMonitorManager.start();
+            await saveMonitorManager.start();
         }
     };
+    // --- Compact Mode ---
+    const applyCompactMode = (active) => {
+        state.compactMode = !!active;
+        document.body.classList.toggle('compact-mode', !!active);
+
+        const checkbox = document.getElementById('compact-mode-checkbox');
+        if (checkbox) checkbox.checked = !!active;
+
+        // Close context menu
+        const menu = document.getElementById('mod-context-menu');
+        if (menu) menu.style.display = 'none';
+
+        // Sync sortable disabled state
+        const sortable = window.__hallintaSortable;
+        if (sortable && typeof sortable.option === 'function') {
+            sortable.option('disabled', !!(active || saveMonitorManager.isRunning));
+        }
+    };
+
+    const toggleCompactMode = async () => {
+        const newState = !state.compactMode;
+
+        try {
+            const appWindow = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
+            const LogicalSize = window.__TAURI__.dpi.LogicalSize;
+
+            if (newState) {
+                // Save current size before compacting
+                const currentSize = await appWindow.innerSize();
+                if (currentSize) {
+                    state.normalModeWindowSize = { width: currentSize.width, height: currentSize.height };
+                }
+
+                applyCompactMode(true);
+
+                await appWindow.setMinSize(new LogicalSize(380, 340));
+                await appWindow.setMaxSize(new LogicalSize(600, 500));
+                await appWindow.setSize(new LogicalSize(480, 400));
+                await appWindow.center();
+            } else {
+                applyCompactMode(false);
+
+                await appWindow.setMaxSize(null);
+                await appWindow.setMinSize(new LogicalSize(1050, 800));
+
+                const saved = state.normalModeWindowSize;
+                const restoreWidth = saved ? Math.max(saved.width, 1050) : 1100;
+                const restoreHeight = saved ? Math.max(saved.height, 800) : 800;
+                await appWindow.setSize(new LogicalSize(restoreWidth, restoreHeight));
+                await appWindow.center();
+
+                state.normalModeWindowSize = null;
+            }
+        } catch (e) {
+            applyCompactMode(newState);
+            uiManager.logAction('WARN', `Could not resize window for compact mode: ${e}`, 'EventHandler');
+        }
+
+        // Persist compact_mode setting
+        settingsManager.settings.compact_mode = newState;
+        try {
+            const settingsToSave = settingsManager.getSettingsForPersistence();
+            await window.__TAURI__.core.invoke('save_settings', { settings: settingsToSave });
+        } catch (e) {
+            uiManager.logAction('WARN', `Could not persist compact mode setting: ${e}`, 'EventHandler');
+        }
+
+        uiManager.logAction('INFO', `Compact mode ${newState ? 'enabled' : 'disabled'}`, 'EventHandler');
+    };
+
+    window.toggleCompactMode = toggleCompactMode;
+
     window.updateLogLevelColor = () => settingsManager.updateLogLevelSelectColor();
     window.exportPresets = () => {
         if (blockWhenMonitorLocked('Preset export')) return;
@@ -165,343 +238,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         uiManager.copyWorkshopLink();
     };
 
-    // --- Log Viewer ---
-
-    let logAutoRefreshInterval = null;
-    let logViewMode = 'closed'; // 'closed', 'modal', 'fullscreen', 'detached'
-    let logDetachedPreference = false; // sticky: once detached, clicking status bar reopens window
-    let logLastInAppMode = 'modal'; // tracks what in-app mode was used before detaching
-    let logAutoScale = true; // auto-scale modal with window resize
-    let logWindowRef = null; // reference to the separate WebviewWindow
-
-    const startLogAutoRefresh = () => {
-        stopLogAutoRefresh();
-        logAutoRefreshInterval = setInterval(() => {
-            refreshLogs();
-        }, 1500);
-    };
-
-    const stopLogAutoRefresh = () => {
-        if (logAutoRefreshInterval) {
-            clearInterval(logAutoRefreshInterval);
-            logAutoRefreshInterval = null;
-        }
-    };
-
-    const getActiveLogElements = () => {
-        if (logViewMode === 'fullscreen') {
-            return {
-                content: document.getElementById('log-fs-content'),
-                filterLevel: document.getElementById('log-fs-filter-level'),
-                search: document.getElementById('log-fs-search'),
-            };
-        }
-        return {
-            content: document.getElementById('log-content'),
-            filterLevel: document.getElementById('log-filter-level'),
-            search: document.getElementById('log-search'),
-        };
-    };
-
-    const syncFilters = (fromMode) => {
-        const srcLevelId = fromMode === 'modal' ? 'log-filter-level' : 'log-fs-filter-level';
-        const dstLevelId = fromMode === 'modal' ? 'log-fs-filter-level' : 'log-filter-level';
-        const srcLevel = document.getElementById(srcLevelId);
-        const dstLevel = document.getElementById(dstLevelId);
-        if (srcLevel && dstLevel) dstLevel.value = srcLevel.value;
-
-        const srcSearch = document.getElementById(fromMode === 'modal' ? 'log-search' : 'log-fs-search');
-        const dstSearch = document.getElementById(fromMode === 'modal' ? 'log-fs-search' : 'log-search');
-        if (srcSearch && dstSearch) dstSearch.value = srcSearch.value;
-    };
-
-    const setStatusBarVisible = (visible) => {
-        const statusBar = document.getElementById('status-bar');
-        if (statusBar) {
-            statusBar.style.display = visible ? '' : 'none';
-        }
-    };
-
-    // Auto-scale modal size to 80% x 70% of window
-    const applyAutoScale = () => {
-        if (!logAutoScale) return;
-        const modalContent = document.querySelector('.log-modal-content');
-        if (!modalContent) return;
-        modalContent.style.width = '';
-        modalContent.style.height = '';
-    };
-
-    // Detect user manual resize of the modal
-    const setupModalResizeDetection = () => {
-        const modalContent = document.querySelector('.log-modal-content');
-        if (!modalContent || modalContent._resizeObserverAttached) return;
-
-        let isWindowResize = false;
-        window.addEventListener('resize', () => {
-            isWindowResize = true;
-            if (logAutoScale && logViewMode === 'modal') {
-                applyAutoScale();
-            } else if (!logAutoScale && logViewMode === 'modal') {
-                // Check if user's manual size exceeds viewport
-                const rect = modalContent.getBoundingClientRect();
-                if (rect.width > window.innerWidth * 0.92 || rect.height > window.innerHeight * 0.82) {
-                    logAutoScale = true;
-                    applyAutoScale();
-                }
-            }
-            requestAnimationFrame(() => { isWindowResize = false; });
-        });
-
-        const observer = new ResizeObserver(() => {
-            if (isWindowResize || logViewMode !== 'modal') return;
-            // User manually resized the modal
-            logAutoScale = false;
-        });
-        observer.observe(modalContent);
-        modalContent._resizeObserverAttached = true;
-    };
-
-    window.openLogs = () => {
-        uiManager.logAction('DEBUG', 'Opening logs', 'EventHandler');
-
-        // If detached preference is active, reopen separate window
-        if (logDetachedPreference) {
-            openLogWindow();
-            return;
-        }
-
-        if (state.isModalVisible) {
-            uiManager.logAction('INFO', 'Cannot open logs while another modal is active.', 'EventHandler');
-            return;
-        }
-
-        const modal = document.getElementById('log-modal');
-        if (modal) {
-            logViewMode = 'modal';
-            logLastInAppMode = 'modal';
-            modal.style.display = 'flex';
-            initLogFilterDropdown();
-            applyAutoScale();
-            setupModalResizeDetection();
-            refreshLogs();
-            startLogAutoRefresh();
-        }
-    };
-
-    window.closeLogs = () => {
-        uiManager.logAction('DEBUG', 'Closing logs', 'EventHandler');
-        const modal = document.getElementById('log-modal');
-        const fullscreen = document.getElementById('log-fullscreen');
-        if (modal) modal.style.display = 'none';
-        if (fullscreen) fullscreen.style.display = 'none';
-
-        if (logViewMode === 'modal' || logViewMode === 'fullscreen') {
-            logLastInAppMode = logViewMode;
-        }
-        logViewMode = 'closed';
-        stopLogAutoRefresh();
-    };
-
-    window.toggleLogFullscreen = () => {
-        const modal = document.getElementById('log-modal');
-        const fullscreen = document.getElementById('log-fullscreen');
-
-        if (logViewMode === 'modal') {
-            syncFilters('modal');
-            if (modal) modal.style.display = 'none';
-            if (fullscreen) fullscreen.style.display = 'block';
-            logViewMode = 'fullscreen';
-            logLastInAppMode = 'fullscreen';
-            uiManager.logAction('DEBUG', 'Switched to fullscreen log view', 'EventHandler');
-        } else if (logViewMode === 'fullscreen') {
-            syncFilters('fullscreen');
-            if (fullscreen) fullscreen.style.display = 'none';
-            if (modal) modal.style.display = 'flex';
-            logViewMode = 'modal';
-            logLastInAppMode = 'modal';
-            applyAutoScale();
-            uiManager.logAction('DEBUG', 'Switched to modal log view', 'EventHandler');
-        }
-        refreshLogs();
-    };
-
-    const openLogWindow = async () => {
-        uiManager.logAction('DEBUG', 'Opening separate log window', 'EventHandler');
-
-        // If window already exists, try to focus it instead of creating a new one
-        if (logWindowRef) {
-            try {
-                await logWindowRef.setFocus();
-                logViewMode = 'detached';
-                setStatusBarVisible(false);
-                return;
-            } catch (e) {
-                // Window was destroyed, proceed to create new one
-                logWindowRef = null;
-            }
-        }
-
-        // Close any in-app log views first
-        const modal = document.getElementById('log-modal');
-        const fullscreen = document.getElementById('log-fullscreen');
-        if (modal) modal.style.display = 'none';
-        if (fullscreen) fullscreen.style.display = 'none';
-        stopLogAutoRefresh();
-
-        logViewMode = 'detached';
-        logDetachedPreference = true;
-        setStatusBarVisible(false);
-
-        try {
-            const WebviewWindow = window.__TAURI__.webviewWindow.WebviewWindow;
-            logWindowRef = new WebviewWindow('log-window', {
-                url: 'log-window.html',
-                title: 'Hallinta - Application Logs',
-                width: 900,
-                height: 600,
-                center: true,
-                resizable: true,
-                decorations: true,
-            });
-
-            logWindowRef.once('tauri://error', (e) => {
-                uiManager.logAction('ERROR', `Failed to open log window: ${e}`, 'EventHandler');
-                logViewMode = 'closed';
-                setStatusBarVisible(true);
-            });
-
-            // Listen for window close (user closed via X button)
-            logWindowRef.once('tauri://destroyed', () => {
-                logWindowRef = null;
-                logViewMode = 'closed';
-                setStatusBarVisible(true);
-                // logDetachedPreference stays true — clicking status bar reopens window
-            });
-        } catch (error) {
-            uiManager.logAction('ERROR', `Error opening log window: ${error}`, 'EventHandler');
-            logViewMode = 'closed';
-            setStatusBarVisible(true);
-        }
-    };
-    window.openLogWindow = openLogWindow;
-
-    // Called from separate window via Tauri event — return logs to in-app mode
-    const returnLogsToApp = async () => {
-        logDetachedPreference = false;
-        logViewMode = 'closed';
-
-        // Close the separate window if still open
-        if (logWindowRef) {
-            try {
-                await logWindowRef.close();
-            } catch (e) {
-                // Window may already be closed
-            }
-            logWindowRef = null;
-        }
-
-        setStatusBarVisible(true);
-
-        // Reopen in-app using last mode
-        initLogFilterDropdown();
-        if (logLastInAppMode === 'fullscreen') {
-            const fullscreen = document.getElementById('log-fullscreen');
-            if (fullscreen) {
-                logViewMode = 'fullscreen';
-                fullscreen.style.display = 'block';
-                refreshLogs();
-                startLogAutoRefresh();
-            }
-        } else {
-            const modalEl = document.getElementById('log-modal');
-            if (modalEl) {
-                logViewMode = 'modal';
-                modalEl.style.display = 'flex';
-                applyAutoScale();
-                refreshLogs();
-                startLogAutoRefresh();
-            }
-        }
-    };
-
-    // Listen for "return-to-app" event from the separate log window
-    if (window.__TAURI__?.event) {
-        window.__TAURI__.event.listen('log-return-to-app', () => {
-            returnLogsToApp();
-        });
-    }
-
-    window.copyLogs = async () => {
-        const els = getActiveLogElements();
-        if (!els.content) return;
-
-        const logLines = els.content.querySelectorAll('.log-line');
-        const text = Array.from(logLines).map(line => line.textContent).join('\n');
-
-        try {
-            await navigator.clipboard.writeText(text);
-            uiManager.logAction('INFO', 'Logs copied to clipboard', 'EventHandler');
-        } catch (error) {
-            uiManager.logAction('ERROR', `Error copying logs: ${error}`, 'EventHandler');
-        }
-    };
-
-    window.openCurrentLogFile = async () => {
-        try {
-            const filePath = await window.__TAURI__.core.invoke('get_current_log_file_path');
-            await window.__TAURI__.core.invoke('open_file', { path: filePath });
-            uiManager.logAction('INFO', 'Opened current session log file', 'EventHandler');
-        } catch (error) {
-            uiManager.logAction('ERROR', `Error opening log file: ${error}`, 'EventHandler');
-        }
-    };
-
-    window.openLogsDirectory = async () => {
-        try {
-            const logsDirectory = await window.__TAURI__.core.invoke('get_logs_directory');
-            await window.__TAURI__.core.invoke('open_directory', { directory: logsDirectory });
-            uiManager.logAction('INFO', 'Opened logs directory', 'EventHandler');
-        } catch (error) {
-            uiManager.logAction('ERROR', `Error opening logs directory: ${error}`, 'EventHandler');
-        }
-    };
-
-    const refreshLogs = async () => {
-        // Don't refresh in-app views when detached to separate window
-        if (logViewMode === 'detached') return;
-
-        try {
-            const logs = await window.__TAURI__.core.invoke('get_log_entries');
-            const els = getActiveLogElements();
-
-            if (!els.content) return;
-
-            const selectedLevel = els.filterLevel?.value || 'INFO';
-            const searchText = els.search?.value || '';
-
-            // Smart scroll: check if user is near bottom before updating
-            const isNearBottom = els.content.scrollTop + els.content.clientHeight >= els.content.scrollHeight - 30;
-
-            els.content.innerHTML = window.logUtils.buildLogHTML(logs, selectedLevel, searchText);
-
-            if (isNearBottom) {
-                els.content.scrollTop = els.content.scrollHeight;
-            }
-        } catch (error) {
-            uiManager.logAction('ERROR', `Error refreshing logs: ${error}`, 'EventHandler');
-            const els = getActiveLogElements();
-            if (els.content) {
-                els.content.innerHTML = '<div class="log-line log-error"><span class="log-msg">Error loading logs.</span></div>';
-            }
-        }
-    };
-
-    const initLogFilterDropdown = () => {
-        const currentLogLevel = settingsManager.settings?.log_settings?.log_level || 'INFO';
-        window.logUtils.initLogFilterDropdown(['log-filter-level', 'log-fs-filter-level'], currentLogLevel);
-    };
-
-    window.refreshLogs = refreshLogs;
     window.openSystemInfo = async () => {
         const panel = document.getElementById('system-info-panel');
         const body = document.getElementById('system-info-body');
@@ -645,7 +381,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
     const performFileCheck = async () => {
         if (fileCheckInProgress) return;
         if (
-            state.saveMonitorLockdownActive ||
+            saveMonitorManager.isRunning ||
             state.isModalVisible ||
             state.isReordering ||
             state.isRestoring ||
@@ -702,29 +438,32 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         state.isAppFocused = false;
     });
 
-    // --- Clean shutdown handler ---
-    window.addEventListener('beforeunload', async () => {
+    // --- Clean shutdown handler via Tauri close interception ---
+    const appWindow = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
+    appWindow.onCloseRequested(async (event) => {
+        event.preventDefault();
+
+        if (saveMonitorManager.isRunning) {
+            const shouldClose = await saveMonitorManager.confirmStopOnClose();
+            if (!shouldClose) return;
+
+            try { await saveMonitorManager.takeExitSnapshot(); } catch (e) { /* best effort */ }
+            await saveMonitorManager.stop();
+        }
+
+        // Normal cleanup
         try {
             uiManager.logAction('INFO', 'Application closing', 'App');
-
-            // Stop Save Monitor if running
-            if (saveMonitorManager.isRunning) {
-                saveMonitorManager.stop();
-            }
-
-            // Revert mod_config in dev mode
             if (settingsManager._isDevBuild && settingsManager._realNoitaDir) {
                 await window.__TAURI__.core.invoke('revert_mod_config', {
                     realNoitaDir: settingsManager._realNoitaDir
                 });
             }
-            // Remove session lock
             await window.__TAURI__.core.invoke('remove_session_lock');
-            // Flush logs
             await window.__TAURI__.core.invoke('flush_log_buffer');
-        } catch (e) {
-            // Best effort cleanup
-        }
+        } catch (e) { /* best effort */ }
+
+        appWindow.destroy();
     });
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -750,7 +489,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         const modList = document.getElementById('mod-list');
         if (modList) {
             modList.addEventListener('contextmenu', (event) => {
-                if (state.saveMonitorLockdownActive) {
+                if (state.compactMode || saveMonitorManager.isRunning) {
                     event.preventDefault();
                     return;
                 }
@@ -819,19 +558,11 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                     return;
                 }
 
-                const logModal = document.getElementById('log-modal');
-                const logFullscreen = document.getElementById('log-fullscreen');
                 const systemInfoPanel = document.getElementById('system-info-panel');
                 const openSourcePanel = document.getElementById('open-source-panel');
                 const settingsPage = document.getElementById('settings-page');
 
-                if (logFullscreen && logFullscreen.style.display !== 'none') {
-                    uiManager.logAction('DEBUG', 'Escape keybind triggered: close fullscreen log view', 'EventHandler');
-                    closeLogs();
-                } else if (logModal && logModal.style.display !== 'none') {
-                    uiManager.logAction('DEBUG', 'Escape keybind triggered: close modal log view', 'EventHandler');
-                    closeLogs();
-                } else if (systemInfoPanel && systemInfoPanel.style.display !== 'none') {
+                if (systemInfoPanel && systemInfoPanel.style.display !== 'none') {
                     uiManager.logAction('DEBUG', 'Escape keybind triggered: close system info panel', 'EventHandler');
                     window.closeSystemInfo();
                 } else if (openSourcePanel && openSourcePanel.style.display !== 'none') {
@@ -853,6 +584,26 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
         });
 
         await settingsManager.loadConfig();
+
+        // Apply compact mode from persisted settings before rendering
+        if (settingsManager.settings.compact_mode) {
+            applyCompactMode(true);
+            try {
+                const appWindow = window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
+                const LogicalSize = window.__TAURI__.dpi.LogicalSize;
+                const currentSize = await appWindow.innerSize();
+                if (currentSize) {
+                    state.normalModeWindowSize = { width: currentSize.width, height: currentSize.height };
+                }
+                await appWindow.setMinSize(new LogicalSize(380, 340));
+                await appWindow.setMaxSize(new LogicalSize(600, 500));
+                await appWindow.setSize(new LogicalSize(480, 400));
+                await appWindow.center();
+            } catch (e) {
+                uiManager.logAction('WARN', `Could not resize window for compact mode on startup: ${e}`, 'EventHandler');
+            }
+        }
+
         presetManager.loadPresets();
         if (selectEnhancer) {
             selectEnhancer.enhance('mod-filter-mode', { variant: 'header' });
@@ -862,8 +613,6 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             selectEnhancer.sync('preset-dropdown');
             selectEnhancer.sync('log-level-select');
         }
-        initLogFilterDropdown();
-
         if (settingsManager.settings.noita_dir) {
             const configPath = `${settingsManager.settings.noita_dir}/mod_config.xml`;
             try {
@@ -892,24 +641,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
             await saveMonitorManager.start(false, { startup: true });
         }
 
-        // Log filter event listeners (modal + fullscreen)
-        ['log-filter-level', 'log-fs-filter-level'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('change', refreshLogs);
-        });
-
-        ['log-search', 'log-fs-search'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('input', refreshLogs);
-        });
-
         uiManager.logAction('INFO', 'Application ready', 'App');
-
-        setTimeout(() => {
-            if (state.phraseManager) {
-                state.phraseManager.startRandomPhrases();
-            }
-        }, 2000);
 
         const list = document.getElementById('mod-list');
         if (list) {
@@ -921,7 +653,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 fallbackClass: 'sortable-fallback',
                 fallbackOnBody: true,
                 forceFallback: true,
-                disabled: !!state.saveMonitorLockdownActive,
+                disabled: !!(state.compactMode || saveMonitorManager.isRunning),
                 // Reduce click/drag ambiguity:
                 // - delay prevents immediate drag capture on press (lower = faster drag start)
                 // - fallbackTolerance requires real pointer movement before drag starts
@@ -931,7 +663,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                 fallbackTolerance: 5,
                 touchStartThreshold: 4,
                 onStart: () => {
-                    if (state.saveMonitorLockdownActive) {
+                    if (state.compactMode || saveMonitorManager.isRunning) {
                         return;
                     }
                     uiManager.logAction('DEBUG', 'Starting mod reorder', 'EventHandler');
@@ -941,7 +673,7 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                     dragStartIndex = null;
                 },
                 onEnd: (evt) => {
-                    if (state.saveMonitorLockdownActive) {
+                    if (state.compactMode || saveMonitorManager.isRunning) {
                         state.isReordering = false;
                         state.pendingReorder = false;
                         return;
@@ -976,12 +708,12 @@ export function setupEventHandlers(uiManager, modManager, presetManager, setting
                     }, 100);
                 },
                 onChoose: (evt) => {
-                    if (state.saveMonitorLockdownActive) return;
+                    if (state.compactMode || saveMonitorManager.isRunning) return;
                     dragStartIndex = evt.oldIndex;
                     updateDragVisualNumbersByDom(list, evt.oldIndex, evt.oldIndex, evt.item);
                 },
                 onMove: (evt) => {
-                    if (state.saveMonitorLockdownActive) return false;
+                    if (state.compactMode || saveMonitorManager.isRunning) return false;
                     let targetIndex = dragStartIndex ?? 0;
                     if (list) {
                         targetIndex = resolveTargetIndex(list, evt);

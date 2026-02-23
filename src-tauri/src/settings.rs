@@ -191,6 +191,7 @@ pub(crate) async fn load_settings() -> Result<AppSettings, String> {
                 catalog_url: String::new(),
                 steam_path: detect_steam_path().unwrap_or_default(),
             },
+            compact_mode: false,
         };
         save_settings(default_settings.clone())?;
         init_log_session();

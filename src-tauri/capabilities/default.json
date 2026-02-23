@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": ["main", "log-window"],
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:allow-create",
@@ -17,6 +17,11 @@
     "dialog:allow-confirm",
     "dialog:allow-ask",
     "dialog:allow-message",
-    "dialog:allow-save"
+    "dialog:allow-save",
+    "core:window:allow-set-size",
+    "core:window:allow-set-min-size",
+    "core:window:allow-set-max-size",
+    "core:window:allow-inner-size",
+    "core:window:allow-center"
   ]
 }

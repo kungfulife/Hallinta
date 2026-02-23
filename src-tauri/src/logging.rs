@@ -168,14 +168,6 @@ pub(crate) fn add_log_entry(level: String, message: String, module: String) -> R
 }
 
 #[tauri::command]
-pub(crate) fn get_log_entries() -> Result<Vec<LogEntry>, String> {
-    let buffer = LOG_BUFFER
-        .lock()
-        .map_err(|e| format!("Failed to lock log buffer: {}", e))?;
-    Ok(buffer.iter().cloned().collect())
-}
-
-#[tauri::command]
 pub(crate) fn clear_log_buffer() -> Result<(), String> {
     let mut buffer = LOG_BUFFER
         .lock()
@@ -263,35 +255,3 @@ pub(crate) fn flush_log_buffer_sync() -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub(crate) fn get_logs_directory() -> Result<String, String> {
-    let data_dir = get_data_dir()?;
-    let logs_dir = data_dir.join("logs");
-    if !logs_dir.exists() {
-        std::fs::create_dir_all(&logs_dir)
-            .map_err(|e| format!("Failed to create logs directory: {}", e))?;
-    }
-    Ok(logs_dir.to_string_lossy().to_string())
-}
-
-#[tauri::command]
-pub(crate) fn get_current_log_file_path() -> Result<String, String> {
-    let data_dir = get_data_dir()?;
-    let logs_dir = data_dir.join("logs");
-    if !logs_dir.exists() {
-        std::fs::create_dir_all(&logs_dir)
-            .map_err(|e| format!("Failed to create logs directory: {}", e))?;
-    }
-
-    let version = get_version();
-    let instance_id = &*INSTANCE_ID;
-    let log_file = logs_dir.join(log_file_name(&version, instance_id));
-
-    OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_file)
-        .map_err(|e| format!("Failed to open log file {}: {}", log_file.display(), e))?;
-
-    Ok(log_file.to_string_lossy().to_string())
-}
