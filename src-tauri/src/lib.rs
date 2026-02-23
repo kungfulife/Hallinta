@@ -9,8 +9,6 @@ mod session;
 mod settings;
 mod workshop;
 
-use tauri::Manager;
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     logging::install_panic_logging_hook();
@@ -40,11 +38,8 @@ pub fn run() {
             files::check_file_modified,
             files::get_file_modified_time,
             logging::add_log_entry,
-            logging::get_log_entries,
             logging::clear_log_buffer,
             logging::flush_log_buffer,
-            logging::get_logs_directory,
-            logging::get_current_log_file_path,
             files::write_file,
             files::read_file,
             files::check_file_exists,
@@ -78,22 +73,14 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app, event| {
+        .run(|_app, event| {
             match event {
                 tauri::RunEvent::WindowEvent {
-                    label,
                     event: tauri::WindowEvent::CloseRequested { .. },
                     ..
                 } => {
-                    if label == "main" {
-                        // Close all other windows (e.g. detached log window)
-                        // so the application can exit cleanly
-                        for (name, window) in app.webview_windows() {
-                            if name != "main" {
-                                let _ = window.close();
-                            }
-                        }
-                    }
+                    // Frontend handles close interception via onCloseRequested
+                    // (exit snapshot, child window cleanup, etc.)
                 }
                 tauri::RunEvent::Exit => {
                     session::revert_mod_config_internal();

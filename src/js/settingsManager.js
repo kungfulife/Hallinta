@@ -23,7 +23,7 @@ export class SettingsManager {
                 backup_interval_minutes: 0
             },
             save_monitor_settings: {
-                interval_minutes: 15,
+                interval_minutes: 3,
                 max_snapshots_per_preset: 10,
                 include_entangled: false,
                 start_in_monitor_mode: false
@@ -89,7 +89,7 @@ export class SettingsManager {
                         backup_interval_minutes: 0
                     },
                     save_monitor_settings: {
-                        interval_minutes: 15,
+                        interval_minutes: 3,
                         max_snapshots_per_preset: 10,
                         include_entangled: false,
                         start_in_monitor_mode: false
@@ -312,7 +312,7 @@ export class SettingsManager {
         // Ensure save_monitor_settings defaults
         if (!this.settings.save_monitor_settings) {
             this.settings.save_monitor_settings = {
-                interval_minutes: 15,
+                interval_minutes: 3,
                 max_snapshots_per_preset: 10,
                 include_entangled: false,
                 start_in_monitor_mode: false
@@ -373,9 +373,12 @@ export class SettingsManager {
         this.updateLogLevelSelectColor();
         if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings.auto_delete_days;
         if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings.backup_interval_minutes;
-        if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
+        if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 3;
         if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = this.settings.save_monitor_settings?.max_snapshots_per_preset ?? 10;
         if (monitorStartModeCheckbox) monitorStartModeCheckbox.checked = !!this.settings.save_monitor_settings?.start_in_monitor_mode;
+
+        const compactModeCheckbox = document.getElementById('compact-mode-checkbox');
+        if (compactModeCheckbox) compactModeCheckbox.checked = !!this.settings.compact_mode;
 
         const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
         if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings?.catalog_url || '';
@@ -437,7 +440,7 @@ export class SettingsManager {
             }
             if (monitorIntervalInput) {
                 const val = parseInt(monitorIntervalInput.value);
-                this.settings.save_monitor_settings.interval_minutes = isNaN(val) || val < 1 ? 15 : val;
+                this.settings.save_monitor_settings.interval_minutes = isNaN(val) || val < 1 ? 3 : val;
             }
             if (monitorMaxSnapshotsInput) {
                 const val = parseInt(monitorMaxSnapshotsInput.value);
@@ -445,6 +448,10 @@ export class SettingsManager {
             }
             if (monitorStartModeCheckbox) {
                 this.settings.save_monitor_settings.start_in_monitor_mode = !!monitorStartModeCheckbox.checked;
+            }
+            const compactModeCheckbox = document.getElementById('compact-mode-checkbox');
+            if (compactModeCheckbox) {
+                this.settings.compact_mode = !!compactModeCheckbox.checked;
             }
             // Gallery settings
             if (!this.settings.gallery_settings) {
@@ -521,6 +528,12 @@ export class SettingsManager {
                     await this.modManager.saveModConfigToFile();
                 }
                 this.logAction('INFO', 'Configuration saved successfully');
+            }
+
+            // Apply compact mode if it changed
+            const compactChanged = !!this.settings.compact_mode !== !!state.compactMode;
+            if (compactChanged && typeof window.toggleCompactMode === 'function') {
+                await window.toggleCompactMode();
             }
 
             const targetView = state.galleryView ? 'gallery' : 'main';
@@ -687,7 +700,7 @@ export class SettingsManager {
                     backup_interval_minutes: 0
                 },
                 save_monitor_settings: {
-                    interval_minutes: 15,
+                    interval_minutes: 3,
                     max_snapshots_per_preset: 10,
                     include_entangled: false,
                     start_in_monitor_mode: false
@@ -695,7 +708,8 @@ export class SettingsManager {
                 gallery_settings: {
                     catalog_url: getCatalogUrl(''),
                     steam_path: ''
-                }
+                },
+                compact_mode: false
             };
             state.isDarkMode = false;
             state.selectedPreset = 'Default';
@@ -724,9 +738,11 @@ export class SettingsManager {
             const monitorIntervalInput = document.getElementById('monitor-interval');
             const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
             const monitorStartModeCheckbox = document.getElementById('monitor-start-mode');
-            if (monitorIntervalInput) monitorIntervalInput.value = 15;
+            if (monitorIntervalInput) monitorIntervalInput.value = 3;
             if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = 10;
             if (monitorStartModeCheckbox) monitorStartModeCheckbox.checked = false;
+            const compactModeCheckbox = document.getElementById('compact-mode-checkbox');
+            if (compactModeCheckbox) compactModeCheckbox.checked = false;
             const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
             this.settings.gallery_settings.catalog_url = getCatalogUrl('');
             if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings.catalog_url;
@@ -777,11 +793,13 @@ export class SettingsManager {
             this.updateLogLevelSelectColor();
             if (autoDeleteDaysInput) autoDeleteDaysInput.value = this.settings.backup_settings?.auto_delete_days ?? 30;
             if (backupIntervalInput) backupIntervalInput.value = this.settings.backup_settings?.backup_interval_minutes ?? 0;
-            if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 15;
+            if (monitorIntervalInput) monitorIntervalInput.value = this.settings.save_monitor_settings?.interval_minutes ?? 3;
             if (monitorMaxSnapshotsInput) monitorMaxSnapshotsInput.value = this.settings.save_monitor_settings?.max_snapshots_per_preset ?? 10;
             if (monitorStartModeCheckbox) {
                 monitorStartModeCheckbox.checked = !!this.settings.save_monitor_settings?.start_in_monitor_mode;
             }
+            const compactModeCheckbox = document.getElementById('compact-mode-checkbox');
+            if (compactModeCheckbox) compactModeCheckbox.checked = !!this.settings.compact_mode;
             const galleryCatalogUrlInput = document.getElementById('gallery-catalog-url');
             if (galleryCatalogUrlInput) galleryCatalogUrlInput.value = this.settings.gallery_settings?.catalog_url || '';
             const gallerySteamPathInput = document.getElementById('gallery-steam-path');

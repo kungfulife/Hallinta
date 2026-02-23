@@ -14,18 +14,14 @@ export class SaveMonitorManager {
         return this._isRunning;
     }
 
-    get isLockdownActive() {
-        return !!state.saveMonitorLockdownActive;
-    }
-
     isInteractionBlocked(actionLabel = 'This action') {
-        if (!this.isLockdownActive) return false;
+        if (!this._isRunning) return false;
         const now = Date.now();
         if (now - this._lastBlockedNoticeAt > 1200) {
             this._lastBlockedNoticeAt = now;
             this.uiManager.logAction(
                 'INFO',
-                `${actionLabel} is disabled while Save Monitor mode is active.`,
+                `${actionLabel} is disabled while Save Monitor is running.`,
                 'SaveMonitor'
             );
         }
@@ -39,7 +35,7 @@ export class SaveMonitorManager {
         }
 
         const settings = this.settingsManager.settings.save_monitor_settings || {};
-        const intervalMinutes = settings.interval_minutes || 15;
+        const intervalMinutes = settings.interval_minutes || 3;
         const startupLaunch = !!options.startup;
 
         const noitaDir = this.settingsManager._isDevBuild && this.settingsManager._realNoitaDir
@@ -69,7 +65,6 @@ export class SaveMonitorManager {
         }
 
         this._isRunning = true;
-        this._setLockdownMode(true);
         this._updateUI();
         this.logAction(
             'INFO',
@@ -77,6 +72,12 @@ export class SaveMonitorManager {
                 ? `Save Monitor started on launch (every ${intervalMinutes} min)`
                 : `Save Monitor started (every ${intervalMinutes} min)`
         );
+
+        // Disable sortable while monitor is running
+        const sortable = window.__hallintaSortable;
+        if (sortable && typeof sortable.option === 'function') {
+            sortable.option('disabled', true);
+        }
 
         // Take an initial snapshot
         await this._takeSnapshot();
@@ -87,7 +88,7 @@ export class SaveMonitorManager {
         }, intervalMinutes * 60 * 1000);
     }
 
-    stop() {
+    async stop() {
         if (!this._isRunning) return;
 
         if (this._monitorInterval) {
@@ -96,9 +97,14 @@ export class SaveMonitorManager {
         }
 
         this._isRunning = false;
-        this._setLockdownMode(false);
         this._updateUI();
         this.logAction('INFO', 'Save Monitor stopped');
+
+        // Re-enable sortable if not in compact mode
+        const sortable = window.__hallintaSortable;
+        if (sortable && typeof sortable.option === 'function') {
+            sortable.option('disabled', !!state.compactMode);
+        }
     }
 
     async _takeSnapshot() {
@@ -121,6 +127,13 @@ export class SaveMonitorManager {
             });
             this.logAction('INFO', `Save Monitor snapshot: ${filename} [${presetName}]`);
 
+            // Update snapshot info in monitor panel
+            const snapshotInfo = document.getElementById('monitor-snapshot-info');
+            if (snapshotInfo) {
+                const now = new Date();
+                snapshotInfo.textContent = `Last snapshot: ${now.toLocaleTimeString()}`;
+            }
+
             // Cleanup old snapshots
             const deleted = await window.__TAURI__.core.invoke('cleanup_monitor_snapshots', {
                 presetName,
@@ -134,8 +147,13 @@ export class SaveMonitorManager {
         }
     }
 
+    async takeExitSnapshot() {
+        this.logAction('INFO', 'Taking exit snapshot before closing');
+        await this._takeSnapshot();
+        this.logAction('INFO', 'Exit snapshot complete');
+    }
+
     _updateUI() {
-        this._syncLockdownClasses();
         const btn = document.getElementById('save-monitor-toggle');
         if (btn) {
             btn.textContent = this._isRunning ? 'Stop Save Monitor' : 'Start Save Monitor';
@@ -150,29 +168,16 @@ export class SaveMonitorManager {
                 ? 'save-monitor-status active'
                 : 'save-monitor-status';
         }
-    }
 
-    _setLockdownMode(active) {
-        state.saveMonitorLockdownActive = !!active;
-        this._syncLockdownClasses();
-
-        if (active && state.galleryView && typeof window.showModListView === 'function') {
-            window.showModListView();
+        // Update monitor panel info
+        const presetNameEl = document.getElementById('monitor-preset-name');
+        if (presetNameEl) {
+            presetNameEl.textContent = state.selectedPreset || 'Default';
         }
-
-        const menu = document.getElementById('mod-context-menu');
-        if (menu) {
-            menu.style.display = 'none';
+        const snapshotInfo = document.getElementById('monitor-snapshot-info');
+        if (snapshotInfo && !this._isRunning) {
+            snapshotInfo.textContent = '';
         }
-
-        const sortable = window.__hallintaSortable;
-        if (sortable && typeof sortable.option === 'function') {
-            sortable.option('disabled', !!active);
-        }
-    }
-
-    _syncLockdownClasses() {
-        document.body.classList.toggle('monitor-lockdown', this.isLockdownActive);
     }
 
     async confirmStopOnClose() {
@@ -180,13 +185,10 @@ export class SaveMonitorManager {
 
         return new Promise((resolve) => {
             this.uiManager.showConfirmModal(
-                'Save Monitor is still running. Stop it and close the application?', {
-                    confirmText: 'Stop & Close',
+                'Save Monitor is running. Take a final snapshot and close?', {
+                    confirmText: 'Snapshot & Close',
                     cancelText: 'Cancel',
-                    onConfirm: () => {
-                        this.stop();
-                        resolve(true);
-                    },
+                    onConfirm: () => resolve(true),
                     onCancel: () => resolve(false),
                     isImportant: true
                 }

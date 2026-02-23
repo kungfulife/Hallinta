@@ -18,7 +18,7 @@ pub struct SaveMonitorSettings {
 impl Default for SaveMonitorSettings {
     fn default() -> Self {
         SaveMonitorSettings {
-            interval_minutes: 15,
+            interval_minutes: 3,
             max_snapshots_per_preset: 10,
             include_entangled: false,
             start_in_monitor_mode: false,
@@ -50,6 +50,8 @@ pub struct AppSettings {
     pub save_monitor_settings: SaveMonitorSettings,
     #[serde(default)]
     pub gallery_settings: GallerySettings,
+    #[serde(default)]
+    pub compact_mode: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

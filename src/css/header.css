@@ -163,17 +163,47 @@
     box-shadow: 0 10px 22px rgba(0, 0, 0, 0.34);
 }
 
-body.monitor-lockdown .view-tabs,
-body.monitor-lockdown #search-bar,
-body.monitor-lockdown #preset-controls,
-body.monitor-lockdown #mod-filter-mode,
-body.monitor-lockdown .ux-select[data-select-id="mod-filter-mode"],
-body.monitor-lockdown .ux-select[data-select-id="preset-dropdown"] {
+body.compact-mode .view-tabs,
+body.compact-mode #search-bar,
+body.compact-mode #preset-controls,
+body.compact-mode #mod-filter-mode,
+body.compact-mode .ux-select[data-select-id="mod-filter-mode"],
+body.compact-mode .ux-select[data-select-id="preset-dropdown"] {
     display: none !important;
 }
 
-body.monitor-lockdown .header {
+body.compact-mode .header {
+    border-top: 2px solid #4caf50;
     margin-bottom: 0.55rem;
-    min-height: 52px;
-    padding: 0.42rem 0.58rem;
+    min-height: 44px;
+    padding: 0.35rem 0.58rem;
+}
+
+/* Compact Mode Toggle Button */
+.header-compact-toggle {
+    align-items: center;
+    background: var(--button-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-color);
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 1.15em;
+    height: var(--header-control-height);
+    justify-content: center;
+    padding: 0;
+    transition: all 0.2s ease;
+    width: var(--header-control-height);
+}
+
+.header-compact-toggle:hover {
+    background: var(--button-hover);
+    border-color: var(--accent-color);
+    transform: translateY(-1px);
+}
+
+body.compact-mode .header-compact-toggle {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #fff;
 }

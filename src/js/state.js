@@ -22,7 +22,6 @@ export const state = {
     isDarkMode: false,
     lastKnownModOrder: [],
     isAppFocused: true,
-    phraseManager: null,
     contextMenuTarget: null,
     fileWatcher: null,
     lastModifiedTime: 0,
@@ -33,5 +32,6 @@ export const state = {
     backupInProgress: false,
     isRestoring: false,
     galleryView: false,
-    saveMonitorLockdownActive: false
+    compactMode: false,
+    normalModeWindowSize: null
 };

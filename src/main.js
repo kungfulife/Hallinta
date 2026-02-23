@@ -3,7 +3,6 @@ import { ModManager } from './js/modManager.js';
 import { PresetManager } from './js/presetManager.js';
 import { SettingsManager } from './js/settingsManager.js';
 import { UIManager } from './js/uiManager.js';
-import { PhraseManager } from './js/phraseManager.js';
 import { BackupManager } from './js/backupManager.js';
 import { SaveMonitorManager } from './js/saveMonitorManager.js';
 import { GalleryManager } from './js/galleryManager.js';
@@ -25,5 +24,4 @@ window.selectEnhancer = selectEnhancer;
 uiManager.setDependencies(modManager, settingsManager);
 presetManager.setGalleryManager(galleryManager);
 
-state.phraseManager = new PhraseManager();
 setupEventHandlers(uiManager, modManager, presetManager, settingsManager, backupManager, saveMonitorManager, galleryManager, selectEnhancer);

@@ -33,29 +33,31 @@ h1 {
 }
 
 /* Save Monitor Lockdown Mode */
-body.monitor-lockdown .container {
+body.compact-mode .container {
     padding: 0.55rem;
 }
 
-body.monitor-lockdown h1 {
+body.compact-mode h1 {
     display: none;
 }
 
-body.monitor-lockdown .main-content {
+body.compact-mode .main-content {
     align-items: center;
     justify-content: center;
 }
 
-body.monitor-lockdown .mod-list {
+body.compact-mode .mod-list {
     display: none;
 }
 
-body.monitor-lockdown .sidebar {
+body.compact-mode .sidebar {
+    background: transparent;
+    border: none;
     margin: 0 auto;
-    max-width: 420px;
-    width: min(100%, 420px);
+    max-width: 360px;
+    width: min(100%, 360px);
 }
 
-body.monitor-lockdown .monitor-lockdown-hide {
+body.compact-mode .compact-mode-hide {
     display: none !important;
 }
