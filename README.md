@@ -49,7 +49,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Configurable log level controls recording verbosity
 
 ### Smart Directory Detection
-- **Noita Save Directory**: Automatically finds Windows save location
+- **Noita Save Directory**: Automatically finds save location on Windows and Linux (Proton/Steam)
 - **Entangled Worlds** (optional): Detects multiplayer mod directories on Windows and Linux
 - Manual directory selection with Browse and Auto-detect buttons
 
@@ -102,9 +102,54 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ## Planned
 
-- Linux/macOS directory detection improvements
+- macOS directory detection improvements
 - Enhanced Entangled Worlds multiplayer mod support
 - Further Workshop integration and Google Drive link testing
+
+## Prerequisites
+
+### Windows
+No additional system dependencies required beyond Rust and the [Tauri CLI](https://v2.tauri.app/start/prerequisites/).
+
+### Linux (Ubuntu, Pop!_OS, Debian-based)
+
+Install the system libraries required to **build** the application:
+
+```bash
+sudo apt-get install -y \
+  libgtk-3-dev \
+  libwebkit2gtk-4.1-dev \
+  libjavascriptcoregtk-4.1-dev \
+  libsoup-3.0-dev \
+  librsvg2-dev \
+  libssl-dev \
+  pkg-config \
+  patchelf
+```
+
+> **Note:** For system tray support, install **one** of: `libappindicator3-dev` or `libayatana-appindicator3-dev`. Pop!_OS and newer Ubuntu versions ship with the Ayatana variant (`libayatana-appindicator3-dev`); older Ubuntu or plain Debian may use `libappindicator3-dev`. If one conflicts, use the other.
+
+These provide the GTK, WebKit, and related libraries that Tauri v2 links against at compile time. The corresponding runtime libraries (`libgtk-3-0`, `libwebkit2gtk-4.1-0`, etc.) are needed to **run** the built application and are typically already present on desktop Linux installations.
+
+### Linux (Arch, CachyOS, Manjaro)
+
+```bash
+sudo pacman -S --needed \
+  webkit2gtk-4.1 \
+  gtk3 \
+  libappindicator-gtk3 \
+  librsvg \
+  patchelf \
+  openssl \
+  pkgconf
+```
+
+### Noita on Linux
+Hallinta auto-detects Noita save data under Steam's Proton prefix:
+```
+~/.local/share/Steam/steamapps/compatdata/881100/pfx/drive_c/users/steamuser/AppData/LocalLow/Nolla_Games_Noita/save00
+```
+If your Steam library is in a non-default location, use **Settings > Auto-detect** or **Browse** to set the path manually.
 
 ## Building
 
