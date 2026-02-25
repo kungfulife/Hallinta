@@ -3,7 +3,7 @@ use crate::settings::get_data_dir;
 use chrono::Utc;
 use serde_json;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 #[tauri::command]
 pub(crate) fn create_session_lock(dev_mode_active: bool, original_mod_config_path: String) -> Result<(), String> {
     let data_dir = get_data_dir()?;

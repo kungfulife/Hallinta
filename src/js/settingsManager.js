@@ -360,9 +360,9 @@ export class SettingsManager {
         const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
         const monitorStartModeCheckbox = document.getElementById('monitor-start-mode');
 
-        // In dev mode, show the real Noita path in the input field (not dev_data)
+        // In dev mode, show the real Noita path (not dev_data); show empty if not found
         if (noitaDirElement) {
-            noitaDirElement.value = (this._isDevBuild && this._realNoitaDir) ? this._realNoitaDir : settings.noita_dir;
+            noitaDirElement.value = this._isDevBuild ? (this._realNoitaDir || '') : settings.noita_dir;
         }
         if (entangledDirElement) entangledDirElement.value = settings.entangled_dir;
         if (darkModeElement) darkModeElement.checked = state.isDarkMode;
@@ -780,9 +780,9 @@ export class SettingsManager {
             const monitorIntervalInput = document.getElementById('monitor-interval');
             const monitorMaxSnapshotsInput = document.getElementById('monitor-max-snapshots');
             const monitorStartModeCheckbox = document.getElementById('monitor-start-mode');
-            // In dev mode, show the real Noita path in the input field
+            // In dev mode, show the real Noita path (not dev_data); show empty if not found
             if (noitaDirElement) {
-                noitaDirElement.value = (this._isDevBuild && this._realNoitaDir) ? this._realNoitaDir : this.settings.noita_dir;
+                noitaDirElement.value = this._isDevBuild ? (this._realNoitaDir || '') : this.settings.noita_dir;
             }
             if (entangledDirElement) entangledDirElement.value = this.settings.entangled_dir;
             if (darkModeElement) darkModeElement.checked = state.isDarkMode;

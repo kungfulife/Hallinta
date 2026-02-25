@@ -62,7 +62,6 @@ pub(crate) fn get_exe_dir() -> Result<String, String> {
 
 #[tauri::command]
 pub(crate) fn get_noita_save_path() -> Result<String, String> {
-    // Currently only supports Windows
     #[cfg(target_os = "windows")]
     {
         let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory.".to_string())?;
@@ -78,9 +77,40 @@ pub(crate) fn get_noita_save_path() -> Result<String, String> {
         }
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "linux")]
     {
-        Err("Noita save path detection is only supported on Windows".to_string())
+        // Noita runs via Steam Proton on Linux. Save data is in the compatdata prefix.
+        // Path: {steam_path}/steamapps/compatdata/881100/pfx/drive_c/users/steamuser/AppData/LocalLow/Nolla_Games_Noita/save00
+        let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory.".to_string())?;
+        let steam_candidates = [
+            home_dir.join(".steam").join("steam"),
+            home_dir.join(".local").join("share").join("Steam"),
+        ];
+
+        for steam_path in &steam_candidates {
+            let noita_path = steam_path
+                .join("steamapps")
+                .join("compatdata")
+                .join("881100")
+                .join("pfx")
+                .join("drive_c")
+                .join("users")
+                .join("steamuser")
+                .join("AppData")
+                .join("LocalLow")
+                .join("Nolla_Games_Noita")
+                .join("save00");
+            if noita_path.exists() {
+                return Ok(noita_path.to_string_lossy().to_string());
+            }
+        }
+
+        Err("Noita save directory not found. Ensure Noita has been run at least once via Steam Proton.".to_string())
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        Err("Noita save path detection is not supported on this platform".to_string())
     }
 }
 
