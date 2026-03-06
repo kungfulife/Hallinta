@@ -2,6 +2,11 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.8.0 (Work In Progress)
+- Full rewrite from Tauri to native egui/eframe GUI
+- No web frontend dependencies — pure Rust application
+- Streamlined build process (standard cargo build, no Tauri CLI needed)
+
 ## 0.7.8
 - Decoupled Compact Mode from Save Monitor into an independent UI toggle
   - Added compact mode toggle button in the header bar

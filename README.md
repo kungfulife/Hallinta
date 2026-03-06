@@ -1,6 +1,6 @@
 # Hallinta - Noita Mod Manager
 
-A mod manager for Noita with preset support, backup/restore, and a structured logging system. Built with Rust + Tauri.
+A mod manager for Noita with preset support, backup/restore, and a structured logging system. Built with Rust + egui (eframe).
 
 ## Features
 
@@ -54,11 +54,11 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Manual directory selection with Browse and Auto-detect buttons
 
 ### User Interface
+- Native desktop GUI powered by egui/eframe
 - Dark and light mode
 - Compact Mode: independent toggle that shrinks the window and hides the mod list for a monitoring-focused layout
 - Context menus for mod operations (toggle, delete, reorder, workshop links)
 - Search and filter functionality
-- Theme-safe custom dropdowns for Presets and Log Level (consistent light/dark list-item rendering)
 - Responsive layout
 
 ### Settings & Configuration
@@ -94,8 +94,8 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ## Technical Details
 
-- **Backend**: Rust with Tauri 2
-- **Frontend**: Vanilla JavaScript (ES6 modules, no bundler)
+- **Language**: Rust
+- **GUI Framework**: eframe/egui 0.30
 - **Data Storage**: JSON files in platform data directories
 - **File Monitoring**: Real-time mod_config.xml watching
 - **Logging**: Structured session logging with file rotation
@@ -108,41 +108,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ## Prerequisites
 
-### Windows
-No additional system dependencies required beyond Rust and the [Tauri CLI](https://v2.tauri.app/start/prerequisites/).
-
-### Linux (Ubuntu, Pop!_OS, Debian-based)
-
-Install the system libraries required to **build** the application:
-
-```bash
-sudo apt-get install -y \
-  libgtk-3-dev \
-  libwebkit2gtk-4.1-dev \
-  libjavascriptcoregtk-4.1-dev \
-  libsoup-3.0-dev \
-  librsvg2-dev \
-  libssl-dev \
-  pkg-config \
-  patchelf
-```
-
-> **Note:** For system tray support, install **one** of: `libappindicator3-dev` or `libayatana-appindicator3-dev`. Pop!_OS and newer Ubuntu versions ship with the Ayatana variant (`libayatana-appindicator3-dev`); older Ubuntu or plain Debian may use `libappindicator3-dev`. If one conflicts, use the other.
-
-These provide the GTK, WebKit, and related libraries that Tauri v2 links against at compile time. The corresponding runtime libraries (`libgtk-3-0`, `libwebkit2gtk-4.1-0`, etc.) are needed to **run** the built application and are typically already present on desktop Linux installations.
-
-### Linux (Arch, CachyOS, Manjaro)
-
-```bash
-sudo pacman -S --needed \
-  webkit2gtk-4.1 \
-  gtk3 \
-  libappindicator-gtk3 \
-  librsvg \
-  patchelf \
-  openssl \
-  pkgconf
-```
+# Unknown, planning for none aside from compiling within Rust within all platforms (Mac, Linux, Windows)
 
 ### Noita on Linux
 Hallinta auto-detects Noita save data under Steam's Proton prefix:
@@ -155,22 +121,19 @@ If your Steam library is in a non-default location, use **Settings > Auto-detect
 
 ```bash
 # Development
-cargo tauri dev
+cargo run
 
 # Production build
-cargo tauri build
+cargo build --release
 ```
 
 ## Latest Version
 
-Current version: **0.7.8**
+Current version: **0.8.0** (Work in progress)
 
 Latest update highlights:
-- Decoupled Compact Mode from Save Monitor into an independent UI toggle (header button + settings checkbox)
-- Save Monitor now only blocks mutation actions without changing the layout
-- Removed the in-app log viewer entirely (log files remain accessible via Settings > Open Settings Folder)
-- Changed Save Monitor default snapshot interval from 15 to 3 minutes
-- Renamed "Find Default" to "Auto-detect" in settings directory fields
-- Updated application version to `0.7.8`
+- Full rewrite from Tauri to native egui/eframe GUI
+- No web frontend dependencies — pure Rust application
+- Streamlined build process (standard `cargo build`, no Tauri CLI needed)
 
 For older release notes, see `UPDATEHISTORY.md`.
