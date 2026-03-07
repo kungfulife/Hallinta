@@ -137,7 +137,16 @@ pub fn get_dev_save_dir() -> Result<PathBuf, String> {
 /// Returns a human-readable description of what was done, suitable for logging by the caller.
 pub fn seed_dev_mod_config() -> Result<String, String> {
     let dev_save_dir = get_dev_save_dir()?;
-    let config_path = dev_save_dir.join("mod_config.xml");
+    seed_mod_config_into(&dev_save_dir)
+}
+
+/// Core seeding logic operating on an arbitrary target directory.
+/// Separated from `seed_dev_mod_config` so tests can supply a temp dir instead of
+/// touching `dev_data/save00` directly.
+fn seed_mod_config_into(save_dir: &Path) -> Result<String, String> {
+    fs::create_dir_all(save_dir)
+        .map_err(|e| format!("Failed to create save dir: {}", e))?;
+    let config_path = save_dir.join("mod_config.xml");
 
     if config_path.exists() {
         return Ok(format!(
@@ -330,18 +339,17 @@ pub fn get_window_title() -> String {
 mod tests {
     use super::*;
 
+    // ── Pure / side-effect-free tests ─────────────────────────────────────────
+
     #[test]
     fn test_get_version_nonempty() {
         let v = get_version();
         assert!(!v.is_empty(), "version string must not be empty");
-        // Should look like semver x.y.z
         assert!(v.contains('.'), "version should contain dots: {}", v);
     }
 
     #[test]
-    fn test_get_window_title_release_has_no_dev_marker() {
-        // In a release build the title should be plain "Hallinta".
-        // We can only assert the full invariant in a cfg-specific way.
+    fn test_get_window_title_dev_marker() {
         let title = get_window_title();
         assert!(!title.is_empty());
         if cfg!(debug_assertions) {
@@ -351,22 +359,22 @@ mod tests {
         }
     }
 
-    /// Path detection should not panic on any supported platform.
-    /// On unsupported platforms (macOS) it must return Err, not panic.
+    // ── Path detection (read-only, no files written) ──────────────────────────
+    //
+    // These tests only verify the functions don't panic or have logic errors.
+    // Whether the paths exist depends on the test machine (CI may have no Noita/Steam).
+
     #[test]
     fn test_noita_save_path_does_not_panic() {
         let _result = get_noita_save_path();
-        // We only assert it returns without panicking.
-        // The path may or may not exist on the test machine.
     }
 
     #[test]
     #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     fn test_noita_save_path_unsupported_platform_is_err() {
-        let result = get_noita_save_path();
         assert!(
-            result.is_err(),
-            "macOS / unsupported platforms must return Err for Noita save detection"
+            get_noita_save_path().is_err(),
+            "unsupported platforms must return Err"
         );
     }
 
@@ -375,33 +383,75 @@ mod tests {
         let _result = get_entangled_worlds_save_path();
     }
 
-    #[test]
-    fn test_write_empty_mod_config() {
-        let dir = std::env::temp_dir().join("hallinta_test_platform");
+    // ── File-writing tests — ALL use isolated temp dirs, never touch dev_data ─
+
+    /// temp_dir scoped to a single test to avoid parallel-test collisions.
+    fn test_tmp(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("hallinta_test_{}", name));
         std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("mod_config.xml");
-        let _ = std::fs::remove_file(&path); // clean slate
-
-        write_empty_mod_config(&path).expect("write_empty_mod_config should succeed");
-        let content = std::fs::read_to_string(&path).unwrap();
-        assert!(content.contains("<Mods>"), "placeholder must contain <Mods>");
-        assert!(!content.contains("<Mod "), "empty placeholder must have no <Mod> entries");
-
-        std::fs::remove_file(&path).ok();
+        dir
     }
 
-    /// seed_dev_mod_config only runs in debug builds; skip in release.
     #[test]
-    #[cfg(debug_assertions)]
-    fn test_seed_dev_mod_config_is_idempotent() {
-        // Call twice — second call must return the "using cached" message.
-        let first = seed_dev_mod_config();
-        assert!(first.is_ok(), "first seed call failed: {:?}", first);
-        let second = seed_dev_mod_config().expect("second seed call must succeed");
+    fn test_write_empty_mod_config() {
+        let dir = test_tmp("write_empty_mod_config");
+        let path = dir.join("mod_config.xml");
+        let _ = std::fs::remove_file(&path);
+
+        write_empty_mod_config(&path).expect("should succeed");
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("<Mods>"), "must contain <Mods>");
+        assert!(!content.contains("<Mod "), "empty placeholder must have no entries");
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Tests the seeding logic against an isolated temp directory.
+    ///
+    /// Dev build note: `seed_dev_mod_config()` (the real app entry point) targets
+    /// `dev_data/save00/` and is NOT called here — tests must never write to dev_data.
+    /// Release build note: this test is not gated on debug_assertions because
+    /// `seed_mod_config_into` is a pure path-based helper with no build-mode dependency.
+    #[test]
+    fn test_seed_mod_config_into_is_idempotent() {
+        let dir = test_tmp("seed_mod_config_idempotent");
+        let _ = std::fs::remove_dir_all(&dir); // clean slate each run
+
+        // First call: file doesn't exist yet — seeds from real Noita or writes placeholder.
+        let first = seed_mod_config_into(&dir).expect("first seed should succeed");
         assert!(
-            second.contains("cached") || second.contains("Seeded") || second.contains("placeholder"),
-            "unexpected seed message: {}",
+            first.contains("Seeded") || first.contains("placeholder"),
+            "first call should seed or create placeholder, got: {}",
+            first
+        );
+        assert!(
+            dir.join("mod_config.xml").exists(),
+            "mod_config.xml must exist after seeding"
+        );
+
+        // Second call: file already exists — must report cached.
+        let second = seed_mod_config_into(&dir).expect("second seed should succeed");
+        assert!(
+            second.contains("cached"),
+            "second call must report 'cached', got: {}",
             second
         );
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Verifies that the dev_data/save00 directory would be created by get_dev_save_dir
+    /// without side effects in this test (we only call the helper, not the public function).
+    ///
+    /// Release: get_dev_save_dir() returns Err("Not in dev mode") — this test is skipped.
+    /// Debug:   dev_data/save00 is created if missing, which is safe because the app
+    ///          creates it anyway at startup.
+    #[test]
+    #[cfg(debug_assertions)]
+    fn test_get_dev_save_dir_returns_valid_path() {
+        let result = get_dev_save_dir();
+        assert!(result.is_ok(), "get_dev_save_dir should succeed in debug: {:?}", result);
+        let path = result.unwrap();
+        assert!(path.ends_with("save00"), "dev save dir should end with save00");
     }
 }
