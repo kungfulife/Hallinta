@@ -1,3 +1,4 @@
+use crate::core::logging;
 use crate::core::settings::get_data_dir;
 use crate::models::{AppSettings, BackupInfo, ModEntry, RestoreOptions};
 use chrono::Utc;
@@ -22,7 +23,7 @@ pub fn add_directory_to_zip(
         let entry = match entry {
             Ok(e) => e,
             Err(e) => {
-                eprintln!("Warning: could not read entry: {}", e);
+                let _ = logging::log("WARN", &format!("Backup: could not read entry: {}", e), "Backup");
                 continue;
             }
         };
@@ -59,7 +60,7 @@ pub fn add_directory_to_zip(
                         .map_err(|e| format!("Failed to write file to zip: {}", e))?;
                 }
                 Err(e) => {
-                    eprintln!("Warning: could not read file {}: {}", path.display(), e);
+                    let _ = logging::log("WARN", &format!("Backup: could not read file {}: {}", path.display(), e), "Backup");
                 }
             }
         }
