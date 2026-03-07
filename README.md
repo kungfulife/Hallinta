@@ -108,7 +108,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ## Prerequisites
 
-# Unknown, planning for none aside from compiling within Rust within all platforms (Mac, Linux, Windows)
+Unknown, planning for none aside from compiling within Rust within all platforms (Mac, Linux, Windows)
 
 ### Noita on Linux
 Hallinta auto-detects Noita save data under Steam's Proton prefix:
@@ -126,14 +126,3 @@ cargo run
 # Production build
 cargo build --release
 ```
-
-## Latest Version
-
-Current version: **0.8.0** (Work in progress)
-
-Latest update highlights:
-- Full rewrite from Tauri to native egui/eframe GUI
-- No web frontend dependencies — pure Rust application
-- Streamlined build process (standard `cargo build`, no Tauri CLI needed)
-
-For older release notes, see `UPDATEHISTORY.md`.
