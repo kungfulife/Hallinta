@@ -32,6 +32,7 @@ fn sanitize_dirname(name: &str) -> String {
 pub fn create_monitor_snapshot(
     noita_dir: &str,
     preset_name: &str,
+    include_save01: bool,
     include_entangled: bool,
     entangled_dir: Option<&str>,
 ) -> Result<String, String> {
@@ -56,11 +57,13 @@ pub fn create_monitor_snapshot(
         add_directory_to_zip(&mut zip, &save00_path, "save00")?;
     }
 
-    // Always include save01
-    if let Some(parent) = save00_path.parent() {
-        let save01_path = parent.join("save01");
-        if save01_path.exists() {
-            add_directory_to_zip(&mut zip, &save01_path, "save01")?;
+    // Optionally include save01
+    if include_save01 {
+        if let Some(parent) = save00_path.parent() {
+            let save01_path = parent.join("save01");
+            if save01_path.exists() {
+                add_directory_to_zip(&mut zip, &save01_path, "save01")?;
+            }
         }
     }
 

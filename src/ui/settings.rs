@@ -194,6 +194,10 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 .color(ui.visuals().weak_text_color()),
             );
             ui.checkbox(
+                &mut settings.save_monitor_settings.include_save01,
+                "Include save01 in snapshots",
+            );
+            ui.checkbox(
                 &mut settings.save_monitor_settings.include_entangled,
                 "Include Entangled Worlds in snapshots",
             );
@@ -311,7 +315,7 @@ fn default_settings() -> AppSettings {
         version: crate::core::platform::get_version(),
         log_settings: Default::default(),
         backup_settings: Default::default(),
-        save_monitor_settings: Default::default(),
+        save_monitor_settings: Default::default(), // includes include_save01: false
         gallery_settings: Default::default(),
         compact_mode: false,
     }
