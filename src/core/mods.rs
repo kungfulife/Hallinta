@@ -113,3 +113,152 @@ pub fn get_file_modified_time(path: &Path) -> Result<u64, String> {
         .as_secs();
     Ok(secs)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── parse_mods_from_xml ────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_empty_mods_tag() {
+        let xml = "<Mods>\n</Mods>";
+        let mods = parse_mods_from_xml(xml).unwrap();
+        assert!(mods.is_empty());
+    }
+
+    /// Verifies the real Noita mod_config.xml format (attribute-order-independent).
+    #[test]
+    fn test_parse_real_noita_format() {
+        let xml = r#"<Mods>
+  <Mod enabled="0" name="bruh" settings_fold_open="0" workshop_item_id="2362171854" >
+  </Mod>
+  <Mod enabled="1" name="test_mod" settings_fold_open="1" workshop_item_id="0" >
+  </Mod>
+</Mods>"#;
+        let mods = parse_mods_from_xml(xml).unwrap();
+        assert_eq!(mods.len(), 2);
+
+        assert_eq!(mods[0].name, "bruh");
+        assert!(!mods[0].enabled);
+        assert_eq!(mods[0].workshop_id, "2362171854");
+        assert!(!mods[0].settings_fold_open);
+
+        assert_eq!(mods[1].name, "test_mod");
+        assert!(mods[1].enabled);
+        assert_eq!(mods[1].workshop_id, "0");
+        assert!(mods[1].settings_fold_open);
+    }
+
+    #[test]
+    fn test_parse_mod_name_with_spaces_and_special_chars() {
+        let xml = r#"<Mods>
+  <Mod enabled="0" name="New Biomes + Secrets" settings_fold_open="0" workshop_item_id="1985575640" >
+  </Mod>
+</Mods>"#;
+        let mods = parse_mods_from_xml(xml).unwrap();
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].name, "New Biomes + Secrets");
+    }
+
+    #[test]
+    fn test_parse_ignores_non_mod_lines() {
+        let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Mods>\n</Mods>";
+        let mods = parse_mods_from_xml(xml).unwrap();
+        assert!(mods.is_empty());
+    }
+
+    #[test]
+    fn test_parse_missing_workshop_id_defaults_to_zero() {
+        // Some older entries might omit workshop_item_id entirely.
+        let xml = r#"<Mods>
+  <Mod enabled="1" name="local_mod" settings_fold_open="0" >
+  </Mod>
+</Mods>"#;
+        let mods = parse_mods_from_xml(xml).unwrap();
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].workshop_id, "0");
+    }
+
+    // ── XML escape/unescape round-trip ────────────────────────────────
+
+    #[test]
+    fn test_mods_to_xml_roundtrip() {
+        let original = vec![
+            ModEntry {
+                name: "my & mod".to_string(),
+                enabled: true,
+                workshop_id: "123".to_string(),
+                settings_fold_open: false,
+            },
+            ModEntry {
+                name: "another".to_string(),
+                enabled: false,
+                workshop_id: "0".to_string(),
+                settings_fold_open: true,
+            },
+        ];
+
+        let xml = mods_to_xml(&original);
+        let parsed = parse_mods_from_xml(&xml).unwrap();
+
+        assert_eq!(parsed.len(), original.len());
+        for (a, b) in original.iter().zip(parsed.iter()) {
+            assert_eq!(a.name, b.name, "name mismatch after round-trip");
+            assert_eq!(a.enabled, b.enabled);
+            assert_eq!(a.workshop_id, b.workshop_id);
+            assert_eq!(a.settings_fold_open, b.settings_fold_open);
+        }
+    }
+
+    #[test]
+    fn test_xml_special_char_escaping() {
+        let mods = vec![ModEntry {
+            name: "mod\"with<special>&chars'".to_string(),
+            enabled: true,
+            workshop_id: "0".to_string(),
+            settings_fold_open: false,
+        }];
+        let xml = mods_to_xml(&mods);
+        // Raw special chars must not appear unescaped in the output
+        assert!(!xml.contains("mod\"with<special>&chars'"));
+        // Round-trip must recover original name
+        let parsed = parse_mods_from_xml(&xml).unwrap();
+        assert_eq!(parsed[0].name, mods[0].name);
+    }
+
+    // ── mods_equal ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_write_and_read_mod_config() {
+        let dir = std::env::temp_dir().join("hallinta_test_mods");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let mods = vec![
+            ModEntry {
+                name: "alpha".to_string(),
+                enabled: true,
+                workshop_id: "111".to_string(),
+                settings_fold_open: false,
+            },
+            ModEntry {
+                name: "beta".to_string(),
+                enabled: false,
+                workshop_id: "0".to_string(),
+                settings_fold_open: false,
+            },
+        ];
+
+        write_mod_config(&dir, &mods_to_xml(&mods)).unwrap();
+        let xml = read_mod_config(&dir).unwrap();
+        let parsed = parse_mods_from_xml(&xml).unwrap();
+
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].name, "alpha");
+        assert!(parsed[0].enabled);
+        assert_eq!(parsed[1].name, "beta");
+        assert!(!parsed[1].enabled);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+}

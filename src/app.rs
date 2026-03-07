@@ -80,8 +80,17 @@ impl HallintaApp {
             m
         });
 
-        // Dev build sandbox paths (never touch real save files in debug runs)
+        // Dev build sandbox paths (never touch real save files in debug runs).
+        // On first run, seed dev_data/save00/mod_config.xml from the real Noita save.
         let dev_noita_dir = if cfg!(debug_assertions) {
+            match platform::seed_dev_mod_config() {
+                Ok(msg) => {
+                    let _ = logging::log("INFO", &format!("[DEV] {}", msg), "DevData");
+                }
+                Err(e) => {
+                    let _ = logging::log("WARN", &format!("[DEV] Dev data seed error: {}", e), "DevData");
+                }
+            }
             platform::get_dev_save_dir().ok()
         } else {
             None
@@ -131,11 +140,46 @@ impl HallintaApp {
 
         if !active_noita_dir.is_empty() {
             let noita_path = PathBuf::from(&active_noita_dir);
-            if let Ok(xml) = mods::read_mod_config(&noita_path) {
-                if let Ok(file_mods) = mods::parse_mods_from_xml(&xml) {
-                    current_mods = file_mods;
+            match mods::read_mod_config(&noita_path) {
+                Ok(xml) => match mods::parse_mods_from_xml(&xml) {
+                    Ok(file_mods) => {
+                        let _ = logging::log(
+                            "INFO",
+                            &format!(
+                                "Loaded {} mod(s) from {}",
+                                file_mods.len(),
+                                noita_path.display()
+                            ),
+                            "Mods",
+                        );
+                        current_mods = file_mods;
+                    }
+                    Err(e) => {
+                        let _ = logging::log(
+                            "ERROR",
+                            &format!("Failed to parse mod_config.xml: {}", e),
+                            "Mods",
+                        );
+                    }
+                },
+                Err(e) => {
+                    let _ = logging::log(
+                        "WARN",
+                        &format!(
+                            "mod_config.xml not found at {} — {}",
+                            noita_path.display(),
+                            e
+                        ),
+                        "Mods",
+                    );
                 }
             }
+        } else {
+            let _ = logging::log(
+                "WARN",
+                "No Noita save directory configured. Set it in Settings.",
+                "Mods",
+            );
         }
 
         // Apply theme
