@@ -1349,7 +1349,7 @@ impl HallintaApp {
         let _ = presets::save_presets(&self.presets);
         let _ = logging::log(
             "INFO",
-            &format!("Imported {} preset(s) from vault", import_data.presets.len()),
+            &format!("Imported {} preset(s) from modpacks", import_data.presets.len()),
             "Gallery",
         );
     }

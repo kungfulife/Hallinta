@@ -2,7 +2,7 @@ use crate::app::HallintaApp;
 use eframe::egui;
 
 pub fn render_gallery(app: &mut HallintaApp, ui: &mut egui::Ui) {
-    ui.label(egui::RichText::new("Preset Vault").heading().strong().size(20.0));
+    ui.label(egui::RichText::new("Modpacks").heading().strong().size(20.0));
     ui.add_space(8.0);
 
     // Search and tag filter

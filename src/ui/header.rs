@@ -21,7 +21,7 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
                 }
             }
 
-            let vault_text = egui::RichText::new("Preset Vault").font(tab_font);
+            let vault_text = egui::RichText::new("Modpacks").font(tab_font);
             if ui
                 .selectable_label(app.active_view == View::PresetVault, vault_text)
                 .clicked()
@@ -33,7 +33,7 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
 
             ui.separator();
 
-            // Search box (only in mod list or vault)
+            // Search box (only in mod list or modpacks)
             if app.active_view == View::ModList || app.active_view == View::PresetVault {
                 ui.label(egui::RichText::new("Search:").strong());
                 ui.add(

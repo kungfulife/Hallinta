@@ -19,7 +19,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Alphabetical preset sorting (Default always first)
 - Conflict resolution when external changes detected
 
-### Preset Vault
+### Modpacks
 - Browse and download presets from a configurable catalog URL
 - Search and tag-based filtering
 - One-click download with JSON validation and checksum verification
@@ -87,9 +87,9 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ## Interface Overview
 
-- **Header**: `Mod List` / `Preset Vault` tabs, search bar, preset controls, settings access
+- **Header**: `Mod List` / `Modpacks` tabs, search bar, preset controls, settings access
 - **Mod List View**: Main mod list with drag-and-drop reordering
-- **Preset Vault**: Browse, search, and download presets from a configured catalog
+- **Modpacks**: Browse, search, and download presets from a configured catalog
 - **Settings**: Directory configuration, appearance, backup, logging, catalog URL, Steam path
 
 ## Technical Details

@@ -211,7 +211,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
         // ── Gallery Settings ───────────────────────────────────────────
         ui.group(|ui| {
-            ui.label(egui::RichText::new("Preset Vault").strong().size(14.0));
+            ui.label(egui::RichText::new("Modpacks").strong().size(14.0));
             ui.add_space(4.0);
 
             ui.label("Catalog URL:");
