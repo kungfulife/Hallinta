@@ -77,10 +77,16 @@ pub struct SaveMonitorSettings {
     pub interval_minutes: u32,
     pub max_snapshots_per_preset: usize,
     pub include_entangled: bool,
+    #[serde(default = "default_include_save01")]
+    pub include_save01: bool,
     #[serde(default)]
     pub start_in_monitor_mode: bool,
     #[serde(default = "default_keep_every_nth")]
     pub keep_every_nth: usize,
+}
+
+fn default_include_save01() -> bool {
+    false
 }
 
 fn default_keep_every_nth() -> usize {
@@ -93,6 +99,7 @@ impl Default for SaveMonitorSettings {
             interval_minutes: 3,
             max_snapshots_per_preset: 10,
             include_entangled: false,
+            include_save01: false,
             start_in_monitor_mode: false,
             keep_every_nth: 5,
         }

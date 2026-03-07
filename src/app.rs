@@ -358,6 +358,13 @@ impl HallintaApp {
                                 "Backup",
                             );
                             self.load_backup_list_async();
+                            let backup_path = settings::get_data_dir()
+                                .map(|d| d.join("backups").join(&filename).to_string_lossy().to_string())
+                                .unwrap_or(filename.clone());
+                            self.active_modal = Some(Modal::Info {
+                                title: "Backup Created".to_string(),
+                                message: format!("Saved to:\n{}", backup_path),
+                            });
                         }
                         Err(e) => {
                             let _ = logging::log("ERROR", &format!("Backup failed: {}", e), "Backup");
@@ -1233,6 +1240,7 @@ impl HallintaApp {
             return;
         }
         let preset_name = self.selected_preset.clone();
+        let include_save01 = self.settings.save_monitor_settings.include_save01;
         let include_entangled = self.settings.save_monitor_settings.include_entangled;
         let entangled_dir = if include_entangled {
             self.get_active_entangled_dir()
@@ -1246,6 +1254,7 @@ impl HallintaApp {
                 save_monitor::create_monitor_snapshot(
                     &noita_dir,
                     &preset_name,
+                    include_save01,
                     include_entangled,
                     entangled_dir.as_deref(),
                 )

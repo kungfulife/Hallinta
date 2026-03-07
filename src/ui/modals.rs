@@ -83,6 +83,7 @@ fn render_confirm(
         .collapsible(false)
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .order(egui::Order::Foreground)
         .show(ctx, |ui| {
             ui.label(message);
             ui.add_space(12.0);
@@ -129,6 +130,7 @@ fn render_input(
         .collapsible(false)
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .order(egui::Order::Foreground)
         .show(ctx, |ui| {
             let response = ui.text_edit_singleline(value);
             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
@@ -171,6 +173,7 @@ fn render_checklist(
         .collapsible(false)
         .resizable(true)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .order(egui::Order::Foreground)
         .show(ctx, |ui| {
             ui.label(message);
             ui.add_space(8.0);
@@ -216,6 +219,7 @@ fn render_info(app: &mut HallintaApp, ctx: &egui::Context, title: &str, message:
         .collapsible(false)
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .order(egui::Order::Foreground)
         .show(ctx, |ui| {
             ui.label(message);
             ui.add_space(8.0);
@@ -238,6 +242,7 @@ fn render_progress(app: &mut HallintaApp, ctx: &egui::Context) {
             .collapsible(false)
             .resizable(false)
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .order(egui::Order::Foreground)
             .show(ctx, |ui| {
                 ui.label(message.as_str());
                 ui.add_space(8.0);
@@ -259,6 +264,7 @@ fn render_missing_mods(
         .collapsible(false)
         .resizable(true)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .order(egui::Order::Foreground)
         .show(ctx, |ui| {
             ui.label(
                 egui::RichText::new("The following mods are not installed:")
@@ -307,6 +313,7 @@ fn render_system_info(app: &mut HallintaApp, ctx: &egui::Context) {
         .collapsible(false)
         .resizable(true)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .order(egui::Order::Foreground)
         .open(&mut open)
         .show(ctx, |ui| {
             if let Ok(info) = crate::core::platform::get_system_info() {
@@ -375,6 +382,7 @@ fn render_open_source(app: &mut HallintaApp, ctx: &egui::Context) {
         .collapsible(false)
         .resizable(true)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .order(egui::Order::Foreground)
         .open(&mut open)
         .show(ctx, |ui| {
             let libs = crate::core::platform::get_open_source_libraries();
@@ -408,6 +416,7 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
         .resizable(true)
         .default_width(500.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .order(egui::Order::Foreground)
         .open(&mut open)
         .show(ctx, |ui| {
             if app.backup_state.backup_list.is_empty() {
@@ -494,6 +503,7 @@ fn render_snapshot_manager(app: &mut HallintaApp, ctx: &egui::Context, preset_na
         .resizable(true)
         .default_width(450.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .order(egui::Order::Foreground)
         .open(&mut open)
         .show(ctx, |ui| {
             if app.backup_state.snapshot_list.is_empty() {
