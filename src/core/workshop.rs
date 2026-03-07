@@ -149,3 +149,70 @@ pub fn open_steam_subscribe(workshop_id: &str) -> Result<(), String> {
     let url = format!("steam://subscribe/{}", workshop_id);
     opener::open(&url).map_err(|e| format!("Failed to open Steam subscribe URL: {}", e))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_detect_steam_path_does_not_panic() {
+        // Should return Ok or Err, never panic.
+        let _result = detect_steam_path();
+    }
+
+    #[test]
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    fn test_detect_steam_path_unsupported_platform_is_err() {
+        let result = detect_steam_path();
+        assert!(
+            result.is_err(),
+            "unsupported platform must return Err for Steam detection"
+        );
+    }
+
+    #[test]
+    fn test_check_workshop_mods_empty_steam_path_is_err() {
+        let ids = vec!["881100".to_string()];
+        let result = check_workshop_mods_installed(&ids, "");
+        assert!(result.is_err(), "empty steam path should return Err");
+    }
+
+    #[test]
+    fn test_check_workshop_local_mods_always_installed() {
+        // IDs "0" or "" represent local mods and are always reported installed,
+        // even with a fake steam path that doesn't exist.
+        let ids = vec!["0".to_string(), String::new()];
+        let result = check_workshop_mods_installed(&ids, "/nonexistent/steam/path");
+        assert!(result.is_ok(), "should succeed even with fake path");
+        let statuses = result.unwrap();
+        for (id, installed) in &statuses {
+            assert!(
+                installed,
+                "local mod '{}' should always be reported installed",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn test_check_workshop_nonexistent_id_is_not_installed() {
+        // A real-looking but non-existent workshop ID against a fake path → not installed.
+        let ids = vec!["9999999999".to_string()];
+        let result = check_workshop_mods_installed(&ids, "/nonexistent/steam");
+        assert!(result.is_ok());
+        let statuses = result.unwrap();
+        assert_eq!(statuses.len(), 1);
+        assert!(!statuses[0].1, "non-existent mod should not be reported installed");
+    }
+
+    #[test]
+    fn test_open_steam_subscribe_empty_id_is_err() {
+        assert!(open_steam_subscribe("").is_err());
+        assert!(open_steam_subscribe("0").is_err());
+    }
+
+    #[test]
+    fn test_noita_app_id_is_correct() {
+        assert_eq!(NOITA_APP_ID, "881100");
+    }
+}
