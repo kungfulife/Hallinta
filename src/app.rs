@@ -57,7 +57,7 @@ impl HallintaApp {
 
         // Load settings
         let mut app_settings = settings::load_settings().unwrap_or_else(|e| {
-            eprintln!("Failed to load settings: {}", e);
+            let _ = logging::log("WARN", &format!("Failed to load settings: {}", e), "App");
             AppSettings {
                 noita_dir: String::new(),
                 entangled_dir: String::new(),
@@ -74,7 +74,7 @@ impl HallintaApp {
 
         // Load presets
         let app_presets = presets::load_presets().unwrap_or_else(|e| {
-            eprintln!("Failed to load presets: {}", e);
+            let _ = logging::log("WARN", &format!("Failed to load presets: {}", e), "App");
             let mut m = BTreeMap::new();
             m.insert("Default".to_string(), Vec::new());
             m

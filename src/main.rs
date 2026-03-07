@@ -24,7 +24,7 @@ fn main() {
     let lock = match NamedLock::create(lock_name) {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("Failed to create lock: {}", e);
+            let _ = core::logging::log("ERROR", &format!("Failed to create lock: {}", e), "Main");
             process::exit(1);
         }
     };
@@ -32,7 +32,7 @@ fn main() {
     let _guard = match lock.try_lock() {
         Ok(g) => g,
         Err(_) => {
-            eprintln!("Another instance of Hallinta is already running.");
+            let _ = core::logging::log("WARN", "Another instance of Hallinta is already running.", "Main");
             process::exit(1);
         }
     };
@@ -66,7 +66,7 @@ fn main() {
     );
 
     if let Err(e) = result {
-        eprintln!("Application error: {}", e);
+        let _ = core::logging::log("ERROR", &format!("Application error: {}", e), "Main");
     }
 
     // Lock guard drops here immediately — no sleep (BUG-3 fix)
