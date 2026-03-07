@@ -189,6 +189,7 @@ impl HallintaApp {
 
         // Apply compact mode window size if needed
         if compact_mode {
+            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(300.0, 200.0)));
             cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(480.0, 400.0)));
         }
 
@@ -750,8 +751,11 @@ impl HallintaApp {
             if current_size.x > 500.0 {
                 self.normal_window_size = Some(current_size);
             }
+            // Must lower min-size BEFORE setting inner size, or the OS clamps it.
+            ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(300.0, 200.0)));
             ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(480.0, 400.0)));
         } else {
+            ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(1050.0, 800.0)));
             let size = self.normal_window_size.unwrap_or(egui::vec2(1100.0, 800.0));
             ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
         }
