@@ -23,7 +23,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     // Drag-to-reorder only works on the unfiltered list to avoid index confusion.
     let can_drag = !is_locked && search_lower.is_empty() && filter == FilterMode::All;
 
-    // Build the visible subset: all indices that pass the current filter/search.
+    // Build the visible subset.
     let filtered_indices: Vec<usize> = app
         .current_mods
         .iter()
@@ -39,7 +39,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
         .map(|(i, _)| i)
         .collect();
 
-    // Snapshot everything we need from app to avoid borrow-checker fights inside closures.
+    // Snapshot into plain structs to avoid borrow-checker fights inside closures.
     struct RowData {
         idx: usize,
         name: String,
@@ -68,7 +68,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     // Outputs collected during the loop, applied afterwards to avoid borrow conflicts.
     let mut toggle_idx: Option<usize> = None;
     let mut drag_started: Option<usize> = None;
-    // Position in `filtered_indices` to insert the dragged item before (0 = top, n = bottom).
+    // Position in the visible list to insert before (0 = very top, n = very bottom).
     let mut drop_insert_pos: Option<usize> = None;
 
     egui::ScrollArea::vertical()
@@ -81,9 +81,8 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 let is_drag_source = drag_source_idx == Some(row.idx);
                 let is_even = row_num % 2 == 0;
 
-                // --- Row background colour ---
+                // ── Row background fill ─────────────────────────────────────
                 let base_fill = if is_drag_source {
-                    // Dragged item: show dimmed at original slot as a "ghost".
                     ui.visuals().extreme_bg_color
                 } else if row.enabled {
                     if is_even {
@@ -97,78 +96,41 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     egui::Color32::TRANSPARENT
                 };
 
-                // Each row gets a stable egui ID keyed on its position-index.
-                // Because we use commit-on-release (no live swap), `row.idx` is stable
-                // for the entire drag interaction and can safely serve as the ID.
+                // `row.idx` is stable throughout the drag (no live reordering), so it's a
+                // safe egui ID seed.  The "ri" namespace avoids collisions with the checkbox.
+                let row_interact_id = egui::Id::new(("hallinta_ri", row.idx));
+
+                // ── Render the row frame ────────────────────────────────────
                 let frame_resp = ui
                     .push_id(row.idx, |ui| {
-                        let inner = egui::Frame::NONE
+                        egui::Frame::NONE
                             .inner_margin(egui::Margin::symmetric(6, 3))
-                            .corner_radius(2)
+                            .corner_radius(4)
                             .fill(base_fill)
                             .show(ui, |ui| {
                                 ui.set_min_width(ui.available_width());
                                 ui.horizontal(|ui| {
-                                    // ── Drag handle ─────────────────────────────
-                                    if can_drag {
-                                        let handle_color = if is_drag_source {
-                                            ui.visuals().selection.bg_fill
-                                        } else {
-                                            ui.visuals().weak_text_color()
-                                        };
-                                        let handle_text =
-                                            egui::RichText::new("\u{2261}") // ≡
-                                                .size(18.0)
-                                                .color(handle_color);
-                                        let handle = ui.add(
-                                            egui::Label::new(handle_text)
-                                                .sense(egui::Sense::drag()),
-                                        );
-                                        if handle.drag_started() && app.drag_state.is_none() {
-                                            drag_started = Some(row.idx);
-                                        }
-                                        if handle.hovered() && app.drag_state.is_none() {
-                                            ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
-                                        }
-                                        if app.drag_state.is_some() {
-                                            ui.ctx()
-                                                .set_cursor_icon(egui::CursorIcon::Grabbing);
-                                        }
-                                    } else {
-                                        ui.add_space(22.0);
-                                    }
-
-                                    ui.add_space(4.0);
-
-                                    // ── Enable/disable checkbox ──────────────────
+                                    // ── Enable/disable checkbox ──────────────
                                     let mut cb_enabled = row.enabled;
                                     if ui.checkbox(&mut cb_enabled, "").changed() && !is_locked {
                                         toggle_idx = Some(row.idx);
                                     }
 
-                                    ui.add_space(2.0);
+                                    ui.add_space(4.0);
 
-                                    // ── Mod name label ───────────────────────────
+                                    // ── Mod name ────────────────────────────
                                     let name_color = if is_drag_source || !row.enabled {
                                         ui.visuals().weak_text_color()
                                     } else {
                                         ui.visuals().text_color()
                                     };
-                                    let name_label = egui::Label::new(
+                                    ui.label(
                                         egui::RichText::new(&row.name)
                                             .size(13.0)
                                             .color(name_color),
-                                    )
-                                    .sense(egui::Sense::click());
-                                    let name_resp = ui.add(name_label);
-                                    if name_resp.clicked()
-                                        && !is_locked
-                                        && app.drag_state.is_none()
-                                    {
-                                        toggle_idx = Some(row.idx);
-                                    }
+                                    );
 
-                                    // ── Workshop [W] badge ───────────────────────
+                                    // ── Workshop [W] badge ───────────────────
                                     if row.is_workshop {
                                         ui.label(
                                             egui::RichText::new("[W]")
@@ -178,7 +140,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                                         );
                                     }
 
-                                    // ── Missing mod indicator ────────────────────
+                                    // ── Missing mod indicator ────────────────
                                     if let Some(false) = row.workshop_installed {
                                         ui.label(
                                             egui::RichText::new("[Missing]")
@@ -187,22 +149,87 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                                                 .color(egui::Color32::from_rgb(220, 60, 60)),
                                         );
                                     }
+
+                                    // ── Drag hint (far right, only when draggable) ──
+                                    if can_drag {
+                                        ui.with_layout(
+                                            egui::Layout::right_to_left(egui::Align::Center),
+                                            |ui| {
+                                                let hint_color = if is_drag_source {
+                                                    ui.visuals().selection.bg_fill
+                                                } else {
+                                                    ui.visuals()
+                                                        .weak_text_color()
+                                                        .linear_multiply(0.5)
+                                                };
+                                                ui.label(
+                                                    egui::RichText::new("\u{2261}")
+                                                        .size(14.0)
+                                                        .color(hint_color),
+                                                );
+                                            },
+                                        );
+                                    }
                                 });
-                            });
-                        inner.response
+                            })
+                            .response
                     })
                     .inner;
 
-                // Context menu on the entire row (only when not dragging).
+                // ── Whole-row interaction (drag + right-click) ──────────────
+                // Using click_and_drag so secondary_clicked() works for context_menu.
+                let row_resp = ui.interact(
+                    frame_resp.rect,
+                    row_interact_id,
+                    egui::Sense::click_and_drag(),
+                );
+
+                // Cursor icon
+                if row_resp.hovered() {
+                    if app.drag_state.is_some() {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                    } else if can_drag {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
+                    }
+                }
+
+                // Drag start — whole row is the handle now
+                if row_resp.drag_started() && can_drag && app.drag_state.is_none() {
+                    drag_started = Some(row.idx);
+                }
+
+                // ── Visual overlays ─────────────────────────────────────────
+                let painter = ui.painter();
+
+                // Hover border
+                if row_resp.hovered() && !is_drag_source && app.drag_state.is_none() {
+                    painter.rect_stroke(
+                        frame_resp.rect,
+                        4.0,
+                        egui::Stroke::new(1.0, ui.visuals().widgets.hovered.bg_stroke.color),
+                        egui::StrokeKind::Outside,
+                    );
+                }
+
+                // Active drag source: bright selection border
+                if is_drag_source {
+                    painter.rect_stroke(
+                        frame_resp.rect,
+                        4.0,
+                        egui::Stroke::new(2.0, ui.visuals().selection.bg_fill),
+                        egui::StrokeKind::Outside,
+                    );
+                }
+
+                // ── Context menu (right-click anywhere on row) ──────────────
                 if app.drag_state.is_none() {
                     let idx = row.idx;
-                    frame_resp.context_menu(|ui| {
+                    row_resp.context_menu(|ui| {
                         crate::ui::context_menu::render_context_menu(app, ui, idx);
                     });
                 }
 
-                // ── Drop-target detection ────────────────────────────────────────
-                // Use mouse Y position within this row's rect to decide the insert position.
+                // ── Drop-target detection ────────────────────────────────────
                 if app.drag_state.is_some() {
                     let rect = frame_resp.rect;
                     if let Some(ptr) = ui.ctx().pointer_latest_pos() {
@@ -211,32 +238,26 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                             let candidate_pos =
                                 if insert_before { row_num } else { row_num + 1 };
 
-                            // Don't show an indicator that would leave the item in place.
                             if !is_drag_source {
                                 drop_insert_pos = Some(candidate_pos.min(n));
                             }
 
-                            // Draw the drop-indicator line.
+                            // Draw drop-indicator line
                             if let Some(pos) = drop_insert_pos {
-                                // Only draw if this row "owns" the indicator.
-                                let indicator_y = if insert_before {
-                                    rect.top()
-                                } else {
-                                    rect.bottom()
-                                };
-                                // Verify the indicator is for this row.
-                                let this_rows_pos = if insert_before { row_num } else { row_num + 1 };
+                                let this_rows_pos =
+                                    if insert_before { row_num } else { row_num + 1 };
                                 if pos == this_rows_pos.min(n) {
-                                    let stroke = egui::Stroke::new(
-                                        2.0,
-                                        ui.visuals().selection.bg_fill,
-                                    );
-                                    ui.painter().line_segment(
+                                    let indicator_y =
+                                        if insert_before { rect.top() } else { rect.bottom() };
+                                    painter.line_segment(
                                         [
                                             egui::pos2(rect.left(), indicator_y),
                                             egui::pos2(rect.right(), indicator_y),
                                         ],
-                                        stroke,
+                                        egui::Stroke::new(
+                                            2.0,
+                                            ui.visuals().selection.bg_fill,
+                                        ),
                                     );
                                 }
                             }
@@ -245,7 +266,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 }
             }
 
-            // Mod count footer.
+            // Mod count footer
             ui.add_space(4.0);
             ui.separator();
             let total = app.current_mods.len();
@@ -264,13 +285,11 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
     // ── Apply pending state changes ──────────────────────────────────────────
 
-    // Toggle enable/disable.
     if let Some(idx) = toggle_idx {
         app.current_mods[idx].enabled = !app.current_mods[idx].enabled;
         app.save_mod_config_and_preset();
     }
 
-    // Begin drag.
     if let Some(idx) = drag_started {
         app.drag_state = Some(DragState {
             source_index: idx,
@@ -283,19 +302,15 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
         );
     }
 
-    // Commit drag on pointer release.
+    // Commit drag on pointer release
     if ui.input(|i| i.pointer.any_released()) {
         if let Some(drag) = app.drag_state.take() {
             if let Some(insert_pos) = drop_insert_pos {
                 let src = drag.source_index;
                 let n = app.current_mods.len();
-
-                // Dropping immediately before or after the item itself is a no-op.
                 let is_noop = insert_pos == src || insert_pos == src + 1;
-
                 if !is_noop && src < n {
                     let dst = if insert_pos > src {
-                        // Removal shifts subsequent indices left by one.
                         (insert_pos - 1).min(n - 1)
                     } else {
                         insert_pos.min(n - 1)
@@ -310,11 +325,11 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     app.save_mod_config_and_preset();
                 }
             }
-            // If no drop target was selected (released outside the list), keep original order.
+            // Released outside list — keep original order (drag_state already taken/dropped)
         }
     }
 
-    // Escape cancels an in-progress drag.
+    // Escape cancels drag
     if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
         if let Some(drag) = app.drag_state.take() {
             app.current_mods = drag.pre_drag_snapshot;
