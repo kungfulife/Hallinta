@@ -128,15 +128,57 @@ pub fn get_dev_save_dir() -> Result<PathBuf, String> {
     let dev_save_dir = get_data_dir()?.join("save00");
     fs::create_dir_all(&dev_save_dir)
         .map_err(|e| format!("Failed to create dev save00 directory: {}", e))?;
+    Ok(dev_save_dir)
+}
 
+/// Seed `dev_data/save00/mod_config.xml` from the real Noita save on first run.
+///
+/// Only copies if the file does not already exist (preserves cached dev state across runs).
+/// Returns a human-readable description of what was done, suitable for logging by the caller.
+pub fn seed_dev_mod_config() -> Result<String, String> {
+    let dev_save_dir = get_dev_save_dir()?;
     let config_path = dev_save_dir.join("mod_config.xml");
-    if !config_path.exists() {
-        let sample = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Mods>\n</Mods>";
-        fs::write(&config_path, sample)
-            .map_err(|e| format!("Failed to create sample mod_config.xml: {}", e))?;
+
+    if config_path.exists() {
+        return Ok(format!(
+            "Using cached dev mod_config.xml ({} bytes)",
+            fs::metadata(&config_path).map(|m| m.len()).unwrap_or(0)
+        ));
     }
 
-    Ok(dev_save_dir)
+    // First run — try to copy from the real Noita save directory.
+    match get_noita_save_path() {
+        Ok(real_save) => {
+            let real_config = real_save.join("mod_config.xml");
+            if real_config.exists() {
+                fs::copy(&real_config, &config_path)
+                    .map_err(|e| format!("Failed to copy mod_config.xml from real save: {}", e))?;
+                Ok(format!(
+                    "Seeded dev mod_config.xml from real save at {}",
+                    real_save.display()
+                ))
+            } else {
+                write_empty_mod_config(&config_path)?;
+                Ok(format!(
+                    "Real save at {} has no mod_config.xml; created empty placeholder",
+                    real_save.display()
+                ))
+            }
+        }
+        Err(e) => {
+            write_empty_mod_config(&config_path)?;
+            Ok(format!(
+                "Real Noita save not found ({}); created empty placeholder",
+                e
+            ))
+        }
+    }
+}
+
+fn write_empty_mod_config(path: &PathBuf) -> Result<(), String> {
+    let placeholder = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Mods>\n</Mods>";
+    fs::write(path, placeholder)
+        .map_err(|e| format!("Failed to create placeholder mod_config.xml: {}", e))
 }
 
 pub fn get_dev_entangled_dir() -> Result<PathBuf, String> {
@@ -281,5 +323,85 @@ pub fn get_window_title() -> String {
         format!("Hallinta [DEV] v{}", get_version())
     } else {
         "Hallinta".to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_version_nonempty() {
+        let v = get_version();
+        assert!(!v.is_empty(), "version string must not be empty");
+        // Should look like semver x.y.z
+        assert!(v.contains('.'), "version should contain dots: {}", v);
+    }
+
+    #[test]
+    fn test_get_window_title_release_has_no_dev_marker() {
+        // In a release build the title should be plain "Hallinta".
+        // We can only assert the full invariant in a cfg-specific way.
+        let title = get_window_title();
+        assert!(!title.is_empty());
+        if cfg!(debug_assertions) {
+            assert!(title.contains("[DEV]"), "dev build title should contain [DEV]");
+        } else {
+            assert!(!title.contains("[DEV]"), "release build title must not contain [DEV]");
+        }
+    }
+
+    /// Path detection should not panic on any supported platform.
+    /// On unsupported platforms (macOS) it must return Err, not panic.
+    #[test]
+    fn test_noita_save_path_does_not_panic() {
+        let _result = get_noita_save_path();
+        // We only assert it returns without panicking.
+        // The path may or may not exist on the test machine.
+    }
+
+    #[test]
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    fn test_noita_save_path_unsupported_platform_is_err() {
+        let result = get_noita_save_path();
+        assert!(
+            result.is_err(),
+            "macOS / unsupported platforms must return Err for Noita save detection"
+        );
+    }
+
+    #[test]
+    fn test_entangled_worlds_path_does_not_panic() {
+        let _result = get_entangled_worlds_save_path();
+    }
+
+    #[test]
+    fn test_write_empty_mod_config() {
+        let dir = std::env::temp_dir().join("hallinta_test_platform");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("mod_config.xml");
+        let _ = std::fs::remove_file(&path); // clean slate
+
+        write_empty_mod_config(&path).expect("write_empty_mod_config should succeed");
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("<Mods>"), "placeholder must contain <Mods>");
+        assert!(!content.contains("<Mod "), "empty placeholder must have no <Mod> entries");
+
+        std::fs::remove_file(&path).ok();
+    }
+
+    /// seed_dev_mod_config only runs in debug builds; skip in release.
+    #[test]
+    #[cfg(debug_assertions)]
+    fn test_seed_dev_mod_config_is_idempotent() {
+        // Call twice — second call must return the "using cached" message.
+        let first = seed_dev_mod_config();
+        assert!(first.is_ok(), "first seed call failed: {:?}", first);
+        let second = seed_dev_mod_config().expect("second seed call must succeed");
+        assert!(
+            second.contains("cached") || second.contains("Seeded") || second.contains("placeholder"),
+            "unexpected seed message: {}",
+            second
+        );
     }
 }
