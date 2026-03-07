@@ -110,15 +110,16 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                             .show(ui, |ui| {
                                 ui.set_min_width(ui.available_width());
                                 ui.horizontal(|ui| {
-                                    // ── Enable/disable checkbox ──────────────
-                                    let mut cb_enabled = row.enabled;
-                                    if ui.checkbox(&mut cb_enabled, "").changed() && !is_locked {
-                                        toggle_idx = Some(row.idx);
-                                    }
+                                    // ── Row number (left) ───────────────────────────────────
+                                    ui.label(
+                                        egui::RichText::new(format!("{}", row.idx + 1))
+                                            .size(11.0)
+                                            .color(ui.visuals().weak_text_color()),
+                                    );
 
                                     ui.add_space(4.0);
 
-                                    // ── Mod name ────────────────────────────
+                                    // ── Mod name ────────────────────────────────────────────
                                     let name_color = if is_drag_source || !row.enabled {
                                         ui.visuals().weak_text_color()
                                     } else {
@@ -130,7 +131,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                                             .color(name_color),
                                     );
 
-                                    // ── Workshop [W] badge ───────────────────
+                                    // ── Workshop [W] badge ───────────────────────────────────
                                     if row.is_workshop {
                                         ui.label(
                                             egui::RichText::new("[W]")
@@ -140,7 +141,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                                         );
                                     }
 
-                                    // ── Missing mod indicator ────────────────
+                                    // ── Missing mod indicator ────────────────────────────────
                                     if let Some(false) = row.workshop_installed {
                                         ui.label(
                                             egui::RichText::new("[Missing]")
@@ -150,26 +151,13 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                                         );
                                     }
 
-                                    // ── Drag hint (far right, only when draggable) ──
-                                    if can_drag {
-                                        ui.with_layout(
-                                            egui::Layout::right_to_left(egui::Align::Center),
-                                            |ui| {
-                                                let hint_color = if is_drag_source {
-                                                    ui.visuals().selection.bg_fill
-                                                } else {
-                                                    ui.visuals()
-                                                        .weak_text_color()
-                                                        .linear_multiply(0.5)
-                                                };
-                                                ui.label(
-                                                    egui::RichText::new("\u{2261}")
-                                                        .size(14.0)
-                                                        .color(hint_color),
-                                                );
-                                            },
-                                        );
-                                    }
+                                    // ── Toggle switch (far right) ────────────────────────────
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            draw_toggle_visual(ui, row.enabled);
+                                        },
+                                    );
                                 });
                             })
                             .response
@@ -188,14 +176,19 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 if row_resp.hovered() {
                     if app.drag_state.is_some() {
                         ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
-                    } else if can_drag {
-                        ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
+                    } else if !is_locked {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                     }
                 }
 
                 // Drag start — whole row is the handle now
                 if row_resp.drag_started() && can_drag && app.drag_state.is_none() {
                     drag_started = Some(row.idx);
+                }
+
+                // Row click toggles the mod (egui guarantees clicked() is false when drag was started)
+                if row_resp.clicked() && !is_locked {
+                    toggle_idx = Some(row.idx);
                 }
 
                 // ── Visual overlays ─────────────────────────────────────────
@@ -393,4 +386,30 @@ pub fn render_monitor_active(app: &mut HallintaApp, ui: &mut egui::Ui) {
             app.stop_save_monitor();
         }
     });
+}
+
+fn draw_toggle_visual(ui: &mut egui::Ui, enabled: bool) {
+    let desired_size = egui::vec2(30.0, 16.0);
+    let (rect, _) = ui.allocate_exact_size(desired_size, egui::Sense::hover());
+
+    if !ui.is_rect_visible(rect) {
+        return;
+    }
+
+    let bg = if enabled {
+        egui::Color32::from_rgb(60, 160, 70)
+    } else {
+        ui.visuals().widgets.inactive.bg_fill
+    };
+
+    let painter = ui.painter();
+    painter.rect_filled(rect, rect.height() / 2.0, bg);
+
+    let r = rect.height() / 2.0 - 2.0;
+    let cx = if enabled {
+        rect.right() - rect.height() / 2.0
+    } else {
+        rect.left() + rect.height() / 2.0
+    };
+    painter.circle_filled(egui::pos2(cx, rect.center().y), r, egui::Color32::WHITE);
 }
