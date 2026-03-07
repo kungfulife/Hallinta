@@ -1781,7 +1781,7 @@ impl eframe::App for HallintaApp {
         // 5. Render UI
         crate::ui::header::render_header(self, ctx);
 
-        if !self.compact_mode {
+        if !self.compact_mode && self.active_view != View::Settings {
             crate::ui::sidebar::render_sidebar(self, ctx);
         }
 
