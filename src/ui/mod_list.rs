@@ -338,7 +338,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     }
 }
 
-/// Shown when the save monitor is active, blocking mod list / vault access.
+/// Shown when the save monitor is active, blocking mod list / modpacks access.
 pub fn render_monitor_active(app: &mut HallintaApp, ui: &mut egui::Ui) {
     ui.vertical_centered(|ui| {
         ui.add_space(40.0);
@@ -379,7 +379,7 @@ pub fn render_monitor_active(app: &mut HallintaApp, ui: &mut egui::Ui) {
         ui.add_space(20.0);
 
         ui.label(
-            egui::RichText::new("Mod list and preset vault are locked while monitor is running.")
+            egui::RichText::new("Mod list and Modpacks are locked while monitor is running.")
                 .italics()
                 .color(ui.visuals().weak_text_color()),
         );
