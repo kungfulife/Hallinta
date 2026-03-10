@@ -76,6 +76,7 @@ fn render_confirm(
     action: ConfirmAction,
     cancel_action: Option<ConfirmAction>,
 ) {
+    let d = crate::ui::design::Design::new(ctx, &app.settings);
     let mut confirmed = false;
     let mut cancelled = false;
 
@@ -86,7 +87,7 @@ fn render_confirm(
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
             ui.label(message);
-            ui.add_space(12.0);
+            ui.add_space(d.md);
             ui.horizontal(|ui| {
                 if ui.button(confirm_text).clicked() {
                     confirmed = true;
@@ -123,6 +124,7 @@ fn render_input(
     value: &mut String,
     action: InputAction,
 ) {
+    let d = crate::ui::design::Design::new(ctx, &app.settings);
     let mut confirmed = false;
     let mut cancelled = false;
 
@@ -136,7 +138,7 @@ fn render_input(
             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 confirmed = true;
             }
-            ui.add_space(8.0);
+            ui.add_space(d.sm);
             ui.horizontal(|ui| {
                 if ui.button("OK").clicked() {
                     confirmed = true;
@@ -215,6 +217,7 @@ fn render_checklist(
 }
 
 fn render_info(app: &mut HallintaApp, ctx: &egui::Context, title: &str, message: &str) {
+    let d = crate::ui::design::Design::new(ctx, &app.settings);
     let mut dismissed = false;
 
     egui::Window::new(title)
@@ -224,7 +227,7 @@ fn render_info(app: &mut HallintaApp, ctx: &egui::Context, title: &str, message:
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
             ui.label(message);
-            ui.add_space(8.0);
+            ui.add_space(d.sm);
             if ui.button("OK").clicked() {
                 dismissed = true;
             }
@@ -239,6 +242,7 @@ fn render_info(app: &mut HallintaApp, ctx: &egui::Context, title: &str, message:
 }
 
 fn render_progress(app: &mut HallintaApp, ctx: &egui::Context) {
+    let d = crate::ui::design::Design::new(ctx, &app.settings);
     if let Some(Modal::Progress { ref message, progress }) = app.active_modal {
         egui::Window::new("Working...")
             .collapsible(false)
@@ -247,7 +251,7 @@ fn render_progress(app: &mut HallintaApp, ctx: &egui::Context) {
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
                 ui.label(message.as_str());
-                ui.add_space(8.0);
+                ui.add_space(d.sm);
                 ui.add(egui::ProgressBar::new(progress).show_percentage());
             });
     }
@@ -433,7 +437,7 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
                     "{} backup(s)",
                     app.backup_state.backup_list.len()
                 )).strong());
-                ui.add_space(4.0);
+                ui.add_space(d.sm);
 
                 egui::ScrollArea::vertical()
                     .max_height(400.0 * d.scale)
@@ -442,7 +446,7 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
                         let backups = app.backup_state.backup_list.clone();
                         for backup in &backups {
                             egui::Frame::group(ui.style())
-                                .inner_margin(egui::Margin::same(6))
+                                .inner_margin(egui::Margin::same(d.sm as i8))
                                 .show(ui, |ui| {
                                     ui.horizontal(|ui| {
                                         ui.vertical(|ui| {

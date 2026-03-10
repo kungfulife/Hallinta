@@ -18,7 +18,7 @@ pub fn render_gallery(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
     // Show error if any
     if let Some(ref error) = app.gallery_state.error {
-        ui.colored_label(egui::Color32::RED, error);
+        ui.colored_label(d.badge_missing, error);
         ui.add_space(d.sm);
     }
 

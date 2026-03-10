@@ -37,20 +37,21 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
             }
         });
 
-        egui::ComboBox::from_id_salt("compact_preset_selector")
-            .selected_text(&app.selected_preset)
-            .width(250.0 * d.scale)
-            .show_ui(ui, |ui| {
-                for name in &preset_names {
-                    if ui
-                        .selectable_label(*name == app.selected_preset, name)
-                        .clicked()
-                        && !is_locked
-                    {
-                        app.selected_preset = name.clone();
+        ui.add_enabled_ui(!is_locked, |ui| {
+            egui::ComboBox::from_id_salt("compact_preset_selector")
+                .selected_text(&app.selected_preset)
+                .width(250.0 * d.scale)
+                .show_ui(ui, |ui| {
+                    for name in &preset_names {
+                        if ui
+                            .selectable_label(*name == app.selected_preset, name)
+                            .clicked()
+                        {
+                            app.selected_preset = name.clone();
+                        }
                     }
-                }
-            });
+                });
+        });
 
         if app.selected_preset != prev_selected {
             app.switch_preset();

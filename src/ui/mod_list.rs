@@ -206,7 +206,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     painter.rect_stroke(
                         frame_resp.rect,
                         4.0,
-                        egui::Stroke::new(2.0, ui.visuals().selection.bg_fill),
+                        egui::Stroke::new(2.0 * d.scale, ui.visuals().selection.bg_fill),
                         egui::StrokeKind::Outside,
                     );
                 }
@@ -257,7 +257,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
             }
 
             // Mod count footer
-            ui.add_space(4.0);
+            ui.add_space(d.sm);
             ui.separator();
             let total = app.current_mods.len();
             let shown = rows.len();

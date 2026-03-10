@@ -255,7 +255,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             });
         });
 
-        ui.add_space(16.0);
+        ui.add_space(d.lg);
 
         // ── Action Buttons ─────────────────────────────────────────────
         ui.horizontal(|ui| {
@@ -280,7 +280,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             }
         });
 
-        ui.add_space(16.0);
+        ui.add_space(d.lg);
 
         // ── Info Panels ────────────────────────────────────────────────
         ui.horizontal(|ui| {

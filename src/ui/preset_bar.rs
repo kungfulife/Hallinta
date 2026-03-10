@@ -23,35 +23,35 @@ pub fn render_preset_bar(app: &mut HallintaApp, ui: &mut egui::Ui) {
             }
         });
 
-        egui::ComboBox::from_id_salt("preset_dropdown")
-            .selected_text(&app.selected_preset)
-            .width(200.0 * d.scale)
-            .show_ui(ui, |ui| {
-                // "Create New Preset" option
-                if ui
-                    .selectable_label(false, "Create New Preset")
-                    .clicked()
-                    && !is_locked
-                {
-                    let default_name =
-                        format!("Preset {}", app.presets.len() + 1);
-                    app.active_modal = Some(Modal::Input {
-                        title: "Enter name for new preset:".to_string(),
-                        value: default_name,
-                        action: InputAction::CreatePreset,
-                    });
-                }
-                ui.separator();
-                for name in &preset_names {
+        ui.add_enabled_ui(!is_locked, |ui| {
+            egui::ComboBox::from_id_salt("preset_dropdown")
+                .selected_text(&app.selected_preset)
+                .width(200.0 * d.scale)
+                .show_ui(ui, |ui| {
+                    // "Create New Preset" option
                     if ui
-                        .selectable_label(*name == app.selected_preset, name)
+                        .selectable_label(false, "Create New Preset")
                         .clicked()
-                        && !is_locked
                     {
-                        app.selected_preset = name.clone();
+                        let default_name =
+                            format!("Preset {}", app.presets.len() + 1);
+                        app.active_modal = Some(Modal::Input {
+                            title: "Enter name for new preset:".to_string(),
+                            value: default_name,
+                            action: InputAction::CreatePreset,
+                        });
                     }
-                }
-            });
+                    ui.separator();
+                    for name in &preset_names {
+                        if ui
+                            .selectable_label(*name == app.selected_preset, name)
+                            .clicked()
+                        {
+                            app.selected_preset = name.clone();
+                        }
+                    }
+                });
+        });
 
         // If preset changed, switch to it
         if app.selected_preset != prev_selected {
