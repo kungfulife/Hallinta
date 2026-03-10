@@ -1,4 +1,6 @@
+pub mod compact;
 pub mod context_menu;
+pub mod design;
 pub mod gallery;
 pub mod header;
 pub mod mod_list;
