@@ -2,8 +2,9 @@ use crate::app::HallintaApp;
 use eframe::egui;
 
 pub fn render_gallery(app: &mut HallintaApp, ui: &mut egui::Ui) {
-    ui.label(egui::RichText::new("Modpacks").heading().strong().size(20.0));
-    ui.add_space(8.0);
+    let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
+    ui.label(egui::RichText::new("Modpacks").size(d.font_display).strong());
+    ui.add_space(d.md);
 
     // Search and tag filter
     ui.horizontal(|ui| {
@@ -18,7 +19,7 @@ pub fn render_gallery(app: &mut HallintaApp, ui: &mut egui::Ui) {
     // Show error if any
     if let Some(ref error) = app.gallery_state.error {
         ui.colored_label(egui::Color32::RED, error);
-        ui.add_space(4.0);
+        ui.add_space(d.sm);
     }
 
     // Show loading state
@@ -64,7 +65,7 @@ pub fn render_gallery(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 }
             }
         });
-        ui.add_space(4.0);
+        ui.add_space(d.sm);
     }
 
     // Filter presets
@@ -93,13 +94,13 @@ pub fn render_gallery(app: &mut HallintaApp, ui: &mut egui::Ui) {
         .collect();
 
     ui.label(format!("{} preset(s) found", filtered.len()));
-    ui.add_space(4.0);
+    ui.add_space(d.sm);
 
     // Grid of preset cards
     egui::ScrollArea::vertical().show(ui, |ui| {
         for preset in &filtered {
             egui::Frame::group(ui.style())
-                .inner_margin(egui::Margin::same(8))
+                .inner_margin(egui::Margin::same(d.md as i8))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
                         ui.vertical(|ui| {
@@ -132,7 +133,7 @@ pub fn render_gallery(app: &mut HallintaApp, ui: &mut egui::Ui) {
                         );
                     });
                 });
-            ui.add_space(4.0);
+            ui.add_space(d.sm);
         }
     });
 }

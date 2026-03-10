@@ -18,21 +18,23 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
     let mut action = SettingsAction::None;
 
+    let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
+
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.heading("Settings");
-        ui.add_space(8.0);
+        ui.add_space(d.md);
 
         // ── Directory Settings ─────────────────────────────────────────
         ui.group(|ui| {
-            ui.label(egui::RichText::new("Directories").strong().size(14.0));
-            ui.add_space(4.0);
+            ui.label(egui::RichText::new("Directories").strong().size(d.font_tab));
+            ui.add_space(d.sm);
 
             // Noita save directory
             ui.label("Noita Save Directory:");
             ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut settings.noita_dir)
-                        .desired_width(ui.available_width() - 180.0),
+                        .desired_width(ui.available_width() - 180.0 * d.scale),
                 );
                 if ui.button("Browse").clicked() {
                     if let Some(folder) = rfd::FileDialog::new()
@@ -49,14 +51,14 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 }
             });
 
-            ui.add_space(4.0);
+            ui.add_space(d.sm);
 
             // Entangled Worlds directory
             ui.label("Entangled Worlds Save Directory:");
             ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut settings.entangled_dir)
-                        .desired_width(ui.available_width() - 180.0),
+                        .desired_width(ui.available_width() - 180.0 * d.scale),
                 );
                 if ui.button("Browse").clicked() {
                     if let Some(folder) = rfd::FileDialog::new()
@@ -75,7 +77,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
             // Dev data directory (debug only)
             if cfg!(debug_assertions) {
-                ui.add_space(4.0);
+                ui.add_space(d.sm);
                 let dev_dir = crate::core::settings::get_data_dir()
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_default();
@@ -87,23 +89,41 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             }
         });
 
-        ui.add_space(8.0);
+        ui.add_space(d.md);
 
         // ── Appearance ──────────────────────────────────────────────────
         ui.group(|ui| {
-            ui.label(egui::RichText::new("Appearance").strong().size(14.0));
-            ui.add_space(4.0);
+            ui.label(egui::RichText::new("Appearance").strong().size(d.font_tab));
+            ui.add_space(d.sm);
 
             ui.checkbox(&mut settings.dark_mode, "Dark Mode");
             ui.checkbox(&mut settings.compact_mode, "Compact Mode");
+            ui.add_space(d.sm);
+            ui.horizontal(|ui| {
+                ui.label("UI Scale:");
+                let scale_resp = ui.add(
+                    egui::Slider::new(&mut settings.ui_scale, 0.75..=2.0)
+                        .step_by(0.05)
+                        .text("×"),
+                );
+                // Live preview: apply scale immediately so the UI resizes as the slider moves.
+                // On Cancel, the live change persists (scale is visual-only and safe to keep).
+                if scale_resp.changed() {
+                    app.settings.ui_scale = settings.ui_scale;
+                }
+                if ui.small_button("Reset").clicked() {
+                    settings.ui_scale = 1.0;
+                    app.settings.ui_scale = 1.0;
+                }
+            });
         });
 
-        ui.add_space(8.0);
+        ui.add_space(d.md);
 
         // ── Logging Settings ───────────────────────────────────────────
         ui.group(|ui| {
-            ui.label(egui::RichText::new("Logging").strong().size(14.0));
-            ui.add_space(4.0);
+            ui.label(egui::RichText::new("Logging").strong().size(d.font_tab));
+            ui.add_space(d.sm);
 
             ui.horizontal(|ui| {
                 ui.label("Max Log Files:");
@@ -133,12 +153,12 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             );
         });
 
-        ui.add_space(8.0);
+        ui.add_space(d.md);
 
         // ── Backup Settings ────────────────────────────────────────────
         ui.group(|ui| {
-            ui.label(egui::RichText::new("Backup").strong().size(14.0));
-            ui.add_space(4.0);
+            ui.label(egui::RichText::new("Backup").strong().size(d.font_tab));
+            ui.add_space(d.sm);
 
             ui.horizontal(|ui| {
                 ui.label("Auto-delete backups older than (days, 0=never):");
@@ -156,12 +176,12 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             });
         });
 
-        ui.add_space(8.0);
+        ui.add_space(d.md);
 
         // ── Save Monitor Settings ──────────────────────────────────────
         ui.group(|ui| {
-            ui.label(egui::RichText::new("Save Monitor").strong().size(14.0));
-            ui.add_space(4.0);
+            ui.label(egui::RichText::new("Save Monitor").strong().size(d.font_tab));
+            ui.add_space(d.sm);
 
             ui.horizontal(|ui| {
                 ui.label("Snapshot interval (minutes):");
@@ -207,19 +227,19 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             );
         });
 
-        ui.add_space(8.0);
+        ui.add_space(d.md);
 
         // ── Gallery Settings ───────────────────────────────────────────
         ui.group(|ui| {
-            ui.label(egui::RichText::new("Modpacks").strong().size(14.0));
-            ui.add_space(4.0);
+            ui.label(egui::RichText::new("Modpacks").strong().size(d.font_tab));
+            ui.add_space(d.sm);
 
             ui.label("Catalog URL:");
             ui.add(
                 egui::TextEdit::singleline(&mut settings.gallery_settings.catalog_url)
                     .desired_width(ui.available_width()),
             );
-            ui.add_space(4.0);
+            ui.add_space(d.sm);
             ui.label("Steam Path:");
             ui.horizontal(|ui| {
                 ui.add(
