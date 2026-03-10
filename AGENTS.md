@@ -12,7 +12,8 @@
   - `src/models.rs`: shared data models and UI enums.
   - `src/tasks.rs`: async task result messages.
 - Tests: unit tests are colocated in `#[cfg(test)]` modules.
-- Docs: `docs/`.
+- Docs: `docs/`
+  - If you want to put anything planning related, just put it within "temp". 
 - Build outputs: `target/`.
 - Runtime data directory:
   - Debug builds: `<repo>/dev_data`
