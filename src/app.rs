@@ -69,6 +69,7 @@ impl HallintaApp {
                 save_monitor_settings: SaveMonitorSettings::default(),
                 gallery_settings: GallerySettings::default(),
                 compact_mode: false,
+                ui_scale: 1.0,
             }
         });
 

@@ -318,5 +318,6 @@ fn default_settings() -> AppSettings {
         save_monitor_settings: Default::default(), // includes include_save01: false
         gallery_settings: Default::default(),
         compact_mode: false,
+        ui_scale: 1.0,
     }
 }

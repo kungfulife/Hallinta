@@ -55,6 +55,7 @@ pub fn load_settings() -> Result<AppSettings, String> {
                 steam_path,
             },
             compact_mode: false,
+            ui_scale: 1.0,
         };
         save_settings(&default_settings)?;
         return Ok(default_settings);
@@ -173,6 +174,7 @@ mod tests {
                 steam_path: "/test/steam".to_string(),
             },
             compact_mode: true,
+            ui_scale: 1.0,
         };
 
         // Serialize to file manually (bypass get_data_dir to use temp dir)

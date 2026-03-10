@@ -33,6 +33,8 @@ pub struct AppSettings {
     pub gallery_settings: GallerySettings,
     #[serde(default)]
     pub compact_mode: bool,
+    #[serde(default = "default_ui_scale")]
+    pub ui_scale: f32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -91,6 +93,10 @@ fn default_include_save01() -> bool {
 
 fn default_keep_every_nth() -> usize {
     5
+}
+
+fn default_ui_scale() -> f32 {
+    1.0
 }
 
 impl Default for SaveMonitorSettings {
