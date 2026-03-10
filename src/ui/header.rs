@@ -3,14 +3,15 @@ use crate::models::{FilterMode, View};
 use eframe::egui;
 
 pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
+    let d = crate::ui::design::Design::new(ctx, &app.settings);
     egui::TopBottomPanel::top("header_panel").show(ctx, |ui| {
-        ui.add_space(4.0);
+        ui.add_space(d.sm);
 
         // Row 1: Tab buttons + search + filter
         ui.horizontal(|ui| {
             // Left-side controls: hidden in compact mode
             if !app.compact_mode {
-                let tab_font = egui::FontId::proportional(15.0);
+                let tab_font = d.font(d.font_tab);
 
                 let mod_list_text = egui::RichText::new("Mod List").font(tab_font.clone());
                 if ui
@@ -39,7 +40,7 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
                     ui.label(egui::RichText::new("Search:").strong());
                     ui.add(
                         egui::TextEdit::singleline(&mut app.search_query)
-                            .desired_width(150.0)
+                            .desired_width(d.search_w)
                             .hint_text("Filter..."),
                     );
                 }
@@ -79,7 +80,7 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
                 // Monitor indicator
                 if app.save_monitor.is_running() {
                     ui.colored_label(
-                        egui::Color32::from_rgb(50, 200, 50),
+                        d.status_ok,
                         egui::RichText::new("MONITOR ACTIVE").strong(),
                     );
                 }
@@ -91,6 +92,6 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
             crate::ui::preset_bar::render_preset_bar(app, ui);
         }
 
-        ui.add_space(2.0);
+        ui.add_space(d.xs);
     });
 }

@@ -3,9 +3,10 @@ use crate::models::{ConfirmAction, InputAction, Modal};
 use eframe::egui;
 
 pub fn render_preset_bar(app: &mut HallintaApp, ui: &mut egui::Ui) {
-    ui.add_space(4.0);
+    let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
+    ui.add_space(d.sm);
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Preset:").strong());
+        ui.label(egui::RichText::new("Preset:").size(d.font_body).strong());
 
         let is_locked = app.save_monitor.is_running();
         let prev_selected = app.selected_preset.clone();
@@ -24,7 +25,7 @@ pub fn render_preset_bar(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
         egui::ComboBox::from_id_salt("preset_dropdown")
             .selected_text(&app.selected_preset)
-            .width(200.0)
+            .width(200.0 * d.scale)
             .show_ui(ui, |ui| {
                 // "Create New Preset" option
                 if ui

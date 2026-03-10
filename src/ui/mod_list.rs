@@ -3,13 +3,15 @@ use crate::models::{DragState, FilterMode};
 use eframe::egui;
 
 pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
+    let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
+
     if app.current_mods.is_empty() {
         ui.centered_and_justified(|ui| {
             ui.label(
                 egui::RichText::new(
                     "No mods loaded. Check your Noita save directory in Settings.",
                 )
-                .size(14.0)
+                .size(d.font_heading)
                 .italics(),
             );
         });
@@ -85,15 +87,11 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 let base_fill = if is_drag_source {
                     ui.visuals().extreme_bg_color
                 } else if row.enabled {
-                    if is_even {
-                        ui.visuals().widgets.active.bg_fill.linear_multiply(0.10)
-                    } else {
-                        ui.visuals().widgets.active.bg_fill.linear_multiply(0.05)
-                    }
+                    if is_even { d.enabled_even } else { d.enabled_odd }
                 } else if is_even {
-                    ui.visuals().faint_bg_color
+                    d.disabled_even
                 } else {
-                    egui::Color32::TRANSPARENT
+                    d.disabled_odd
                 };
 
                 // `row.idx` is stable throughout the drag (no live reordering), so it's a
@@ -104,8 +102,11 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 let frame_resp = ui
                     .push_id(row.idx, |ui| {
                         egui::Frame::NONE
-                            .inner_margin(egui::Margin::symmetric(6, 3))
-                            .corner_radius(4)
+                            .inner_margin(egui::Margin::symmetric(
+                                d.row_pad_x as i8,
+                                d.row_pad_y as i8,
+                            ))
+                            .corner_radius(4.0 * d.scale)
                             .fill(base_fill)
                             .show(ui, |ui| {
                                 ui.set_min_width(ui.available_width());
@@ -113,11 +114,11 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                                     // ── Row number (left) ───────────────────────────────────
                                     ui.label(
                                         egui::RichText::new(format!("{}", row.idx + 1))
-                                            .size(11.0)
-                                            .color(ui.visuals().weak_text_color()),
+                                            .size(d.font_small)
+                                            .color(d.row_number_color),
                                     );
 
-                                    ui.add_space(4.0);
+                                    ui.add_space(d.sm);
 
                                     // ── Mod name ────────────────────────────────────────────
                                     let name_color = if is_drag_source || !row.enabled {
@@ -125,37 +126,33 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                                     } else {
                                         ui.visuals().text_color()
                                     };
-                                    ui.label(
+                                    let name_style = if !row.enabled {
                                         egui::RichText::new(&row.name)
-                                            .size(13.0)
-                                            .color(name_color),
-                                    );
+                                            .size(d.font_body)
+                                            .color(name_color)
+                                            .italics()
+                                    } else {
+                                        egui::RichText::new(&row.name)
+                                            .size(d.font_body)
+                                            .color(name_color)
+                                    };
+                                    ui.label(name_style);
 
-                                    // ── Workshop [W] badge ───────────────────────────────────
+                                    // ── Workshop badge ───────────────────────────────────
                                     if row.is_workshop {
-                                        ui.label(
-                                            egui::RichText::new("[W]")
-                                                .small()
-                                                .strong()
-                                                .color(egui::Color32::from_rgb(70, 130, 180)),
-                                        );
+                                        draw_badge(ui, "W", d.badge_workshop, &d);
                                     }
 
                                     // ── Missing mod indicator ────────────────────────────────
                                     if let Some(false) = row.workshop_installed {
-                                        ui.label(
-                                            egui::RichText::new("[Missing]")
-                                                .small()
-                                                .strong()
-                                                .color(egui::Color32::from_rgb(220, 60, 60)),
-                                        );
+                                        draw_badge(ui, "Missing", d.badge_missing, &d);
                                     }
 
                                     // ── Toggle switch (far right) ────────────────────────────
                                     ui.with_layout(
                                         egui::Layout::right_to_left(egui::Align::Center),
                                         |ui| {
-                                            draw_toggle_visual(ui, row.enabled);
+                                            draw_toggle_visual(ui, row.enabled, &d);
                                         },
                                     );
                                 });
@@ -199,7 +196,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     painter.rect_stroke(
                         frame_resp.rect,
                         4.0,
-                        egui::Stroke::new(1.0, ui.visuals().widgets.hovered.bg_stroke.color),
+                        egui::Stroke::new(1.5 * d.scale, ui.visuals().widgets.hovered.bg_stroke.color),
                         egui::StrokeKind::Outside,
                     );
                 }
@@ -271,7 +268,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
             };
             ui.label(
                 egui::RichText::new(count_text)
-                    .small()
+                    .size(d.font_small)
                     .color(ui.visuals().weak_text_color()),
             );
         });
@@ -333,30 +330,34 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
 /// Shown when the save monitor is active, blocking mod list / modpacks access.
 pub fn render_monitor_active(app: &mut HallintaApp, ui: &mut egui::Ui) {
-    ui.vertical_centered(|ui| {
-        ui.add_space(40.0);
+    let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
 
+    // True vertical centering: pad top by half available height minus estimated content height
+    let content_h = d.font_display + d.font_heading + d.font_body * 3.0 + d.lg * 5.0;
+    let top_pad = ((ui.available_height() - content_h) / 2.0).max(d.lg);
+    ui.add_space(top_pad);
+
+    ui.vertical_centered(|ui| {
         ui.label(
             egui::RichText::new("Save Monitor Active")
-                .heading()
-                .strong()
-                .size(22.0),
+                .size(d.font_display)
+                .strong(),
         );
-        ui.add_space(12.0);
+        ui.add_space(d.md);
 
         ui.colored_label(
-            egui::Color32::from_rgb(50, 200, 50),
-            egui::RichText::new("Running").size(16.0).strong(),
+            d.status_ok,
+            egui::RichText::new("Running").size(d.font_heading).strong(),
         );
 
-        ui.add_space(8.0);
-        ui.label(egui::RichText::new(format!("Preset: {}", app.selected_preset)).size(14.0));
+        ui.add_space(d.md);
+        ui.label(egui::RichText::new(format!("Preset: {}", app.selected_preset)).size(d.font_body));
         ui.label(
             egui::RichText::new(format!(
                 "Snapshots taken: {}",
                 app.save_monitor.snapshot_count
             ))
-            .size(14.0),
+            .size(d.font_body),
         );
         ui.label(
             egui::RichText::new(format!(
@@ -365,22 +366,23 @@ pub fn render_monitor_active(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 app.settings.save_monitor_settings.max_snapshots_per_preset,
                 app.settings.save_monitor_settings.keep_every_nth,
             ))
-            .size(12.0)
+            .size(d.font_small)
             .color(ui.visuals().weak_text_color()),
         );
 
-        ui.add_space(20.0);
+        ui.add_space(d.lg);
 
         ui.label(
             egui::RichText::new("Mod list and Modpacks are locked while monitor is running.")
                 .italics()
+                .size(d.font_small)
                 .color(ui.visuals().weak_text_color()),
         );
 
-        ui.add_space(16.0);
+        ui.add_space(d.md);
 
         if ui
-            .button(egui::RichText::new("Stop Monitor").size(14.0))
+            .button(egui::RichText::new("Stop Monitor").size(d.font_body))
             .clicked()
         {
             app.stop_save_monitor();
@@ -388,8 +390,8 @@ pub fn render_monitor_active(app: &mut HallintaApp, ui: &mut egui::Ui) {
     });
 }
 
-fn draw_toggle_visual(ui: &mut egui::Ui, enabled: bool) {
-    let desired_size = egui::vec2(30.0, 16.0);
+fn draw_toggle_visual(ui: &mut egui::Ui, enabled: bool, d: &crate::ui::design::Design) {
+    let desired_size = egui::vec2(d.toggle_w, d.toggle_h);
     let (rect, _) = ui.allocate_exact_size(desired_size, egui::Sense::hover());
 
     if !ui.is_rect_visible(rect) {
@@ -397,7 +399,7 @@ fn draw_toggle_visual(ui: &mut egui::Ui, enabled: bool) {
     }
 
     let bg = if enabled {
-        egui::Color32::from_rgb(60, 160, 70)
+        d.toggle_on
     } else {
         ui.visuals().widgets.inactive.bg_fill
     };
@@ -405,11 +407,43 @@ fn draw_toggle_visual(ui: &mut egui::Ui, enabled: bool) {
     let painter = ui.painter();
     painter.rect_filled(rect, rect.height() / 2.0, bg);
 
-    let r = rect.height() / 2.0 - 2.0;
+    // Knob position
+    let r = rect.height() / 2.0 - 2.0 * d.scale;
     let cx = if enabled {
         rect.right() - rect.height() / 2.0
     } else {
         rect.left() + rect.height() / 2.0
     };
-    painter.circle_filled(egui::pos2(cx, rect.center().y), r, egui::Color32::WHITE);
+    let center = egui::pos2(cx, rect.center().y);
+
+    // Subtle shadow: slightly darker circle offset by 1 logical pixel
+    painter.circle_filled(
+        egui::pos2(cx + d.scale * 0.5, rect.center().y + d.scale * 0.5),
+        r,
+        egui::Color32::from_black_alpha(40),
+    );
+    painter.circle_filled(center, r, egui::Color32::WHITE);
+}
+
+/// Draws a small rounded pill badge with the given background color and white text.
+fn draw_badge(ui: &mut egui::Ui, text: &str, bg: egui::Color32, d: &crate::ui::design::Design) {
+    let pad = egui::vec2(d.sm, d.xs);
+    // Use a custom child UI with a Frame so egui handles text measurement internally.
+    egui::Frame::NONE
+        .fill(bg)
+        .inner_margin(egui::Margin {
+            left: pad.x as i8,
+            right: pad.x as i8,
+            top: pad.y as i8,
+            bottom: pad.y as i8,
+        })
+        .corner_radius(99)
+        .show(ui, |ui| {
+            ui.label(
+                egui::RichText::new(text)
+                    .size(d.font_small)
+                    .color(egui::Color32::WHITE)
+                    .strong(),
+            );
+        });
 }
