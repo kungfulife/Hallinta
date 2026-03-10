@@ -244,7 +244,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut settings.gallery_settings.steam_path)
-                        .desired_width(ui.available_width() - 100.0),
+                        .desired_width(ui.available_width() - 100.0 * d.scale),
                 );
                 if ui.button("Auto-detect").clicked() {
                     if let Ok(path) = crate::core::workshop::detect_steam_path() {

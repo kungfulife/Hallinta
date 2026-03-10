@@ -173,6 +173,7 @@ fn render_checklist(
     egui::Window::new(title)
         .collapsible(false)
         .resizable(true)
+        .default_width(420.0 * d.scale)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
@@ -265,6 +266,7 @@ fn render_missing_mods(
     egui::Window::new("Missing Workshop Mods")
         .collapsible(false)
         .resizable(true)
+        .default_width(380.0 * d.scale)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
