@@ -1790,17 +1790,7 @@ impl eframe::App for HallintaApp {
             match self.active_view {
                 View::ModList => {
                     if self.compact_mode {
-                        // Compact mode: show only monitor status
-                        ui.heading("Save Monitor");
-                        if self.save_monitor.is_running() {
-                            ui.colored_label(egui::Color32::GREEN, "Running");
-                            ui.label(format!("Snapshots: {}", self.save_monitor.snapshot_count));
-                            if ui.button("Stop Monitor").clicked() {
-                                self.stop_save_monitor();
-                            }
-                        } else if ui.button("Start Monitor").clicked() {
-                            self.start_save_monitor();
-                        }
+                        crate::ui::compact::render_compact(self, ui);
                     } else if self.save_monitor.is_running() {
                         // Monitor running: show monitor status instead of mod list
                         crate::ui::mod_list::render_monitor_active(self, ui);
