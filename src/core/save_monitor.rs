@@ -58,26 +58,23 @@ pub fn create_monitor_snapshot(
     }
 
     // Optionally include save01
-    if include_save01 {
-        if let Some(parent) = save00_path.parent() {
+    if include_save01
+        && let Some(parent) = save00_path.parent() {
             let save01_path = parent.join("save01");
             if save01_path.exists() {
                 add_directory_to_zip(&mut zip, &save01_path, "save01")?;
             }
         }
-    }
 
     // Optionally include Entangled Worlds
-    if include_entangled {
-        if let Some(ew_dir) = entangled_dir {
-            if !ew_dir.is_empty() {
+    if include_entangled
+        && let Some(ew_dir) = entangled_dir
+            && !ew_dir.is_empty() {
                 let ew_path = PathBuf::from(ew_dir);
                 if ew_path.exists() {
                     add_directory_to_zip(&mut zip, &ew_path, "entangled_worlds")?;
                 }
             }
-        }
-    }
 
     zip.finish()
         .map_err(|e| format!("Failed to finish snapshot zip: {}", e))?;
@@ -100,7 +97,7 @@ pub fn list_monitor_snapshots(preset_name: &str) -> Result<Vec<MonitorSnapshot>,
     for entry in entries {
         let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
         let path = entry.path();
-        if path.extension().map_or(false, |ext| ext == "zip") {
+        if path.extension().is_some_and(|ext| ext == "zip") {
             let filename = path
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
@@ -146,7 +143,7 @@ pub fn cleanup_monitor_snapshots(
     let mut files: Vec<_> = fs::read_dir(&preset_dir)
         .map_err(|e| format!("Failed to read monitor directory: {}", e))?
         .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "zip"))
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "zip"))
         .collect();
 
     if files.len() <= keep_count {

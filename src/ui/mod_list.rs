@@ -222,8 +222,8 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 // ── Drop-target detection ────────────────────────────────────
                 if app.drag_state.is_some() {
                     let rect = frame_resp.rect;
-                    if let Some(ptr) = ui.ctx().pointer_latest_pos() {
-                        if ptr.y >= rect.top() && ptr.y < rect.bottom() {
+                    if let Some(ptr) = ui.ctx().pointer_latest_pos()
+                        && ptr.y >= rect.top() && ptr.y < rect.bottom() {
                             let insert_before = ptr.y < rect.center().y;
                             let candidate_pos =
                                 if insert_before { row_num } else { row_num + 1 };
@@ -252,7 +252,6 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                                 }
                             }
                         }
-                    }
                 }
             }
 
@@ -293,9 +292,9 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     }
 
     // Commit drag on pointer release
-    if ui.input(|i| i.pointer.any_released()) {
-        if let Some(drag) = app.drag_state.take() {
-            if let Some(insert_pos) = drop_insert_pos {
+    if ui.input(|i| i.pointer.any_released())
+        && let Some(drag) = app.drag_state.take()
+            && let Some(insert_pos) = drop_insert_pos {
                 let src = drag.source_index;
                 let n = app.current_mods.len();
                 let is_noop = insert_pos == src || insert_pos == src + 1;
@@ -316,16 +315,13 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 }
             }
             // Released outside list — keep original order (drag_state already taken/dropped)
-        }
-    }
 
     // Escape cancels drag
-    if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-        if let Some(drag) = app.drag_state.take() {
+    if ui.input(|i| i.key_pressed(egui::Key::Escape))
+        && let Some(drag) = app.drag_state.take() {
             app.current_mods = drag.pre_drag_snapshot;
             let _ = crate::core::logging::log("INFO", "Drag cancelled", "ModList");
         }
-    }
 }
 
 /// Shown when the save monitor is active, blocking mod list / modpacks access.

@@ -97,14 +97,13 @@ pub fn create_backup(
     }
 
     // Optionally include save01
-    if include_save01 {
-        if let Some(parent) = noita_dir.parent() {
+    if include_save01
+        && let Some(parent) = noita_dir.parent() {
             let save01_path = parent.join("save01");
             if save01_path.exists() {
                 add_directory_to_zip(&mut zip, &save01_path, "save01")?;
             }
         }
-    }
 
     // Optionally include presets
     if include_presets {
@@ -122,13 +121,11 @@ pub fn create_backup(
     }
 
     // Optionally include Entangled Worlds
-    if include_entangled {
-        if let Some(ew_path) = entangled_dir {
-            if ew_path.exists() {
+    if include_entangled
+        && let Some(ew_path) = entangled_dir
+            && ew_path.exists() {
                 add_directory_to_zip(&mut zip, ew_path, "entangled_worlds")?;
             }
-        }
-    }
 
     zip.finish()
         .map_err(|e| format!("Failed to finish backup zip: {}", e))?;
@@ -150,7 +147,7 @@ pub fn list_backups() -> Result<Vec<BackupInfo>, String> {
     for entry in entries {
         let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
         let path = entry.path();
-        if path.extension().map_or(false, |ext| ext == "zip") {
+        if path.extension().is_some_and(|ext| ext == "zip") {
             let filename = path
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
@@ -256,17 +253,13 @@ pub fn cleanup_old_backups(max_age_days: u32) -> Result<u32, String> {
     for entry in entries {
         let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
         let path = entry.path();
-        if path.extension().map_or(false, |ext| ext == "zip") {
-            if let Ok(metadata) = fs::metadata(&path) {
-                if let Ok(modified) = metadata.modified() {
-                    if modified < cutoff {
-                        if fs::remove_file(&path).is_ok() {
+        if path.extension().is_some_and(|ext| ext == "zip")
+            && let Ok(metadata) = fs::metadata(&path)
+                && let Ok(modified) = metadata.modified()
+                    && modified < cutoff
+                        && fs::remove_file(&path).is_ok() {
                             deleted += 1;
                         }
-                    }
-                }
-            }
-        }
     }
 
     Ok(deleted)
@@ -455,7 +448,7 @@ fn cleanup_old_upgrade_backups(upgrade_backup_dir: &Path, keep_count: usize) -> 
     let mut backups: Vec<_> = fs::read_dir(upgrade_backup_dir)
         .map_err(|e| format!("Failed to read upgrade_backups directory: {}", e))?
         .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "zip"))
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "zip"))
         .collect();
 
     if backups.len() <= keep_count {

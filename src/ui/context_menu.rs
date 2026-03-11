@@ -45,8 +45,8 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
 
     ui.separator();
 
-    if is_workshop {
-        if ui.button("Open Workshop Page").clicked() {
+    if is_workshop
+        && ui.button("Open Workshop Page").clicked() {
             let url = format!(
                 "https://steamcommunity.com/sharedfiles/filedetails/?id={}",
                 workshop_id
@@ -54,7 +54,6 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
             let _ = crate::core::platform::open_url(&url);
             ui.close();
         }
-    }
 
     if ui.button("Open mod_config.xml").clicked() {
         app.open_mod_config_file();

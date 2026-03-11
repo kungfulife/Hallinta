@@ -165,7 +165,7 @@ fn render_checklist(
     ctx: &egui::Context,
     title: &str,
     message: &str,
-    items: &mut Vec<ChecklistItem>,
+    items: &mut [ChecklistItem],
     action: ChecklistAction,
 ) {
     let d = crate::ui::design::Design::new(ctx, &app.settings);
@@ -210,7 +210,7 @@ fn render_checklist(
         app.active_modal = Some(Modal::Checklist {
             title: title.to_string(),
             message: message.to_string(),
-            items: items.clone(),
+            items: items.to_vec(),
             action,
         });
     }
@@ -285,12 +285,11 @@ fn render_missing_mods(
                     for (name, workshop_id) in mods {
                         ui.horizontal(|ui| {
                             ui.label(name);
-                            if workshop_id != "0" && !workshop_id.is_empty() {
-                                if ui.small_button("Subscribe").clicked() {
+                            if workshop_id != "0" && !workshop_id.is_empty()
+                                && ui.small_button("Subscribe").clicked() {
                                     let _ =
                                         crate::core::workshop::open_steam_subscribe(workshop_id);
                                 }
-                            }
                         });
                     }
                 });
@@ -401,8 +400,8 @@ fn render_open_source(app: &mut HallintaApp, ctx: &egui::Context) {
                 .show(ui, |ui| {
                     for lib in &libs {
                         ui.horizontal(|ui| {
-                            ui.strong(&format!("{} v{}", lib.name, lib.version));
-                            ui.label(&format!("- {}", lib.purpose));
+                            ui.strong(format!("{} v{}", lib.name, lib.version));
+                            ui.label(format!("- {}", lib.purpose));
                         });
                         if ui.small_button(&lib.homepage).clicked() {
                             let _ = crate::core::platform::open_url(&lib.homepage);

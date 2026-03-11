@@ -113,19 +113,12 @@ impl Default for SaveMonitorSettings {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Default)]
 pub struct GallerySettings {
     pub catalog_url: String,
     pub steam_path: String,
 }
 
-impl Default for GallerySettings {
-    fn default() -> Self {
-        Self {
-            catalog_url: String::new(),
-            steam_path: String::new(),
-        }
-    }
-}
 
 // ── Backup ─────────────────────────────────────────────────────────────────
 

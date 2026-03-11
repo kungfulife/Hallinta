@@ -10,7 +10,6 @@ pub struct Design {
     pub sm: f32,  // 4 * scale
     pub md: f32,  // 8 * scale
     pub lg: f32,  // 16 * scale
-    pub xl: f32,  // 24 * scale
     // Font sizes
     pub font_small:   f32,  // 11 * scale
     pub font_body:    f32,  // 13 * scale
@@ -30,18 +29,16 @@ pub struct Design {
     pub disabled_even: egui::Color32,
     pub disabled_odd:  egui::Color32,
     // Colors: accents and indicators
-    pub accent:          egui::Color32,
     pub badge_workshop:  egui::Color32,
     pub badge_missing:   egui::Color32,
     pub toggle_on:       egui::Color32,
     pub status_ok:       egui::Color32,
     pub row_number_color: egui::Color32,
-    pub drag_highlight:  egui::Color32,
 }
 
 impl Design {
     pub fn new(ctx: &egui::Context, settings: &AppSettings) -> Self {
-        let s = settings.ui_scale.max(0.5).min(3.0);
+        let s = settings.ui_scale.clamp(0.5, 3.0);
         let dark = ctx.style().visuals.dark_mode;
 
         let (enabled_even, enabled_odd, disabled_even) = if dark {
@@ -70,7 +67,6 @@ impl Design {
             sm: 4.0 * s,
             md: 8.0 * s,
             lg: 16.0 * s,
-            xl: 24.0 * s,
             font_small:   11.0 * s,
             font_body:    13.0 * s,
             font_tab:     15.0 * s,
@@ -86,17 +82,11 @@ impl Design {
             enabled_odd,
             disabled_even,
             disabled_odd: egui::Color32::TRANSPARENT,
-            accent: if dark {
-                egui::Color32::from_rgb(60, 120, 200)
-            } else {
-                egui::Color32::from_rgb(40, 100, 180)
-            },
             badge_workshop:  egui::Color32::from_rgb(70, 130, 180),
             badge_missing:   egui::Color32::from_rgb(200, 55, 55),
             toggle_on:       egui::Color32::from_rgb(60, 160, 70),
             status_ok:       egui::Color32::from_rgb(50, 200, 50),
             row_number_color,
-            drag_highlight:  ctx.style().visuals.selection.bg_fill,
         }
     }
 
@@ -131,7 +121,7 @@ mod tests {
 
     #[test]
     fn scale_clamped_to_valid_range() {
-        let clamp = |v: f32| v.max(0.5).min(3.0);
+        let clamp = |v: f32| v.clamp(0.5, 3.0);
         assert_eq!(clamp(0.1), 0.5);
         assert_eq!(clamp(5.0), 3.0);
         assert_eq!(clamp(1.0), 1.0);

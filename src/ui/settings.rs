@@ -36,19 +36,17 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     egui::TextEdit::singleline(&mut settings.noita_dir)
                         .desired_width(ui.available_width() - 180.0 * d.scale),
                 );
-                if ui.button("Browse").clicked() {
-                    if let Some(folder) = rfd::FileDialog::new()
+                if ui.button("Browse").clicked()
+                    && let Some(folder) = rfd::FileDialog::new()
                         .set_title("Select Noita Save Directory")
                         .pick_folder()
                     {
                         settings.noita_dir = folder.to_string_lossy().to_string();
                     }
-                }
-                if ui.button("Auto-detect").clicked() {
-                    if let Ok(path) = crate::core::platform::get_noita_save_path() {
+                if ui.button("Auto-detect").clicked()
+                    && let Ok(path) = crate::core::platform::get_noita_save_path() {
                         settings.noita_dir = path.to_string_lossy().to_string();
                     }
-                }
             });
 
             ui.add_space(d.sm);
@@ -60,19 +58,17 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     egui::TextEdit::singleline(&mut settings.entangled_dir)
                         .desired_width(ui.available_width() - 180.0 * d.scale),
                 );
-                if ui.button("Browse").clicked() {
-                    if let Some(folder) = rfd::FileDialog::new()
+                if ui.button("Browse").clicked()
+                    && let Some(folder) = rfd::FileDialog::new()
                         .set_title("Select Entangled Worlds Directory")
                         .pick_folder()
                     {
                         settings.entangled_dir = folder.to_string_lossy().to_string();
                     }
-                }
-                if ui.button("Auto-detect").clicked() {
-                    if let Ok(path) = crate::core::platform::get_entangled_worlds_save_path() {
+                if ui.button("Auto-detect").clicked()
+                    && let Ok(path) = crate::core::platform::get_entangled_worlds_save_path() {
                         settings.entangled_dir = path.to_string_lossy().to_string();
                     }
-                }
             });
 
             // Dev data directory (debug only)
@@ -246,12 +242,11 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     egui::TextEdit::singleline(&mut settings.gallery_settings.steam_path)
                         .desired_width(ui.available_width() - 100.0 * d.scale),
                 );
-                if ui.button("Auto-detect").clicked() {
-                    if let Ok(path) = crate::core::workshop::detect_steam_path() {
+                if ui.button("Auto-detect").clicked()
+                    && let Ok(path) = crate::core::workshop::detect_steam_path() {
                         settings.gallery_settings.steam_path =
                             path.to_string_lossy().to_string();
                     }
-                }
             });
         });
 
@@ -290,11 +285,10 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             if ui.button("Open Source Libraries").clicked() {
                 app.active_modal = Some(Modal::OpenSourceLibraries);
             }
-            if ui.button("Open Settings Folder").clicked() {
-                if let Ok(dir) = crate::core::settings::get_data_dir() {
+            if ui.button("Open Settings Folder").clicked()
+                && let Ok(dir) = crate::core::settings::get_data_dir() {
                     let _ = crate::core::platform::open_directory(&dir);
                 }
-            }
         });
     });
 

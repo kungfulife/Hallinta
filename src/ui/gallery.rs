@@ -59,11 +59,10 @@ pub fn render_gallery(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     }
                 }
             }
-            if !app.gallery_state.selected_tags.is_empty() {
-                if ui.small_button("Clear").clicked() {
+            if !app.gallery_state.selected_tags.is_empty()
+                && ui.small_button("Clear").clicked() {
                     app.gallery_state.selected_tags.clear();
                 }
-            }
         });
         ui.add_space(d.sm);
     }

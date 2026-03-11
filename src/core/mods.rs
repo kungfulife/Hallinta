@@ -26,11 +26,11 @@ pub fn parse_mods_from_xml(xml: &str) -> Result<Vec<ModEntry>, String> {
         }
 
         let name = extract_xml_attr(trimmed, "name").unwrap_or_else(|| "Unknown Mod".to_string());
-        let enabled = extract_xml_attr(trimmed, "enabled").map_or(false, |v| v == "1");
+        let enabled = extract_xml_attr(trimmed, "enabled").is_some_and(|v| v == "1");
         let workshop_id =
             extract_xml_attr(trimmed, "workshop_item_id").unwrap_or_else(|| "0".to_string());
         let settings_fold_open =
-            extract_xml_attr(trimmed, "settings_fold_open").map_or(false, |v| v == "1");
+            extract_xml_attr(trimmed, "settings_fold_open").is_some_and(|v| v == "1");
 
         mods.push(ModEntry {
             name: unescape_xml_attr(&name),

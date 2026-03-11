@@ -280,7 +280,7 @@ impl HallintaApp {
         let should_check = self
             .file_watcher
             .last_check
-            .map_or(true, |t| now.duration_since(t) > self.file_watcher.check_interval);
+            .is_none_or(|t| now.duration_since(t) > self.file_watcher.check_interval);
         if should_check && self.active_modal.is_none() {
             self.file_watcher.last_check = Some(now);
             self.check_external_changes();
@@ -294,21 +294,20 @@ impl HallintaApp {
             let should_snapshot = self
                 .save_monitor
                 .last_snapshot
-                .map_or(false, |t| now.duration_since(t) > interval);
+                .is_some_and(|t| now.duration_since(t) > interval);
             if should_snapshot {
                 self.take_monitor_snapshot();
             }
         }
 
         // Auto-backup
-        if let Some(due) = self.backup_state.auto_backup_due {
-            if now >= due && !self.backup_state.in_progress {
+        if let Some(due) = self.backup_state.auto_backup_due
+            && now >= due && !self.backup_state.in_progress {
                 self.run_auto_backup();
                 let interval = self.settings.backup_settings.backup_interval_minutes;
                 self.backup_state.auto_backup_due =
                     Some(now + Duration::from_secs(interval as u64 * 60));
             }
-        }
 
         // Request periodic repaint for timers
         ctx.request_repaint_after(Duration::from_secs(1));
@@ -325,9 +324,9 @@ impl HallintaApp {
         {
             self.file_watcher.last_modified_time = new_mtime;
 
-            if let Ok(xml) = mods::read_mod_config(&dir) {
-                if let Ok(file_mods) = mods::parse_mods_from_xml(&xml) {
-                    if !mods_equal(&self.current_mods, &file_mods) {
+            if let Ok(xml) = mods::read_mod_config(&dir)
+                && let Ok(file_mods) = mods::parse_mods_from_xml(&xml)
+                    && !mods_equal(&self.current_mods, &file_mods) {
                         self.active_modal = Some(Modal::Confirm {
                             message: format!(
                                 "mod_config.xml was modified externally and no longer matches your \"{}\" preset.",
@@ -339,8 +338,6 @@ impl HallintaApp {
                             cancel_action: Some(ConfirmAction::KeepCurrentPreset),
                         });
                     }
-                }
-            }
         }
     }
 
@@ -498,8 +495,8 @@ impl HallintaApp {
                     }
                 }
                 TaskResult::BackupCleanupComplete(res) => {
-                    if let Ok(count) = res {
-                        if count > 0 {
+                    if let Ok(count) = res
+                        && count > 0 {
                             let _ = logging::log(
                                 "INFO",
                                 &format!("Cleaned up {} old backup(s)", count),
@@ -507,18 +504,16 @@ impl HallintaApp {
                             );
                             self.load_backup_list_async();
                         }
-                    }
                 }
                 TaskResult::SnapshotCleanupComplete(res) => {
-                    if let Ok(count) = res {
-                        if count > 0 {
+                    if let Ok(count) = res
+                        && count > 0 {
                             let _ = logging::log(
                                 "INFO",
                                 &format!("Cleaned up {} old snapshot(s)", count),
                                 "SaveMonitor",
                             );
                         }
-                    }
                 }
                 TaskResult::BackupDeleted(res) => {
                     match res {
@@ -768,14 +763,13 @@ impl HallintaApp {
             return;
         }
         let dir = PathBuf::from(&noita_dir);
-        if let Ok(xml) = mods::read_mod_config(&dir) {
-            if let Ok(file_mods) = mods::parse_mods_from_xml(&xml) {
+        if let Ok(xml) = mods::read_mod_config(&dir)
+            && let Ok(file_mods) = mods::parse_mods_from_xml(&xml) {
                 self.current_mods = file_mods;
                 self.presets
                     .insert(self.selected_preset.clone(), self.current_mods.clone());
                 let _ = presets::save_presets(&self.presets);
             }
-        }
         let config_path = dir.join("mod_config.xml");
         if let Ok(mtime) = mods::get_file_modified_time(&config_path) {
             self.file_watcher.last_modified_time = mtime;
@@ -783,11 +777,10 @@ impl HallintaApp {
     }
 
     pub fn get_active_noita_dir(&self) -> String {
-        if cfg!(debug_assertions) {
-            if let Ok(dev_dir) = platform::get_dev_save_dir() {
+        if cfg!(debug_assertions)
+            && let Ok(dev_dir) = platform::get_dev_save_dir() {
                 return dev_dir.to_string_lossy().to_string();
             }
-        }
         self.settings.noita_dir.clone()
     }
 
@@ -946,7 +939,7 @@ impl HallintaApp {
 
         let path = rfd::FileDialog::new()
             .set_title("Export Enabled Mods")
-            .set_file_name(&format!("{}-mod-list.json", self.selected_preset))
+            .set_file_name(format!("{}-mod-list.json", self.selected_preset))
             .add_filter("JSON", &["json"])
             .save_file();
 
@@ -1038,9 +1031,9 @@ impl HallintaApp {
         }
 
         // Checksum verification
-        if let Some(ref checksum) = import_data.checksum {
-            if let Ok(canonical) = serde_json::to_string(&import_data.presets) {
-                if !gallery::verify_checksum(&canonical, checksum) {
+        if let Some(ref checksum) = import_data.checksum
+            && let Ok(canonical) = serde_json::to_string(&import_data.presets)
+                && !gallery::verify_checksum(&canonical, checksum) {
                     let raw_presets_str =
                         serde_json::to_string(&import_data.presets).unwrap_or_default();
                     if !gallery::verify_checksum(&raw_presets_str, checksum) {
@@ -1058,8 +1051,6 @@ impl HallintaApp {
                         return;
                     }
                 }
-            }
-        }
 
         // Check for missing workshop mods across all presets
         let steam_path = &self.settings.gallery_settings.steam_path;
@@ -1072,8 +1063,8 @@ impl HallintaApp {
                 .map(|m| m.workshop_id.clone())
                 .collect();
 
-            if !all_workshop_ids.is_empty() {
-                if let Ok(statuses) = workshop::check_workshop_mods_installed(&all_workshop_ids, steam_path) {
+            if !all_workshop_ids.is_empty()
+                && let Ok(statuses) = workshop::check_workshop_mods_installed(&all_workshop_ids, steam_path) {
                     let missing: Vec<(String, String)> = import_data
                         .presets
                         .values()
@@ -1098,7 +1089,6 @@ impl HallintaApp {
                         return;
                     }
                 }
-            }
         }
 
         // Show checklist for which presets to import
@@ -1282,11 +1272,10 @@ impl HallintaApp {
         }
 
         // 5-minute cache
-        if let Some(fetched_at) = self.gallery_state.catalog_fetched_at {
-            if Instant::now().duration_since(fetched_at) < Duration::from_secs(300) {
+        if let Some(fetched_at) = self.gallery_state.catalog_fetched_at
+            && Instant::now().duration_since(fetched_at) < Duration::from_secs(300) {
                 return;
             }
-        }
 
         self.gallery_state.loading = true;
         self.gallery_state.error = None;
@@ -1329,13 +1318,11 @@ impl HallintaApp {
         }
 
         // Verify checksum
-        if let Some(ref checksum) = import_data.checksum {
-            if let Ok(canonical) = serde_json::to_string(&import_data.presets) {
-                if !gallery::verify_checksum(&canonical, checksum) {
+        if let Some(ref checksum) = import_data.checksum
+            && let Ok(canonical) = serde_json::to_string(&import_data.presets)
+                && !gallery::verify_checksum(&canonical, checksum) {
                     let _ = logging::log("WARN", "Checksum mismatch on downloaded preset", "Gallery");
                 }
-            }
-        }
 
         // Import all presets
         for (name, mods_list) in &import_data.presets {
@@ -1535,8 +1522,8 @@ impl HallintaApp {
                     .add_filter("JSON", &["json"])
                     .save_file();
 
-                if let Some(path) = path {
-                    if let Ok(content) = serde_json::to_string_pretty(&export) {
+                if let Some(path) = path
+                    && let Ok(content) = serde_json::to_string_pretty(&export) {
                         let _ = mods::write_file(&path, &content);
                         let _ = logging::log(
                             "INFO",
@@ -1544,7 +1531,6 @@ impl HallintaApp {
                             "PresetManager",
                         );
                     }
-                }
             }
             ChecklistAction::ImportPresets(mut import) => {
                 import.selected_names = selected;

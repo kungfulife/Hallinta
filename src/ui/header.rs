@@ -17,21 +17,17 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
                 if ui
                     .selectable_label(app.active_view == View::ModList, mod_list_text)
                     .clicked()
-                {
-                    if !app.save_monitor.is_running() {
+                    && !app.save_monitor.is_running() {
                         app.active_view = View::ModList;
                     }
-                }
 
                 let vault_text = egui::RichText::new("Modpacks").font(tab_font);
                 if ui
                     .selectable_label(app.active_view == View::PresetVault, vault_text)
                     .clicked()
-                {
-                    if !app.save_monitor.is_running() {
+                    && !app.save_monitor.is_running() {
                         app.active_view = View::PresetVault;
                     }
-                }
 
                 ui.separator();
 

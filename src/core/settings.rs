@@ -69,24 +69,21 @@ pub fn load_settings() -> Result<AppSettings, String> {
     let mut dirty = false;
 
     // Auto-detect any missing paths on load (all build modes).
-    if settings.noita_dir.trim().is_empty() {
-        if let Ok(p) = platform::get_noita_save_path() {
+    if settings.noita_dir.trim().is_empty()
+        && let Ok(p) = platform::get_noita_save_path() {
             settings.noita_dir = p.to_string_lossy().to_string();
             dirty = true;
         }
-    }
-    if settings.entangled_dir.trim().is_empty() {
-        if let Ok(p) = platform::get_entangled_worlds_save_path() {
+    if settings.entangled_dir.trim().is_empty()
+        && let Ok(p) = platform::get_entangled_worlds_save_path() {
             settings.entangled_dir = p.to_string_lossy().to_string();
             dirty = true;
         }
-    }
-    if settings.gallery_settings.steam_path.trim().is_empty() {
-        if let Ok(p) = crate::core::workshop::detect_steam_path() {
+    if settings.gallery_settings.steam_path.trim().is_empty()
+        && let Ok(p) = crate::core::workshop::detect_steam_path() {
             settings.gallery_settings.steam_path = p.to_string_lossy().to_string();
             dirty = true;
         }
-    }
 
     if dirty {
         save_settings(&settings)?;

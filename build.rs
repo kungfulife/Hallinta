@@ -54,11 +54,10 @@ fn parse_cargo_lock_versions() -> HashMap<String, String> {
             current_name = None;
         } else if let Some(name) = trimmed.strip_prefix("name = \"") {
             current_name = name.strip_suffix('"').map(|s| s.to_string());
-        } else if let Some(ver) = trimmed.strip_prefix("version = \"") {
-            if let (Some(name), Some(ver)) = (current_name.take(), ver.strip_suffix('"')) {
+        } else if let Some(ver) = trimmed.strip_prefix("version = \"")
+            && let (Some(name), Some(ver)) = (current_name.take(), ver.strip_suffix('"')) {
                 versions.entry(name).or_insert_with(|| ver.to_string());
             }
-        }
     }
     versions
 }

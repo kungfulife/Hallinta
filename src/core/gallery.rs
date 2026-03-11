@@ -100,16 +100,14 @@ pub fn parse_gdrive_share_link(url: &str) -> Option<String> {
 }
 
 fn extract_gdrive_file_id(url: &str) -> Option<String> {
-    if let Some(rest) = url.strip_prefix("https://drive.google.com/file/d/") {
-        if let Some(id) = rest.split('/').next() {
-            if !id.is_empty() {
+    if let Some(rest) = url.strip_prefix("https://drive.google.com/file/d/")
+        && let Some(id) = rest.split('/').next()
+            && !id.is_empty() {
                 return Some(id.to_string());
             }
-        }
-    }
 
-    if url.contains("drive.google.com") || url.contains("drive.usercontent.google.com") {
-        if let Some(pos) = url.find("id=") {
+    if (url.contains("drive.google.com") || url.contains("drive.usercontent.google.com"))
+        && let Some(pos) = url.find("id=") {
             let after_id = &url[pos + 3..];
             let id: String = after_id
                 .chars()
@@ -119,7 +117,6 @@ fn extract_gdrive_file_id(url: &str) -> Option<String> {
                 return Some(id);
             }
         }
-    }
 
     None
 }
