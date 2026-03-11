@@ -111,18 +111,26 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                             .show(ui, |ui| {
                                 ui.set_min_width(ui.available_width());
                                 ui.horizontal(|ui| {
-                                    // ── Row number (left) ───────────────────────────────────
-                                    ui.label(
-                                        egui::RichText::new(format!("{}", row.idx + 1))
-                                            .size(d.font_small)
-                                            .color(d.row_number_color),
+                                    // ── Row number (fixed-width gutter) ──────────────────────
+                                    ui.allocate_ui_with_layout(
+                                        egui::vec2(d.row_number_w, ui.available_height()),
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            ui.label(
+                                                egui::RichText::new(format!("{}", row.idx + 1))
+                                                    .size(d.font_small)
+                                                    .color(d.row_number_color),
+                                            );
+                                        },
                                     );
 
-                                    ui.add_space(d.sm);
+                                    ui.add_space(d.md);
 
                                     // ── Mod name ────────────────────────────────────────────
-                                    let name_color = if is_drag_source || !row.enabled {
+                                    let name_color = if is_drag_source {
                                         ui.visuals().weak_text_color()
+                                    } else if !row.enabled {
+                                        d.disabled_text
                                     } else {
                                         ui.visuals().text_color()
                                     };
@@ -191,12 +199,17 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 // ── Visual overlays ─────────────────────────────────────────
                 let painter = ui.painter();
 
-                // Hover border
+                // Hover: tinted fill + border for clear feedback
                 if row_resp.hovered() && !is_drag_source && app.drag_state.is_none() {
+                    painter.rect_filled(
+                        frame_resp.rect,
+                        4.0 * d.scale,
+                        d.row_hover,
+                    );
                     painter.rect_stroke(
                         frame_resp.rect,
-                        4.0,
-                        egui::Stroke::new(1.5 * d.scale, ui.visuals().widgets.hovered.bg_stroke.color),
+                        4.0 * d.scale,
+                        egui::Stroke::new(1.0 * d.scale, ui.visuals().widgets.hovered.bg_stroke.color),
                         egui::StrokeKind::Outside,
                     );
                 }
@@ -253,6 +266,9 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                             }
                         }
                 }
+
+                // Row gap for visual breathing room
+                ui.add_space(d.xs);
             }
 
             // Mod count footer

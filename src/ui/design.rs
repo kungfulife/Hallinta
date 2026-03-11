@@ -21,13 +21,16 @@ pub struct Design {
     pub toggle_h:   f32,  // 16 * scale
     pub sidebar_w:  f32,  // 160 * scale
     pub search_w:   f32,  // 150 * scale
-    pub row_pad_x:  f32,  // 6 * scale  (cast to i8 when passing to Margin::symmetric)
-    pub row_pad_y:  f32,  // 3 * scale  (safe: at max scale 3.0 → 18, fits i8)
+    pub row_pad_x:  f32,  // 8 * scale  (cast to i8 when passing to Margin::symmetric)
+    pub row_pad_y:  f32,  // 5 * scale  (safe: at max scale 3.0 → 15, fits i8)
+    pub row_number_w: f32, // 24 * scale — fixed-width gutter for row numbers
     // Colors: mod list rows
-    pub enabled_even:  egui::Color32,
-    pub enabled_odd:   egui::Color32,
-    pub disabled_even: egui::Color32,
-    pub disabled_odd:  egui::Color32,
+    pub enabled_even:    egui::Color32,
+    pub enabled_odd:     egui::Color32,
+    pub disabled_even:   egui::Color32,
+    pub disabled_odd:    egui::Color32,
+    pub row_hover:       egui::Color32,
+    pub disabled_text:   egui::Color32,
     // Colors: accents and indicators
     pub badge_workshop:  egui::Color32,
     pub badge_missing:   egui::Color32,
@@ -41,24 +44,36 @@ impl Design {
         let s = settings.ui_scale.clamp(0.5, 3.0);
         let dark = ctx.style().visuals.dark_mode;
 
-        let (enabled_even, enabled_odd, disabled_even) = if dark {
+        // Enabled rows: clear blue-tinted alternating stripes
+        // Disabled rows: neutral gray alternating stripes
+        let (enabled_even, enabled_odd, disabled_even, disabled_odd, row_hover) = if dark {
             (
-                egui::Color32::from_rgba_premultiplied(60, 100, 180, 30),
-                egui::Color32::from_rgba_premultiplied(60, 100, 180, 15),
-                egui::Color32::from_rgba_premultiplied(50, 50, 60, 40),
+                egui::Color32::from_rgba_premultiplied(50, 90, 160, 65),
+                egui::Color32::from_rgba_premultiplied(45, 80, 140, 35),
+                egui::Color32::from_rgba_premultiplied(55, 55, 65, 50),
+                egui::Color32::from_rgba_premultiplied(50, 50, 58, 25),
+                egui::Color32::from_rgba_premultiplied(80, 130, 200, 50),
             )
         } else {
             (
-                egui::Color32::from_rgba_premultiplied(40, 80, 160, 25),
-                egui::Color32::from_rgba_premultiplied(40, 80, 160, 12),
-                egui::Color32::from_rgba_premultiplied(180, 180, 190, 35),
+                egui::Color32::from_rgba_premultiplied(35, 75, 155, 50),
+                egui::Color32::from_rgba_premultiplied(35, 75, 155, 25),
+                egui::Color32::from_rgba_premultiplied(150, 150, 165, 45),
+                egui::Color32::from_rgba_premultiplied(140, 140, 155, 22),
+                egui::Color32::from_rgba_premultiplied(50, 110, 200, 40),
             )
         };
 
         let row_number_color = if dark {
-            egui::Color32::from_rgb(90, 90, 110)
+            egui::Color32::from_rgb(130, 135, 160)
         } else {
-            egui::Color32::from_rgb(150, 150, 170)
+            egui::Color32::from_rgb(110, 115, 140)
+        };
+
+        let disabled_text = if dark {
+            egui::Color32::from_rgb(120, 120, 135)
+        } else {
+            egui::Color32::from_rgb(145, 145, 160)
         };
 
         Self {
@@ -76,12 +91,15 @@ impl Design {
             toggle_h:   16.0 * s,
             sidebar_w:  160.0 * s,
             search_w:   150.0 * s,
-            row_pad_x:  6.0 * s,
-            row_pad_y:  3.0 * s,
+            row_pad_x:  8.0 * s,
+            row_pad_y:  5.0 * s,
+            row_number_w: 24.0 * s,
             enabled_even,
             enabled_odd,
             disabled_even,
-            disabled_odd: egui::Color32::TRANSPARENT,
+            disabled_odd,
+            row_hover,
+            disabled_text,
             badge_workshop:  egui::Color32::from_rgb(70, 130, 180),
             badge_missing:   egui::Color32::from_rgb(200, 55, 55),
             toggle_on:       egui::Color32::from_rgb(60, 160, 70),
@@ -133,10 +151,10 @@ mod tests {
     fn row_margin_fits_i8_at_max_scale() {
         // Margin::symmetric takes i8 in egui 0.33 — verify no overflow at max scale
         let max_scale = 3.0_f32;
-        let pad_x = (6.0 * max_scale) as i8;  // 18
-        let pad_y = (3.0 * max_scale) as i8;  // 9
-        assert_eq!(pad_x, 18);
-        assert_eq!(pad_y, 9);
+        let pad_x = (8.0 * max_scale) as i8;  // 24
+        let pad_y = (5.0 * max_scale) as i8;  // 15
+        assert_eq!(pad_x, 24);
+        assert_eq!(pad_y, 15);
         assert!(pad_x < i8::MAX);
         assert!(pad_y < i8::MAX);
     }
