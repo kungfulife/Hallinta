@@ -90,3 +90,69 @@ eframe::NativeOptions {
 ```
 
 Using `Wgpu` avoids the flickering issues seen with the `Glow` renderer on Windows with DirectX 12.
+
+---
+
+## Settings Live Preview with Cancel Revert
+
+When a setting should preview live (e.g., UI scale slider) but also support Cancel:
+
+1. Store the original value in a dedicated field **when entering settings** (e.g., `app.pre_settings_ui_scale`).
+2. Write to `app.settings.<field>` on slider change for immediate visual feedback.
+3. On Save: the value is already applied — just persist.
+4. On Cancel: restore from the saved original.
+
+**Why a separate field?** `pending_settings` gets overwritten every frame (it's the working copy), so it can't preserve the "before editing" value. See `pre_settings_ui_scale` in `app.rs`, set in `header.rs`, restored in `settings.rs`.
+
+---
+
+## Button Text Centering: `add_sized` vs `add_enabled` + `min_size`
+
+`ui.add_sized([width, 0.0], Button::new("text"))` centers the text within the allocated width. This is what most sidebar buttons use.
+
+`ui.add_enabled(cond, Button::new("text").min_size(vec2(width, 0.0)))` sets a minimum size but does **not** center the text — it left-aligns within the button rect.
+
+**Fix for disabled buttons that need centering:** Wrap `add_sized` in `add_enabled_ui`:
+
+```rust
+ui.add_enabled_ui(!is_locked, |ui| {
+    if ui.add_sized([btn_width, 0.0], egui::Button::new("Clear All")).clicked() {
+        // ...
+    }
+});
+```
+
+---
+
+## Light Mode Visuals: Selection vs Active
+
+In light mode, egui's default `selection.bg_fill` is a solid color painted behind selected `selectable_label` text. A fully opaque purple makes tab labels like "Mod List" / "Modpacks" unreadable.
+
+**Fix:** Use a semi-transparent selection fill and set `widgets.active.fg_stroke` for the text color:
+
+```rust
+visuals.selection.bg_fill = Color32::from_rgba_premultiplied(100, 65, 160, 60);
+visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::from_rgb(70, 35, 130));
+```
+
+The `fg_stroke` controls the text color of active/selected widgets. Without it, egui picks a contrasting color against the fill, which can be white-on-purple (unreadable on light backgrounds).
+
+---
+
+## Wrapping a ScrollArea in a Background Frame
+
+To give a scrollable region (like the mod list) a distinct background:
+
+```rust
+egui::Frame::NONE
+    .fill(bg_color)
+    .corner_radius(6.0 * scale)
+    .inner_margin(Margin::symmetric(pad, pad))
+    .show(ui, |ui| {
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| { /* content */ });
+    });
+```
+
+The Frame must be the **outer** wrapper. Putting it inside the ScrollArea would scroll the background away. The `auto_shrink([false, false])` ensures the scroll area fills the frame.

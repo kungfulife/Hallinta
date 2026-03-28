@@ -73,6 +73,12 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     // Live-reorder target: row index the dragged item should move to this frame.
     let mut drag_move_to: Option<usize> = None;
 
+    // Subtle tinted panel background to frame the mod list
+    egui::Frame::NONE
+        .fill(d.mod_list_bg)
+        .corner_radius(6.0 * d.scale)
+        .inner_margin(egui::Margin::symmetric(d.sm as i8, d.sm as i8))
+        .show(ui, |ui| {
     egui::ScrollArea::vertical()
         .auto_shrink([false, false])
         .show(ui, |ui| {
@@ -270,6 +276,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     .color(ui.visuals().weak_text_color()),
             );
         });
+    }); // mod list background frame
 
     // ── Apply pending state changes ──────────────────────────────────────────
 

@@ -103,7 +103,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                         .text("×"),
                 );
                 // Live preview: apply scale immediately so the UI resizes as the slider moves.
-                // On Cancel, the live change persists (scale is visual-only and safe to keep).
+                // On Cancel, the scale reverts to pre_settings_ui_scale.
                 if scale_resp.changed() {
                     app.settings.ui_scale = settings.ui_scale;
                 }
@@ -301,6 +301,10 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             app.active_view = crate::models::View::ModList;
         }
         SettingsAction::Cancel => {
+            // Revert live-previewed UI scale to the value before entering settings
+            if let Some(original_scale) = app.pre_settings_ui_scale.take() {
+                app.settings.ui_scale = original_scale;
+            }
             app.active_view = crate::models::View::ModList;
         }
         SettingsAction::Reset => {

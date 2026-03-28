@@ -14,14 +14,21 @@ pub fn apply_theme(ctx: &egui::Context, dark_mode: bool) {
 
 fn dark_visuals() -> egui::Visuals {
     let mut visuals = egui::Visuals::dark();
-    visuals.widgets.active.bg_fill = egui::Color32::from_rgb(60, 120, 200);
-    visuals.selection.bg_fill = egui::Color32::from_rgb(60, 120, 200);
+    // Purple accent — Noita magical energy
+    visuals.widgets.active.bg_fill = egui::Color32::from_rgb(110, 60, 190);
+    visuals.selection.bg_fill = egui::Color32::from_rgb(110, 60, 190);
+    // Slightly brighter base text for readability
+    visuals.override_text_color = Some(egui::Color32::from_rgb(220, 218, 225));
     visuals
 }
 
 fn light_visuals() -> egui::Visuals {
     let mut visuals = egui::Visuals::light();
-    visuals.widgets.active.bg_fill = egui::Color32::from_rgb(40, 100, 180);
-    visuals.selection.bg_fill = egui::Color32::from_rgb(40, 100, 180);
+    // Muted purple accent — readable on light backgrounds
+    let accent = egui::Color32::from_rgb(100, 65, 160);
+    visuals.widgets.active.bg_fill = accent;
+    visuals.selection.bg_fill = egui::Color32::from_rgba_premultiplied(100, 65, 160, 60);
+    // Selected tab text: dark purple instead of blinding fill
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(70, 35, 130));
     visuals
 }

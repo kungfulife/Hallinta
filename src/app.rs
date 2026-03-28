@@ -40,6 +40,8 @@ pub struct HallintaApp {
 
     // Pending settings edit
     pub pending_settings: Option<AppSettings>,
+    // UI scale before entering settings (for Cancel revert)
+    pub pre_settings_ui_scale: Option<f32>,
 
     // Timers
     last_log_flush: Instant,
@@ -244,6 +246,7 @@ impl HallintaApp {
             task_rx,
             drag_state: None,
             pending_settings: None,
+            pre_settings_ui_scale: None,
             last_log_flush: now,
             normal_window_size: None,
             close_requested: false,

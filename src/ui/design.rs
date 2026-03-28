@@ -37,6 +37,8 @@ pub struct Design {
     pub toggle_on:       egui::Color32,
     pub status_ok:       egui::Color32,
     pub row_number_color: egui::Color32,
+    // Colors: mod list panel background
+    pub mod_list_bg: egui::Color32,
     // Colors: drag ghost row
     pub drag_ghost_fill:   egui::Color32,
     pub drag_ghost_border: egui::Color32,
@@ -47,36 +49,36 @@ impl Design {
         let s = settings.ui_scale.clamp(0.5, 3.0);
         let dark = ctx.style().visuals.dark_mode;
 
-        // Enabled rows: clear blue-tinted alternating stripes
+        // Enabled rows: purple-tinted alternating stripes (Noita magical energy)
         // Disabled rows: neutral gray alternating stripes
         let (enabled_even, enabled_odd, disabled_even, disabled_odd, row_hover) = if dark {
             (
-                egui::Color32::from_rgba_premultiplied(50, 90, 160, 65),
-                egui::Color32::from_rgba_premultiplied(45, 80, 140, 35),
-                egui::Color32::from_rgba_premultiplied(55, 55, 65, 50),
-                egui::Color32::from_rgba_premultiplied(50, 50, 58, 25),
-                egui::Color32::from_rgba_premultiplied(80, 130, 200, 50),
+                egui::Color32::from_rgba_premultiplied(80, 50, 150, 65),
+                egui::Color32::from_rgba_premultiplied(70, 42, 130, 35),
+                egui::Color32::from_rgba_premultiplied(58, 52, 68, 50),
+                egui::Color32::from_rgba_premultiplied(52, 48, 60, 25),
+                egui::Color32::from_rgba_premultiplied(120, 75, 200, 55),
             )
         } else {
             (
-                egui::Color32::from_rgba_premultiplied(35, 75, 155, 50),
-                egui::Color32::from_rgba_premultiplied(35, 75, 155, 25),
-                egui::Color32::from_rgba_premultiplied(150, 150, 165, 45),
-                egui::Color32::from_rgba_premultiplied(140, 140, 155, 22),
-                egui::Color32::from_rgba_premultiplied(50, 110, 200, 40),
+                egui::Color32::from_rgba_premultiplied(90, 60, 140, 30),
+                egui::Color32::from_rgba_premultiplied(90, 60, 140, 15),
+                egui::Color32::from_rgba_premultiplied(140, 135, 155, 35),
+                egui::Color32::from_rgba_premultiplied(130, 125, 148, 18),
+                egui::Color32::from_rgba_premultiplied(110, 70, 180, 30),
             )
         };
 
         let row_number_color = if dark {
-            egui::Color32::from_rgb(130, 135, 160)
+            egui::Color32::from_rgb(145, 135, 170)
         } else {
-            egui::Color32::from_rgb(110, 115, 140)
+            egui::Color32::from_rgb(120, 110, 145)
         };
 
         let disabled_text = if dark {
-            egui::Color32::from_rgb(120, 120, 135)
+            egui::Color32::from_rgb(140, 135, 155)
         } else {
-            egui::Color32::from_rgb(145, 145, 160)
+            egui::Color32::from_rgb(150, 145, 165)
         };
 
         Self {
@@ -103,20 +105,25 @@ impl Design {
             disabled_odd,
             row_hover,
             disabled_text,
-            badge_workshop:  egui::Color32::from_rgb(70, 130, 180),
+            badge_workshop:  egui::Color32::from_rgb(100, 80, 175),
             badge_missing:   egui::Color32::from_rgb(200, 55, 55),
             toggle_on:       egui::Color32::from_rgb(60, 160, 70),
             status_ok:       egui::Color32::from_rgb(50, 200, 50),
             row_number_color,
-            drag_ghost_fill: if dark {
-                egui::Color32::from_rgba_premultiplied(70, 130, 210, 35)
+            mod_list_bg: if dark {
+                egui::Color32::from_rgba_premultiplied(30, 22, 48, 80)
             } else {
-                egui::Color32::from_rgba_premultiplied(50, 110, 200, 30)
+                egui::Color32::from_rgba_premultiplied(60, 40, 90, 16)
+            },
+            drag_ghost_fill: if dark {
+                egui::Color32::from_rgba_premultiplied(90, 55, 190, 35)
+            } else {
+                egui::Color32::from_rgba_premultiplied(80, 45, 180, 30)
             },
             drag_ghost_border: if dark {
-                egui::Color32::from_rgba_premultiplied(100, 170, 255, 140)
+                egui::Color32::from_rgba_premultiplied(140, 100, 255, 140)
             } else {
-                egui::Color32::from_rgba_premultiplied(40, 100, 200, 130)
+                egui::Color32::from_rgba_premultiplied(100, 55, 200, 130)
             },
         }
     }

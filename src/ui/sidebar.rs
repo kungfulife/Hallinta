@@ -112,21 +112,17 @@ pub fn render_sidebar(app: &mut HallintaApp, ctx: &egui::Context) {
                 }
 
                 // Clear all monitor data
-                if ui
-                    .add_enabled(
-                        !is_locked,
-                        egui::Button::new("Clear All Snapshots").min_size(egui::vec2(btn_width, 0.0)),
-                    )
-                    .clicked()
-                {
-                    app.active_modal = Some(Modal::Confirm {
-                        message: "Delete ALL monitor snapshots for ALL presets?".to_string(),
-                        confirm_text: "Delete All".to_string(),
-                        cancel_text: "Cancel".to_string(),
-                        action: ConfirmAction::ClearMonitorData,
-                        cancel_action: None,
-                    });
-                }
+                ui.add_enabled_ui(!is_locked, |ui| {
+                    if ui.add_sized([btn_width, 0.0], egui::Button::new("Clear All Snapshots")).clicked() {
+                        app.active_modal = Some(Modal::Confirm {
+                            message: "Delete ALL monitor snapshots for ALL presets?".to_string(),
+                            confirm_text: "Delete All".to_string(),
+                            cancel_text: "Cancel".to_string(),
+                            action: ConfirmAction::ClearMonitorData,
+                            cancel_action: None,
+                        });
+                    }
+                });
             });
         });
 }

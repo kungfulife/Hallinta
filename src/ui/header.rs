@@ -64,6 +64,7 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
                     } else {
                         app.active_view = View::Settings;
                         app.pending_settings = Some(app.settings.clone());
+                        app.pre_settings_ui_scale = Some(app.settings.ui_scale);
                     }
                 }
 
