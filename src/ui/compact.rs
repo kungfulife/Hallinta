@@ -13,7 +13,7 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
     ui.add_space(top_pad);
 
     ui.vertical_centered(|ui| {
-        ui.set_max_width(260.0 * d.scale);
+        ui.set_max_width(260.0);
 
         // ── Preset selector ──────────────────────────────────────────────────
         ui.label(
@@ -40,7 +40,7 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
         ui.add_enabled_ui(!is_locked, |ui| {
             egui::ComboBox::from_id_salt("compact_preset_selector")
                 .selected_text(&app.selected_preset)
-                .width(250.0 * d.scale)
+                .width(250.0)
                 .show_ui(ui, |ui| {
                     for name in &preset_names {
                         if ui
@@ -72,8 +72,8 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
         ui.separator();
         ui.add_space(d.lg);
 
-        let btn_w = 240.0 * d.scale;
-        let btn_h = 28.0 * d.scale;
+        let btn_w = 240.0;
+        let btn_h = 28.0;
         let backup_busy = app.backup_state.in_progress || app.backup_state.restoring;
 
         // ── Monitor button ───────────────────────────────────────────────────

@@ -185,10 +185,11 @@ impl HallintaApp {
             );
         }
 
-        // Apply theme
+        // Apply theme and UI scale
         let dark_mode = app_settings.dark_mode;
         let compact_mode = app_settings.compact_mode;
         crate::ui::theme::apply_theme(&cc.egui_ctx, dark_mode);
+        crate::ui::design::apply_zoom(&cc.egui_ctx, &app_settings);
 
         // Apply compact mode window size if needed
         if compact_mode {
@@ -1756,6 +1757,9 @@ impl HallintaApp {
 
 impl eframe::App for HallintaApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // 0. Apply UI zoom (must be before any rendering)
+        crate::ui::design::apply_zoom(ctx, &self.settings);
+
         // 1. Poll async task results
         self.poll_task_results();
 

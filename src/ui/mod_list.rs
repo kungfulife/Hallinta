@@ -76,7 +76,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     // Subtle tinted panel background to frame the mod list
     egui::Frame::NONE
         .fill(d.mod_list_bg)
-        .corner_radius(6.0 * d.scale)
+        .corner_radius(6.0)
         .inner_margin(egui::Margin::symmetric(d.sm as i8, d.sm as i8))
         .show(ui, |ui| {
     egui::ScrollArea::vertical()
@@ -111,7 +111,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                                 d.row_pad_x as i8,
                                 d.row_pad_y as i8,
                             ))
-                            .corner_radius(4.0 * d.scale)
+                            .corner_radius(4.0)
                             .fill(base_fill)
                             .show(ui, |ui| {
                                 ui.set_min_width(ui.available_width());
@@ -215,13 +215,13 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 if row_resp.hovered() && !is_ghost && app.drag_state.is_none() {
                     painter.rect_filled(
                         frame_resp.rect,
-                        4.0 * d.scale,
+                        4.0,
                         d.row_hover,
                     );
                     painter.rect_stroke(
                         frame_resp.rect,
-                        4.0 * d.scale,
-                        egui::Stroke::new(1.0 * d.scale, ui.visuals().widgets.hovered.bg_stroke.color),
+                        4.0,
+                        egui::Stroke::new(1.0, ui.visuals().widgets.hovered.bg_stroke.color),
                         egui::StrokeKind::Outside,
                     );
                 }
@@ -230,8 +230,8 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 if is_ghost {
                     painter.rect_stroke(
                         frame_resp.rect,
-                        4.0 * d.scale,
-                        egui::Stroke::new(1.5 * d.scale, d.drag_ghost_border),
+                        4.0,
+                        egui::Stroke::new(1.5, d.drag_ghost_border),
                         egui::StrokeKind::Outside,
                     );
                 }
@@ -415,7 +415,7 @@ fn draw_toggle_visual(ui: &mut egui::Ui, enabled: bool, d: &crate::ui::design::D
     painter.rect_filled(rect, rect.height() / 2.0, bg);
 
     // Knob position
-    let r = rect.height() / 2.0 - 2.0 * d.scale;
+    let r = rect.height() / 2.0 - 2.0;
     let cx = if enabled {
         rect.right() - rect.height() / 2.0
     } else {
@@ -425,7 +425,7 @@ fn draw_toggle_visual(ui: &mut egui::Ui, enabled: bool, d: &crate::ui::design::D
 
     // Subtle shadow: slightly darker circle offset by 1 logical pixel
     painter.circle_filled(
-        egui::pos2(cx + d.scale * 0.5, rect.center().y + d.scale * 0.5),
+        egui::pos2(cx + 0.5, rect.center().y + 0.5),
         r,
         egui::Color32::from_black_alpha(40),
     );

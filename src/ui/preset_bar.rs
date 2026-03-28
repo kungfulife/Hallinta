@@ -26,7 +26,7 @@ pub fn render_preset_bar(app: &mut HallintaApp, ui: &mut egui::Ui) {
         ui.add_enabled_ui(!is_locked, |ui| {
             egui::ComboBox::from_id_salt("preset_dropdown")
                 .selected_text(&app.selected_preset)
-                .width(200.0 * d.scale)
+                .width(200.0)
                 .show_ui(ui, |ui| {
                     // "Create New Preset" option
                     if ui

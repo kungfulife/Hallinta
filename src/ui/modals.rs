@@ -168,21 +168,21 @@ fn render_checklist(
     items: &mut [ChecklistItem],
     action: ChecklistAction,
 ) {
-    let d = crate::ui::design::Design::new(ctx, &app.settings);
+    let _d = crate::ui::design::Design::new(ctx, &app.settings);
     let mut confirmed = false;
     let mut cancelled = false;
 
     egui::Window::new(title)
         .collapsible(false)
         .resizable(true)
-        .default_width(420.0 * d.scale)
+        .default_width(420.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
             ui.label(message);
             ui.add_space(8.0);
             egui::ScrollArea::vertical()
-                .max_height(300.0 * d.scale)
+                .max_height(300.0)
                 .show(ui, |ui| {
                     for item in items.iter_mut() {
                         ui.checkbox(&mut item.checked, &item.label);
@@ -263,14 +263,14 @@ fn render_missing_mods(
     mods: &[(String, String)],
     action: MissingModsAction,
 ) {
-    let d = crate::ui::design::Design::new(ctx, &app.settings);
+    let _d = crate::ui::design::Design::new(ctx, &app.settings);
     let mut confirmed = false;
     let mut cancelled = false;
 
     egui::Window::new("Missing Workshop Mods")
         .collapsible(false)
         .resizable(true)
-        .default_width(380.0 * d.scale)
+        .default_width(380.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
@@ -280,7 +280,7 @@ fn render_missing_mods(
             );
             ui.add_space(8.0);
             egui::ScrollArea::vertical()
-                .max_height(250.0 * d.scale)
+                .max_height(250.0)
                 .show(ui, |ui| {
                     for (name, workshop_id) in mods {
                         ui.horizontal(|ui| {
@@ -315,7 +315,7 @@ fn render_missing_mods(
 }
 
 fn render_system_info(app: &mut HallintaApp, ctx: &egui::Context) {
-    let d = crate::ui::design::Design::new(ctx, &app.settings);
+    let _d = crate::ui::design::Design::new(ctx, &app.settings);
     let mut open = true;
     egui::Window::new("System Information")
         .collapsible(false)
@@ -328,7 +328,7 @@ fn render_system_info(app: &mut HallintaApp, ctx: &egui::Context) {
                 egui::Grid::new("sysinfo_grid")
                     .num_columns(2)
                     .striped(true)
-                    .min_col_width(120.0 * d.scale)
+                    .min_col_width(120.0)
                     .show(ui, |ui| {
                         sysinfo_row(ui, "Version", &info.app_version);
                         sysinfo_row(ui, "Build Profile", &info.build_profile);
@@ -353,7 +353,7 @@ fn render_system_info(app: &mut HallintaApp, ctx: &egui::Context) {
                 egui::Grid::new("paths_grid")
                     .num_columns(2)
                     .striped(true)
-                    .min_col_width(120.0 * d.scale)
+                    .min_col_width(120.0)
                     .show(ui, |ui| {
                         let noita_path = crate::core::platform::get_noita_save_path()
                             .map(|p| p.to_string_lossy().to_string())
@@ -385,7 +385,7 @@ fn sysinfo_row(ui: &mut egui::Ui, label: &str, value: &str) {
 }
 
 fn render_open_source(app: &mut HallintaApp, ctx: &egui::Context) {
-    let d = crate::ui::design::Design::new(ctx, &app.settings);
+    let _d = crate::ui::design::Design::new(ctx, &app.settings);
     let mut open = true;
     egui::Window::new("Open Source Libraries")
         .collapsible(false)
@@ -396,7 +396,7 @@ fn render_open_source(app: &mut HallintaApp, ctx: &egui::Context) {
         .show(ctx, |ui| {
             let libs = crate::core::platform::get_open_source_libraries();
             egui::ScrollArea::vertical()
-                .max_height(400.0 * d.scale)
+                .max_height(400.0)
                 .show(ui, |ui| {
                     for lib in &libs {
                         ui.horizontal(|ui| {
@@ -424,7 +424,7 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
     egui::Window::new("Manage Backups")
         .collapsible(false)
         .resizable(true)
-        .default_width(500.0 * d.scale)
+        .default_width(500.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
         .open(&mut open)
@@ -439,7 +439,7 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
                 ui.add_space(d.sm);
 
                 egui::ScrollArea::vertical()
-                    .max_height(400.0 * d.scale)
+                    .max_height(400.0)
                     .show(ui, |ui| {
                         // Clone for iteration
                         let backups = app.backup_state.backup_list.clone();
@@ -506,13 +506,13 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
 }
 
 fn render_snapshot_manager(app: &mut HallintaApp, ctx: &egui::Context, preset_name: &str) {
-    let d = crate::ui::design::Design::new(ctx, &app.settings);
+    let _d = crate::ui::design::Design::new(ctx, &app.settings);
     let mut open = true;
 
     egui::Window::new(format!("Snapshots: {}", preset_name))
         .collapsible(false)
         .resizable(true)
-        .default_width(450.0 * d.scale)
+        .default_width(450.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
         .open(&mut open)
@@ -527,7 +527,7 @@ fn render_snapshot_manager(app: &mut HallintaApp, ctx: &egui::Context, preset_na
                 ui.add_space(4.0);
 
                 egui::ScrollArea::vertical()
-                    .max_height(350.0 * d.scale)
+                    .max_height(350.0)
                     .show(ui, |ui| {
                         let snapshots = app.backup_state.snapshot_list.clone();
                         for snapshot in &snapshots {

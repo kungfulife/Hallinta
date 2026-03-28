@@ -27,8 +27,11 @@ fn light_visuals() -> egui::Visuals {
     // Muted purple accent — readable on light backgrounds
     let accent = egui::Color32::from_rgb(100, 65, 160);
     visuals.widgets.active.bg_fill = accent;
-    visuals.selection.bg_fill = egui::Color32::from_rgba_premultiplied(100, 65, 160, 60);
-    // Selected tab text: dark purple instead of blinding fill
+    // Visible selection highlight for tabs and selectable labels
+    visuals.selection.bg_fill = egui::Color32::from_rgba_premultiplied(100, 65, 160, 90);
+    // Selected tab text: dark purple for readability
     visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, egui::Color32::from_rgb(70, 35, 130));
+    // Hovered widget background — subtle purple tint so hover state is visible
+    visuals.widgets.hovered.bg_fill = egui::Color32::from_rgba_premultiplied(100, 65, 160, 30);
     visuals
 }

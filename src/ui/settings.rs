@@ -34,7 +34,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut settings.noita_dir)
-                        .desired_width(ui.available_width() - 180.0 * d.scale),
+                        .desired_width(ui.available_width() - 180.0),
                 );
                 if ui.button("Browse").clicked()
                     && let Some(folder) = rfd::FileDialog::new()
@@ -56,7 +56,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut settings.entangled_dir)
-                        .desired_width(ui.available_width() - 180.0 * d.scale),
+                        .desired_width(ui.available_width() - 180.0),
                 );
                 if ui.button("Browse").clicked()
                     && let Some(folder) = rfd::FileDialog::new()
@@ -102,9 +102,11 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                         .step_by(0.05)
                         .text("×"),
                 );
-                // Live preview: apply scale immediately so the UI resizes as the slider moves.
-                // On Cancel, the scale reverts to pre_settings_ui_scale.
-                if scale_resp.changed() {
+                // Apply zoom only when the slider is released (drag_stopped or lost focus),
+                // not while dragging — changing zoom mid-drag shifts the slider's logical
+                // position and creates a feedback loop. The number drag (DragValue) doesn't
+                // have this problem so it applies immediately via changed().
+                if scale_resp.drag_stopped() || (scale_resp.changed() && !scale_resp.dragged()) {
                     app.settings.ui_scale = settings.ui_scale;
                 }
                 if ui.small_button("Reset").clicked() {
@@ -240,7 +242,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut settings.gallery_settings.steam_path)
-                        .desired_width(ui.available_width() - 100.0 * d.scale),
+                        .desired_width(ui.available_width() - 100.0),
                 );
                 if ui.button("Auto-detect").clicked()
                     && let Ok(path) = crate::core::workshop::detect_steam_path() {
