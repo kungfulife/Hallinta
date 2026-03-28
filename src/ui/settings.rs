@@ -1,30 +1,85 @@
 use crate::app::HallintaApp;
 use crate::models::{AppSettings, Modal};
+use crate::ui::design::Design;
 use eframe::egui;
 
-enum SettingsAction {
-    None,
-    Save,
-    Cancel,
-    Reset,
-    ShowWarning,
+/// Render a helper/description text with a subtle background pill for readability.
+fn helper_text(ui: &mut egui::Ui, d: &Design, text: &str) {
+    egui::Frame::NONE
+        .inner_margin(egui::Margin::symmetric(6, 3))
+        .corner_radius(3.0)
+        .fill(d.helper_text_bg)
+        .show(ui, |ui| {
+            ui.label(
+                egui::RichText::new(text)
+                    .size(d.font_body)
+                    .italics()
+                    .color(d.helper_text_color),
+            );
+        });
+}
+
+/// Wrap a text-edit field in a highlighted frame when it has focus.
+fn focused_text_edit(
+    ui: &mut egui::Ui,
+    d: &Design,
+    value: &mut String,
+    desired_width: f32,
+) -> egui::Response {
+    // We need to render the text edit first to know if it has focus,
+    // then paint the highlight behind it. egui draws back-to-front within
+    // a frame, so we use a Frame that is conditionally styled.
+
+    // Probe: does this field currently have focus? We use the upcoming ID.
+    let id = ui.next_auto_id();
+    let has_focus = ui.ctx().memory(|m| m.has_focus(id));
+
+    let frame = if has_focus {
+        egui::Frame::NONE
+            .inner_margin(egui::Margin::symmetric(2, 1))
+            .corner_radius(4.0)
+            .fill(d.settings_focus_bg)
+            .stroke(egui::Stroke::new(1.5, d.settings_focus_border))
+    } else {
+        egui::Frame::NONE
+            .inner_margin(egui::Margin::symmetric(2, 1))
+    };
+
+    let mut resp = None;
+    frame.show(ui, |ui| {
+        resp = Some(
+            ui.add(
+                egui::TextEdit::singleline(value)
+                    .desired_width(desired_width),
+            ),
+        );
+    });
+    resp.unwrap()
 }
 
 pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
-    let mut settings = match app.pending_settings.take() {
-        Some(s) => s,
-        None => app.settings.clone(),
-    };
-
-    let mut action = SettingsAction::None;
-
     let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
+
+    // Snapshot values that trigger side-effects so we can detect changes
+    let prev_noita_dir = app.settings.noita_dir.clone();
+    let prev_entangled_dir = app.settings.entangled_dir.clone();
+    let prev_dark_mode = app.settings.dark_mode;
+    let prev_compact_mode = app.settings.compact_mode;
+    let prev_backup_days = app.settings.backup_settings.auto_delete_days;
+    let prev_backup_interval = app.settings.backup_settings.backup_interval_minutes;
+
+    // Track whether any "simple" setting changed (no special side-effects, just save)
+    let mut needs_save = false;
+    // Track text fields that need validation before saving
+    let mut noita_dir_lost_focus = false;
+    let mut entangled_dir_lost_focus = false;
+    let mut show_noita_warning = false;
 
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.heading("Settings");
         ui.add_space(d.md);
 
-        // ── Directory Settings ─────────────────────────────────────────
+        // ── Directory Settings ──────────���──────────────────────────────
         ui.group(|ui| {
             ui.label(egui::RichText::new("Directories").strong().size(d.font_tab));
             ui.add_space(d.sm);
@@ -32,21 +87,29 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             // Noita save directory
             ui.label("Noita Save Directory:");
             ui.horizontal(|ui| {
-                ui.add(
-                    egui::TextEdit::singleline(&mut settings.noita_dir)
-                        .desired_width(ui.available_width() - 180.0),
+                let resp = focused_text_edit(
+                    ui,
+                    &d,
+                    &mut app.settings.noita_dir,
+                    ui.available_width() - 180.0,
                 );
+                if resp.lost_focus() && app.settings.noita_dir != prev_noita_dir {
+                    noita_dir_lost_focus = true;
+                }
                 if ui.button("Browse").clicked()
                     && let Some(folder) = rfd::FileDialog::new()
                         .set_title("Select Noita Save Directory")
                         .pick_folder()
-                    {
-                        settings.noita_dir = folder.to_string_lossy().to_string();
-                    }
+                {
+                    app.settings.noita_dir = folder.to_string_lossy().to_string();
+                    noita_dir_lost_focus = true;
+                }
                 if ui.button("Auto-detect").clicked()
-                    && let Ok(path) = crate::core::platform::get_noita_save_path() {
-                        settings.noita_dir = path.to_string_lossy().to_string();
-                    }
+                    && let Ok(path) = crate::core::platform::get_noita_save_path()
+                {
+                    app.settings.noita_dir = path.to_string_lossy().to_string();
+                    noita_dir_lost_focus = true;
+                }
             });
 
             ui.add_space(d.sm);
@@ -54,21 +117,29 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             // Entangled Worlds directory
             ui.label("Entangled Worlds Save Directory:");
             ui.horizontal(|ui| {
-                ui.add(
-                    egui::TextEdit::singleline(&mut settings.entangled_dir)
-                        .desired_width(ui.available_width() - 180.0),
+                let resp = focused_text_edit(
+                    ui,
+                    &d,
+                    &mut app.settings.entangled_dir,
+                    ui.available_width() - 180.0,
                 );
+                if resp.lost_focus() && app.settings.entangled_dir != prev_entangled_dir {
+                    entangled_dir_lost_focus = true;
+                }
                 if ui.button("Browse").clicked()
                     && let Some(folder) = rfd::FileDialog::new()
                         .set_title("Select Entangled Worlds Directory")
                         .pick_folder()
-                    {
-                        settings.entangled_dir = folder.to_string_lossy().to_string();
-                    }
+                {
+                    app.settings.entangled_dir = folder.to_string_lossy().to_string();
+                    entangled_dir_lost_focus = true;
+                }
                 if ui.button("Auto-detect").clicked()
-                    && let Ok(path) = crate::core::platform::get_entangled_worlds_save_path() {
-                        settings.entangled_dir = path.to_string_lossy().to_string();
-                    }
+                    && let Ok(path) = crate::core::platform::get_entangled_worlds_save_path()
+                {
+                    app.settings.entangled_dir = path.to_string_lossy().to_string();
+                    entangled_dir_lost_focus = true;
+                }
             });
 
             // Dev data directory (debug only)
@@ -77,41 +148,53 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 let dev_dir = crate::core::settings::get_data_dir()
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_default();
-                ui.label(
-                    egui::RichText::new(format!("Dev Data: {}", dev_dir))
-                        .small()
-                        .color(ui.visuals().weak_text_color()),
-                );
+                helper_text(ui, &d, &format!("Dev Data: {}", dev_dir));
             }
         });
 
         ui.add_space(d.md);
 
-        // ── Appearance ──────────────────────────────────────────────────
+        // ── Appearance ───────────��──────────────────────────────────────
         ui.group(|ui| {
             ui.label(egui::RichText::new("Appearance").strong().size(d.font_tab));
             ui.add_space(d.sm);
 
-            ui.checkbox(&mut settings.dark_mode, "Dark Mode");
-            ui.checkbox(&mut settings.compact_mode, "Compact Mode");
+            if ui.checkbox(&mut app.settings.dark_mode, "Dark Mode").changed() {
+                // Side-effect handled after scroll area
+            }
+            if ui.checkbox(&mut app.settings.compact_mode, "Compact Mode").changed() {
+                // Side-effect handled after scroll area
+            }
+
             ui.add_space(d.sm);
+
+            // UI Scale — display with offset: internal 1.25 = shown as "1.0×"
             ui.horizontal(|ui| {
                 ui.label("UI Scale:");
+
+                // Convert internal value to display value for the slider
+                let mut display_scale = app.settings.ui_scale - crate::ui::design::SCALE_OFFSET;
+                let display_min = crate::ui::design::SCALE_INTERNAL_MIN - crate::ui::design::SCALE_OFFSET;
+                let display_max = crate::ui::design::SCALE_INTERNAL_MAX - crate::ui::design::SCALE_OFFSET;
+
                 let scale_resp = ui.add(
-                    egui::Slider::new(&mut settings.ui_scale, 0.75..=2.0)
+                    egui::Slider::new(&mut display_scale, display_min..=display_max)
                         .step_by(0.05)
                         .text("×"),
                 );
-                // Apply zoom only when the slider is released (drag_stopped or lost focus),
-                // not while dragging — changing zoom mid-drag shifts the slider's logical
-                // position and creates a feedback loop. The number drag (DragValue) doesn't
-                // have this problem so it applies immediately via changed().
+
+                // Convert back to internal
+                let new_internal = display_scale + crate::ui::design::SCALE_OFFSET;
+
+                // Apply zoom only when released (same feedback-loop prevention as before)
                 if scale_resp.drag_stopped() || (scale_resp.changed() && !scale_resp.dragged()) {
-                    app.settings.ui_scale = settings.ui_scale;
+                    app.settings.ui_scale = new_internal;
+                    needs_save = true;
                 }
+
                 if ui.small_button("Reset").clicked() {
-                    settings.ui_scale = 1.0;
-                    app.settings.ui_scale = 1.0;
+                    app.settings.ui_scale = crate::ui::design::SCALE_INTERNAL_DEFAULT;
+                    needs_save = true;
                 }
             });
         });
@@ -125,53 +208,83 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
             ui.horizontal(|ui| {
                 ui.label("Max Log Files:");
-                ui.add(egui::DragValue::new(&mut settings.log_settings.max_log_files).range(1..=500));
+                if ui
+                    .add(
+                        egui::DragValue::new(&mut app.settings.log_settings.max_log_files)
+                            .range(1..=500),
+                    )
+                    .changed()
+                {
+                    needs_save = true;
+                }
             });
             ui.horizontal(|ui| {
                 ui.label("Max Log Size (MB):");
-                ui.add(egui::DragValue::new(&mut settings.log_settings.max_log_size_mb).range(1..=100));
+                if ui
+                    .add(
+                        egui::DragValue::new(&mut app.settings.log_settings.max_log_size_mb)
+                            .range(1..=100),
+                    )
+                    .changed()
+                {
+                    needs_save = true;
+                }
             });
             ui.horizontal(|ui| {
                 ui.label("Log Level:");
+                let prev_level = app.settings.log_settings.log_level.clone();
                 egui::ComboBox::from_id_salt("log_level")
-                    .selected_text(&settings.log_settings.log_level)
+                    .selected_text(&app.settings.log_settings.log_level)
                     .show_ui(ui, |ui| {
                         for level in &["DEBUG", "INFO", "WARN", "ERROR"] {
                             ui.selectable_value(
-                                &mut settings.log_settings.log_level,
+                                &mut app.settings.log_settings.log_level,
                                 level.to_string(),
                                 *level,
                             );
                         }
                     });
+                if app.settings.log_settings.log_level != prev_level {
+                    needs_save = true;
+                }
             });
-            ui.checkbox(
-                &mut settings.log_settings.collect_system_info,
-                "Log detailed system info on startup",
-            );
+            if ui
+                .checkbox(
+                    &mut app.settings.log_settings.collect_system_info,
+                    "Log detailed system info on startup",
+                )
+                .changed()
+            {
+                needs_save = true;
+            }
         });
 
         ui.add_space(d.md);
 
-        // ── Backup Settings ────────────────────────────────────────────
+        // ── Backup Settings ─────────────────────���──────────────────────
         ui.group(|ui| {
             ui.label(egui::RichText::new("Backup").strong().size(d.font_tab));
             ui.add_space(d.sm);
 
             ui.horizontal(|ui| {
-                ui.label("Auto-delete backups older than (days, 0=never):");
+                ui.label("Auto-delete backups older than (days):");
                 ui.add(
-                    egui::DragValue::new(&mut settings.backup_settings.auto_delete_days)
+                    egui::DragValue::new(&mut app.settings.backup_settings.auto_delete_days)
                         .range(0..=365),
                 );
             });
+            helper_text(ui, &d, "0 = never auto-delete");
+
+            ui.add_space(d.xs);
+
             ui.horizontal(|ui| {
-                ui.label("Auto-backup interval (minutes, 0=disabled):");
+                ui.label("Auto-backup interval (minutes):");
                 ui.add(
-                    egui::DragValue::new(&mut settings.backup_settings.backup_interval_minutes)
+                    egui::DragValue::new(&mut app.settings.backup_settings.backup_interval_minutes)
                         .range(0..=1440),
                 );
             });
+            helper_text(ui, &d, "0 = disabled");
         });
 
         ui.add_space(d.md);
@@ -183,103 +296,136 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
             ui.horizontal(|ui| {
                 ui.label("Snapshot interval (minutes):");
-                ui.add(
-                    egui::DragValue::new(&mut settings.save_monitor_settings.interval_minutes)
+                if ui
+                    .add(
+                        egui::DragValue::new(
+                            &mut app.settings.save_monitor_settings.interval_minutes,
+                        )
                         .range(1..=60),
-                );
+                    )
+                    .changed()
+                {
+                    needs_save = true;
+                }
             });
             ui.horizontal(|ui| {
                 ui.label("Max snapshots per preset:");
-                ui.add(
-                    egui::DragValue::new(
-                        &mut settings.save_monitor_settings.max_snapshots_per_preset,
+                if ui
+                    .add(
+                        egui::DragValue::new(
+                            &mut app.settings.save_monitor_settings.max_snapshots_per_preset,
+                        )
+                        .range(1..=100),
                     )
-                    .range(1..=100),
-                );
+                    .changed()
+                {
+                    needs_save = true;
+                }
             });
             ui.horizontal(|ui| {
                 ui.label("Keep every Nth snapshot (protected from cleanup):");
-                ui.add(
-                    egui::DragValue::new(&mut settings.save_monitor_settings.keep_every_nth)
+                if ui
+                    .add(
+                        egui::DragValue::new(
+                            &mut app.settings.save_monitor_settings.keep_every_nth,
+                        )
                         .range(0..=50),
-                );
+                    )
+                    .changed()
+                {
+                    needs_save = true;
+                }
             });
-            ui.label(
-                egui::RichText::new(
-                    "  0 = no protection. 5 = every 5th oldest snapshot is kept during cleanup."
+            helper_text(
+                ui,
+                &d,
+                "0 = no protection. 5 = every 5th oldest snapshot is kept during cleanup.",
+            );
+            if ui
+                .checkbox(
+                    &mut app.settings.save_monitor_settings.include_save01,
+                    "Include save01 in snapshots",
                 )
-                .small()
-                .color(ui.visuals().weak_text_color()),
-            );
-            ui.checkbox(
-                &mut settings.save_monitor_settings.include_save01,
-                "Include save01 in snapshots",
-            );
-            ui.checkbox(
-                &mut settings.save_monitor_settings.include_entangled,
-                "Include Entangled Worlds in snapshots",
-            );
-            ui.checkbox(
-                &mut settings.save_monitor_settings.start_in_monitor_mode,
-                "Start Save Monitor on launch",
-            );
+                .changed()
+            {
+                needs_save = true;
+            }
+            if ui
+                .checkbox(
+                    &mut app.settings.save_monitor_settings.include_entangled,
+                    "Include Entangled Worlds in snapshots",
+                )
+                .changed()
+            {
+                needs_save = true;
+            }
+            if ui
+                .checkbox(
+                    &mut app.settings.save_monitor_settings.start_in_monitor_mode,
+                    "Start Save Monitor on launch",
+                )
+                .changed()
+            {
+                needs_save = true;
+            }
         });
 
         ui.add_space(d.md);
 
-        // ── Gallery Settings ───────────────────────────────────────────
+        // ── Gallery Settings ─────────��─────────────────────────────────
         ui.group(|ui| {
             ui.label(egui::RichText::new("Modpacks").strong().size(d.font_tab));
             ui.add_space(d.sm);
 
             ui.label("Catalog URL:");
-            ui.add(
-                egui::TextEdit::singleline(&mut settings.gallery_settings.catalog_url)
-                    .desired_width(ui.available_width()),
+            let catalog_prev = app.settings.gallery_settings.catalog_url.clone();
+            let resp = focused_text_edit(
+                ui,
+                &d,
+                &mut app.settings.gallery_settings.catalog_url,
+                ui.available_width() - 10.0,
             );
+            if resp.lost_focus() && app.settings.gallery_settings.catalog_url != catalog_prev {
+                needs_save = true;
+            }
+
             ui.add_space(d.sm);
             ui.label("Steam Path:");
             ui.horizontal(|ui| {
-                ui.add(
-                    egui::TextEdit::singleline(&mut settings.gallery_settings.steam_path)
-                        .desired_width(ui.available_width() - 100.0),
+                let steam_prev = app.settings.gallery_settings.steam_path.clone();
+                let resp = focused_text_edit(
+                    ui,
+                    &d,
+                    &mut app.settings.gallery_settings.steam_path,
+                    ui.available_width() - 110.0,
                 );
+                if resp.lost_focus() && app.settings.gallery_settings.steam_path != steam_prev {
+                    needs_save = true;
+                }
                 if ui.button("Auto-detect").clicked()
-                    && let Ok(path) = crate::core::workshop::detect_steam_path() {
-                        settings.gallery_settings.steam_path =
-                            path.to_string_lossy().to_string();
-                    }
+                    && let Ok(path) = crate::core::workshop::detect_steam_path()
+                {
+                    app.settings.gallery_settings.steam_path =
+                        path.to_string_lossy().to_string();
+                    needs_save = true;
+                }
             });
         });
 
         ui.add_space(d.lg);
 
-        // ── Action Buttons ─────────────────────────────────────────────
+        // ── Action Buttons ───────────────────────��─────────────────────
         ui.horizontal(|ui| {
-            if ui
-                .button(egui::RichText::new("Save & Close").strong())
-                .clicked()
-            {
-                if !settings.noita_dir.is_empty() {
-                    let noita_path = std::path::PathBuf::from(&settings.noita_dir);
-                    if !noita_path.join("mod_config.xml").exists() {
-                        action = SettingsAction::ShowWarning;
-                        return;
-                    }
-                }
-                action = SettingsAction::Save;
-            }
             if ui.button("Reset to Defaults").clicked() {
-                action = SettingsAction::Reset;
-            }
-            if ui.button("Cancel").clicked() {
-                action = SettingsAction::Cancel;
+                let defaults = default_settings();
+                app.settings = defaults;
+                // Theme + compact side-effects will be picked up below
             }
         });
 
         ui.add_space(d.lg);
 
-        // ── Info Panels ────────────────────────────────────────────────
+        // ── Info Panels ──────────────��────────────────────────���────────
         ui.horizontal(|ui| {
             if ui.button("System Information").clicked() {
                 app.active_modal = Some(Modal::SystemInfo);
@@ -288,41 +434,63 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 app.active_modal = Some(Modal::OpenSourceLibraries);
             }
             if ui.button("Open Settings Folder").clicked()
-                && let Ok(dir) = crate::core::settings::get_data_dir() {
-                    let _ = crate::core::platform::open_directory(&dir);
-                }
+                && let Ok(dir) = crate::core::settings::get_data_dir()
+            {
+                let _ = crate::core::platform::open_directory(&dir);
+            }
         });
     });
 
-    // Handle deferred actions after the ScrollArea closure
-    match action {
-        SettingsAction::Save => {
-            // Apply theme change
-            crate::ui::theme::apply_theme(ui.ctx(), settings.dark_mode);
-            app.apply_settings(settings);
-            app.active_view = crate::models::View::ModList;
-        }
-        SettingsAction::Cancel => {
-            // Revert live-previewed UI scale to the value before entering settings
-            if let Some(original_scale) = app.pre_settings_ui_scale.take() {
-                app.settings.ui_scale = original_scale;
+    // ── Handle side-effects after the scroll area ──────────────────────
+
+    // Noita directory changed (via blur, Browse, or Auto-detect)
+    if noita_dir_lost_focus {
+        // Validate: check for mod_config.xml
+        if !app.settings.noita_dir.is_empty() {
+            let noita_path = std::path::PathBuf::from(&app.settings.noita_dir);
+            if !noita_path.join("mod_config.xml").exists() {
+                show_noita_warning = true;
             }
-            app.active_view = crate::models::View::ModList;
         }
-        SettingsAction::Reset => {
-            app.pending_settings = Some(default_settings());
+        if !show_noita_warning {
+            app.on_noita_dir_changed();
         }
-        SettingsAction::ShowWarning => {
-            app.active_modal = Some(Modal::Info {
-                title: "Warning".to_string(),
-                message: "The selected Noita directory does not contain mod_config.xml."
-                    .to_string(),
-            });
-            app.pending_settings = Some(settings);
-        }
-        SettingsAction::None => {
-            app.pending_settings = Some(settings);
-        }
+    }
+
+    if show_noita_warning {
+        app.active_modal = Some(Modal::Info {
+            title: "Warning".to_string(),
+            message: "The selected Noita directory does not contain mod_config.xml.".to_string(),
+        });
+        // Still save — user might know what they're doing
+        app.save_current_settings();
+    }
+
+    // Entangled dir changed
+    if entangled_dir_lost_focus {
+        app.save_current_settings();
+    }
+
+    // Dark mode toggled
+    if app.settings.dark_mode != prev_dark_mode {
+        app.on_dark_mode_changed(ui.ctx());
+    }
+
+    // Compact mode toggled
+    if app.settings.compact_mode != prev_compact_mode {
+        app.on_compact_mode_changed(ui.ctx());
+    }
+
+    // Backup settings changed
+    if app.settings.backup_settings.auto_delete_days != prev_backup_days
+        || app.settings.backup_settings.backup_interval_minutes != prev_backup_interval
+    {
+        app.on_backup_settings_changed();
+    }
+
+    // Generic save for anything else that changed
+    if needs_save {
+        app.save_current_settings();
     }
 }
 
@@ -335,9 +503,9 @@ fn default_settings() -> AppSettings {
         version: crate::core::platform::get_version(),
         log_settings: Default::default(),
         backup_settings: Default::default(),
-        save_monitor_settings: Default::default(), // includes include_save01: false
+        save_monitor_settings: Default::default(),
         gallery_settings: Default::default(),
         compact_mode: false,
-        ui_scale: 1.0,
+        ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
     }
 }

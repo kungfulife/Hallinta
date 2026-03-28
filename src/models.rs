@@ -96,7 +96,7 @@ fn default_keep_every_nth() -> usize {
 }
 
 fn default_ui_scale() -> f32 {
-    1.0
+    1.25
 }
 
 impl Default for SaveMonitorSettings {

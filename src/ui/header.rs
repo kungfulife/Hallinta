@@ -13,18 +13,22 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
             if !app.compact_mode {
                 let tab_font = d.font(d.font_tab);
 
-                let mod_list_text = egui::RichText::new("Mod List").font(tab_font.clone());
-                if ui
-                    .selectable_label(app.active_view == View::ModList, mod_list_text)
-                    .clicked()
+                // Tab: Mod List
+                let ml_selected = app.active_view == View::ModList;
+                let ml_fill = if ml_selected { d.tab_bg_selected } else { d.tab_bg };
+                let ml_color = if ml_selected { d.tab_text_selected } else { d.tab_text };
+                let ml_text = egui::RichText::new("Mod List").font(tab_font.clone()).strong().color(ml_color);
+                if ui.add(egui::Button::new(ml_text).fill(ml_fill).corner_radius(4.0)).clicked()
                     && !app.save_monitor.is_running() {
                         app.active_view = View::ModList;
                     }
 
-                let vault_text = egui::RichText::new("Modpacks").font(tab_font);
-                if ui
-                    .selectable_label(app.active_view == View::PresetVault, vault_text)
-                    .clicked()
+                // Tab: Modpacks
+                let vt_selected = app.active_view == View::PresetVault;
+                let vt_fill = if vt_selected { d.tab_bg_selected } else { d.tab_bg };
+                let vt_color = if vt_selected { d.tab_text_selected } else { d.tab_text };
+                let vt_text = egui::RichText::new("Modpacks").font(tab_font).strong().color(vt_color);
+                if ui.add(egui::Button::new(vt_text).fill(vt_fill).corner_radius(4.0)).clicked()
                     && !app.save_monitor.is_running() {
                         app.active_view = View::PresetVault;
                     }
@@ -45,10 +49,11 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
                 if app.active_view == View::ModList && !app.save_monitor.is_running() {
                     ui.separator();
                     for mode in [FilterMode::All, FilterMode::Enabled, FilterMode::Disabled] {
-                        if ui
-                            .selectable_label(app.filter_mode == mode, mode.label())
-                            .clicked()
-                        {
+                        let selected = app.filter_mode == mode;
+                        let fill = if selected { d.filter_bg_selected } else { d.filter_bg };
+                        let color = if selected { d.tab_text_selected } else { d.tab_text };
+                        let text = egui::RichText::new(mode.label()).strong().color(color);
+                        if ui.add(egui::Button::new(text).fill(fill).corner_radius(4.0)).clicked() {
                             app.filter_mode = mode;
                         }
                     }
@@ -63,8 +68,6 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
                         app.active_view = View::ModList;
                     } else {
                         app.active_view = View::Settings;
-                        app.pending_settings = Some(app.settings.clone());
-                        app.pre_settings_ui_scale = Some(app.settings.ui_scale);
                     }
                 }
 

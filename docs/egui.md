@@ -115,16 +115,76 @@ Using `Wgpu` avoids the flickering issues seen with the `Glow` renderer on Windo
 
 ---
 
-## Settings Live Preview with Cancel Revert
+## Settings Reactive Auto-Save
 
-When a setting should preview live (e.g., UI scale slider) but also support Cancel:
+Settings use a reactive auto-save pattern — no Save/Cancel buttons:
 
-1. Store the original value in a dedicated field **when entering settings** (e.g., `app.pre_settings_ui_scale`).
-2. Write to `app.settings.<field>` on value change for immediate visual feedback.
-3. On Save: the value is already applied — just persist.
-4. On Cancel: restore from the saved original.
+- **Checkboxes/toggles:** Apply + save immediately on change.
+- **DragValues (numeric):** Save on `changed()`.
+- **Text fields:** Highlight when focused (purple border), save on `lost_focus()`.
+- **Slider (UI scale):** Save on `drag_stopped()` to avoid feedback loop during drag.
+- **Dropdowns:** Save on selection change.
 
-**Why a separate field?** `pending_settings` gets overwritten every frame (it's the working copy), so it can't preserve the "before editing" value. See `pre_settings_ui_scale` in `app.rs`, set in `header.rs`, restored in `settings.rs`.
+Side-effects (theme change, mod reload, backup timer) are triggered by comparing
+snapshot values from before/after the frame. See `on_dark_mode_changed()`,
+`on_noita_dir_changed()`, `on_backup_settings_changed()` in `app.rs`.
+
+**Scale obfuscation:** Internal value 1.25 displays as "1.0×" (offset 0.25).
+Constants in `design.rs`: `SCALE_OFFSET`, `SCALE_INTERNAL_MIN/MAX/DEFAULT`.
+
+**Focused text fields:** `focused_text_edit()` in `settings.rs` wraps a `TextEdit` in a
+conditional `Frame` — purple border + tinted background when the field has focus via
+`ui.ctx().memory(|m| m.has_focus(id))`. The ID is obtained with `ui.next_auto_id()` before
+rendering. On `lost_focus()`, the value is compared to a snapshot and saved if changed.
+
+---
+
+## Styled Buttons with Custom Fill
+
+For buttons that need themed backgrounds (tabs, filters), use `egui::Button::new(text).fill(color).corner_radius(4.0)` instead of `selectable_label`. This gives full control over colors per state:
+
+```rust
+let selected = app.active_view == View::ModList;
+let fill = if selected { d.tab_bg_selected } else { d.tab_bg };
+let color = if selected { d.tab_text_selected } else { d.tab_text };
+let text = egui::RichText::new("Mod List").strong().color(color);
+ui.add(egui::Button::new(text).fill(fill).corner_radius(4.0));
+```
+
+Design tokens in `design.rs`: `tab_bg`, `tab_bg_selected`, `tab_text`, `tab_text_selected`,
+`filter_bg`, `filter_bg_selected`. Filter buttons use a lighter tone of the same lavender family.
+
+**Pitfall:** `selectable_label` styling depends on global visuals which limits per-widget
+color control. `Button::new().fill()` overrides the fill directly and is preferred when
+distinct background colors are needed.
+
+---
+
+## Helper Text with Background Pill
+
+For small descriptive text in settings that must be visually distinct from input fields:
+
+```rust
+fn helper_text(ui: &mut egui::Ui, d: &Design, text: &str) {
+    egui::Frame::NONE
+        .inner_margin(egui::Margin::symmetric(6, 3))
+        .corner_radius(3.0)
+        .fill(d.helper_text_bg)
+        .show(ui, |ui| {
+            ui.label(
+                egui::RichText::new(text)
+                    .size(d.font_body)
+                    .italics()
+                    .color(d.helper_text_color),
+            );
+        });
+}
+```
+
+**Pitfall:** In light mode, semi-transparent fills (`from_rgba_premultiplied` with low alpha)
+render nearly invisible on white backgrounds and look like text inputs. Use **solid opaque
+colors** instead — `from_rgb(225, 218, 240)` for light mode background, `from_rgb(50, 40, 75)`
+for dark mode. The italics + colored background together prevent confusion with editable fields.
 
 ---
 

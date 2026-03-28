@@ -38,11 +38,6 @@ pub struct HallintaApp {
     // Drag state
     pub drag_state: Option<DragState>,
 
-    // Pending settings edit
-    pub pending_settings: Option<AppSettings>,
-    // UI scale before entering settings (for Cancel revert)
-    pub pre_settings_ui_scale: Option<f32>,
-
     // Timers
     last_log_flush: Instant,
 
@@ -246,8 +241,6 @@ impl HallintaApp {
             task_tx,
             task_rx,
             drag_state: None,
-            pending_settings: None,
-            pre_settings_ui_scale: None,
             last_log_flush: now,
             normal_window_size: None,
             close_requested: false,
@@ -712,32 +705,56 @@ impl HallintaApp {
         let _ = settings::save_settings(&self.settings);
     }
 
-    pub fn apply_settings(&mut self, new_settings: AppSettings) {
-        let noita_dir_changed = new_settings.noita_dir != self.settings.noita_dir;
-        let backup_days_changed =
-            new_settings.backup_settings.auto_delete_days != self.settings.backup_settings.auto_delete_days;
-        self.dark_mode = new_settings.dark_mode;
-        self.compact_mode = new_settings.compact_mode;
-        self.settings = new_settings;
+    /// Persist current settings to disk.
+    pub fn save_current_settings(&mut self) {
         let _ = settings::save_settings(&self.settings);
+    }
 
-        if noita_dir_changed {
-            self.reload_mods();
-            self.check_workshop_mods_async();
+    /// Called when dark_mode checkbox toggles reactively.
+    pub fn on_dark_mode_changed(&mut self, ctx: &egui::Context) {
+        self.dark_mode = self.settings.dark_mode;
+        crate::ui::theme::apply_theme(ctx, self.settings.dark_mode);
+        self.save_current_settings();
+    }
+
+    /// Called when compact_mode checkbox toggles in settings.
+    pub fn on_compact_mode_changed(&mut self, ctx: &egui::Context) {
+        let was_compact = self.compact_mode;
+        self.compact_mode = self.settings.compact_mode;
+        if was_compact != self.compact_mode {
+            if self.compact_mode {
+                let current_size = ctx.input(|i| i.content_rect().size());
+                if current_size.x > 500.0 {
+                    self.normal_window_size = Some(current_size);
+                }
+                ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(300.0, 200.0)));
+                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(480.0, 400.0)));
+            } else {
+                ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(1050.0, 800.0)));
+                let size = self.normal_window_size.unwrap_or(egui::vec2(1100.0, 800.0));
+                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
+            }
         }
+        self.save_current_settings();
+    }
 
-        // Run backup cleanup if auto-delete days changed
-        if backup_days_changed {
-            self.run_backup_cleanup_async();
-        }
+    /// Called when noita_dir text field loses focus with a new value.
+    pub fn on_noita_dir_changed(&mut self) {
+        self.reload_mods();
+        self.check_workshop_mods_async();
+        self.save_current_settings();
+    }
 
-        // Update auto-backup timer
+    /// Called when backup settings change.
+    pub fn on_backup_settings_changed(&mut self) {
+        self.run_backup_cleanup_async();
         let interval = self.settings.backup_settings.backup_interval_minutes;
         self.backup_state.auto_backup_due = if interval > 0 {
             Some(Instant::now() + Duration::from_secs(interval as u64 * 60))
         } else {
             None
         };
+        self.save_current_settings();
     }
 
     pub fn toggle_compact_mode(&mut self, ctx: &egui::Context) {

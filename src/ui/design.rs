@@ -45,6 +45,18 @@ pub struct Design {
     // Colors: drag ghost row
     pub drag_ghost_fill:   egui::Color32,
     pub drag_ghost_border: egui::Color32,
+    // Colors: header tabs & filters
+    pub tab_bg:             egui::Color32,
+    pub tab_bg_selected:    egui::Color32,
+    pub tab_text:           egui::Color32,
+    pub tab_text_selected:  egui::Color32,
+    pub filter_bg:          egui::Color32,
+    pub filter_bg_selected: egui::Color32,
+    // Colors: settings
+    pub settings_focus_bg:     egui::Color32,
+    pub settings_focus_border: egui::Color32,
+    pub helper_text_bg:        egui::Color32,
+    pub helper_text_color:     egui::Color32,
 }
 
 impl Design {
@@ -126,6 +138,58 @@ impl Design {
             } else {
                 egui::Color32::from_rgba_premultiplied(100, 55, 200, 130)
             },
+            // Tabs: "Mod List", "Modpacks" — same lavender family as helper_text
+            tab_bg: if dark {
+                egui::Color32::from_rgb(50, 40, 75)
+            } else {
+                egui::Color32::from_rgb(225, 218, 240)
+            },
+            tab_bg_selected: if dark {
+                egui::Color32::from_rgb(75, 50, 130)
+            } else {
+                egui::Color32::from_rgb(200, 185, 230)
+            },
+            tab_text: if dark {
+                egui::Color32::from_rgb(185, 178, 200)
+            } else {
+                egui::Color32::from_rgb(70, 50, 110)
+            },
+            tab_text_selected: if dark {
+                egui::Color32::from_rgb(230, 225, 245)
+            } else {
+                egui::Color32::from_rgb(50, 30, 90)
+            },
+            // Filters: "All", "Enabled", "Disabled" — lighter tone
+            filter_bg: if dark {
+                egui::Color32::from_rgb(45, 38, 65)
+            } else {
+                egui::Color32::from_rgb(235, 230, 248)
+            },
+            filter_bg_selected: if dark {
+                egui::Color32::from_rgb(65, 45, 110)
+            } else {
+                egui::Color32::from_rgb(215, 205, 238)
+            },
+            settings_focus_bg: if dark {
+                egui::Color32::from_rgba_premultiplied(110, 70, 200, 25)
+            } else {
+                egui::Color32::from_rgba_premultiplied(100, 65, 160, 18)
+            },
+            settings_focus_border: if dark {
+                egui::Color32::from_rgb(130, 85, 220)
+            } else {
+                egui::Color32::from_rgb(100, 65, 160)
+            },
+            helper_text_bg: if dark {
+                egui::Color32::from_rgb(50, 40, 75)
+            } else {
+                egui::Color32::from_rgb(225, 218, 240)
+            },
+            helper_text_color: if dark {
+                egui::Color32::from_rgb(185, 178, 200)
+            } else {
+                egui::Color32::from_rgb(70, 50, 110)
+            },
         }
     }
 
@@ -136,8 +200,14 @@ impl Design {
 
 /// Apply the UI zoom factor from settings. Call once per frame in the update loop
 /// and once on startup. This scales ALL egui widgets uniformly.
+/// Scale offset: stored value 1.25 = user-visible "1.0×".
+pub const SCALE_OFFSET: f32 = 0.25;
+pub const SCALE_INTERNAL_MIN: f32 = 1.0;
+pub const SCALE_INTERNAL_MAX: f32 = 2.25;
+pub const SCALE_INTERNAL_DEFAULT: f32 = 1.25;
+
 pub fn apply_zoom(ctx: &egui::Context, settings: &AppSettings) {
-    let scale = settings.ui_scale.clamp(0.75, 2.0);
+    let scale = settings.ui_scale.clamp(SCALE_INTERNAL_MIN, SCALE_INTERNAL_MAX);
     if (ctx.zoom_factor() - scale).abs() > 0.001 {
         ctx.set_zoom_factor(scale);
     }
@@ -158,12 +228,12 @@ mod tests {
 
     #[test]
     fn scale_clamped_to_valid_range() {
-        let clamp = |v: f32| v.clamp(0.75, 2.0);
-        assert_eq!(clamp(0.1), 0.75);
-        assert_eq!(clamp(5.0), 2.0);
+        let clamp = |v: f32| v.clamp(super::SCALE_INTERNAL_MIN, super::SCALE_INTERNAL_MAX);
+        assert_eq!(clamp(0.5), 1.0);
+        assert_eq!(clamp(5.0), 2.25);
+        assert_eq!(clamp(1.25), 1.25);
         assert_eq!(clamp(1.0), 1.0);
-        assert_eq!(clamp(0.75), 0.75);
-        assert_eq!(clamp(2.0), 2.0);
+        assert_eq!(clamp(2.25), 2.25);
     }
 
     #[test]
