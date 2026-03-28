@@ -65,27 +65,26 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
         })
         .collect();
 
-    let drag_source_idx = app.drag_state.as_ref().map(|d| d.source_index);
+    let drag_current_idx = app.drag_state.as_ref().map(|d| d.current_index);
 
     // Outputs collected during the loop, applied afterwards to avoid borrow conflicts.
     let mut toggle_idx: Option<usize> = None;
     let mut drag_started: Option<usize> = None;
-    // Position in the visible list to insert before (0 = very top, n = very bottom).
-    let mut drop_insert_pos: Option<usize> = None;
+    // Live-reorder target: row index the dragged item should move to this frame.
+    let mut drag_move_to: Option<usize> = None;
 
     egui::ScrollArea::vertical()
         .auto_shrink([false, false])
         .show(ui, |ui| {
             ui.set_min_width(ui.available_width());
 
-            let n = rows.len();
             for (row_num, row) in rows.iter().enumerate() {
-                let is_drag_source = drag_source_idx == Some(row.idx);
+                let is_ghost = drag_current_idx == Some(row.idx);
                 let is_even = row_num % 2 == 0;
 
                 // ── Row background fill ─────────────────────────────────────
-                let base_fill = if is_drag_source {
-                    ui.visuals().extreme_bg_color
+                let base_fill = if is_ghost {
+                    d.drag_ghost_fill
                 } else if row.enabled {
                     if is_even { d.enabled_even } else { d.enabled_odd }
                 } else if is_even {
@@ -94,8 +93,8 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     d.disabled_odd
                 };
 
-                // `row.idx` is stable throughout the drag (no live reordering), so it's a
-                // safe egui ID seed.  The "ri" namespace avoids collisions with the checkbox.
+                // `row.idx` is stable throughout the drag (live reordering keeps the
+                // same items), so it's a safe egui ID seed.
                 let row_interact_id = egui::Id::new(("hallinta_ri", row.idx));
 
                 // ── Render the row frame ────────────────────────────────────
@@ -112,12 +111,19 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                                 ui.set_min_width(ui.available_width());
                                 ui.horizontal(|ui| {
                                     // ── Row number (fixed-width gutter) ──────────────────────
+                                    // During a drag, show the live position; otherwise the
+                                    // true index.
+                                    let display_num = if app.drag_state.is_some() {
+                                        row_num + 1
+                                    } else {
+                                        row.idx + 1
+                                    };
                                     ui.allocate_ui_with_layout(
                                         egui::vec2(d.row_number_w, ui.available_height()),
                                         egui::Layout::right_to_left(egui::Align::Center),
                                         |ui| {
                                             ui.label(
-                                                egui::RichText::new(format!("{}", row.idx + 1))
+                                                egui::RichText::new(format!("{}", display_num))
                                                     .size(d.font_small)
                                                     .color(d.row_number_color),
                                             );
@@ -127,7 +133,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                                     ui.add_space(d.md);
 
                                     // ── Mod name ────────────────────────────────────────────
-                                    let name_color = if is_drag_source {
+                                    let name_color = if is_ghost {
                                         ui.visuals().weak_text_color()
                                     } else if !row.enabled {
                                         d.disabled_text
@@ -200,7 +206,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 let painter = ui.painter();
 
                 // Hover: tinted fill + border for clear feedback
-                if row_resp.hovered() && !is_drag_source && app.drag_state.is_none() {
+                if row_resp.hovered() && !is_ghost && app.drag_state.is_none() {
                     painter.rect_filled(
                         frame_resp.rect,
                         4.0 * d.scale,
@@ -214,12 +220,12 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     );
                 }
 
-                // Active drag source: bright selection border
-                if is_drag_source {
+                // Ghost row: accent border so the dragged item stands out
+                if is_ghost {
                     painter.rect_stroke(
                         frame_resp.rect,
-                        4.0,
-                        egui::Stroke::new(2.0 * d.scale, ui.visuals().selection.bg_fill),
+                        4.0 * d.scale,
+                        egui::Stroke::new(1.5 * d.scale, d.drag_ghost_border),
                         egui::StrokeKind::Outside,
                     );
                 }
@@ -232,39 +238,16 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     });
                 }
 
-                // ── Drop-target detection ────────────────────────────────────
-                if app.drag_state.is_some() {
+                // ── Live-reorder detection ───────────────────────────────────
+                // When hovering a non-ghost row during a drag, signal that the
+                // dragged item should move to this position.
+                if app.drag_state.is_some() && !is_ghost {
                     let rect = frame_resp.rect;
                     if let Some(ptr) = ui.ctx().pointer_latest_pos()
-                        && ptr.y >= rect.top() && ptr.y < rect.bottom() {
-                            let insert_before = ptr.y < rect.center().y;
-                            let candidate_pos =
-                                if insert_before { row_num } else { row_num + 1 };
-
-                            if !is_drag_source {
-                                drop_insert_pos = Some(candidate_pos.min(n));
-                            }
-
-                            // Draw drop-indicator line
-                            if let Some(pos) = drop_insert_pos {
-                                let this_rows_pos =
-                                    if insert_before { row_num } else { row_num + 1 };
-                                if pos == this_rows_pos.min(n) {
-                                    let indicator_y =
-                                        if insert_before { rect.top() } else { rect.bottom() };
-                                    painter.line_segment(
-                                        [
-                                            egui::pos2(rect.left(), indicator_y),
-                                            egui::pos2(rect.right(), indicator_y),
-                                        ],
-                                        egui::Stroke::new(
-                                            2.0,
-                                            ui.visuals().selection.bg_fill,
-                                        ),
-                                    );
-                                }
-                            }
-                        }
+                        && ptr.y >= rect.top() && ptr.y < rect.bottom()
+                    {
+                        drag_move_to = Some(row_num);
+                    }
                 }
 
                 // Row gap for visual breathing room
@@ -297,7 +280,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
     if let Some(idx) = drag_started {
         app.drag_state = Some(DragState {
-            source_index: idx,
+            current_index: idx,
             pre_drag_snapshot: app.current_mods.clone(),
         });
         let _ = crate::core::logging::log(
@@ -307,37 +290,42 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
         );
     }
 
-    // Commit drag on pointer release
+    // Live-reorder: move the dragged item to the hovered position each frame
+    if let Some(target) = drag_move_to {
+        if let Some(drag) = &mut app.drag_state {
+            if target != drag.current_index {
+                let item = app.current_mods.remove(drag.current_index);
+                app.current_mods.insert(target, item);
+                drag.current_index = target;
+            }
+        }
+    }
+
+    // Commit drag on pointer release — list is already in the right order
     if ui.input(|i| i.pointer.any_released())
         && let Some(drag) = app.drag_state.take()
-            && let Some(insert_pos) = drop_insert_pos {
-                let src = drag.source_index;
-                let n = app.current_mods.len();
-                let is_noop = insert_pos == src || insert_pos == src + 1;
-                if !is_noop && src < n {
-                    let dst = if insert_pos > src {
-                        (insert_pos - 1).min(n - 1)
-                    } else {
-                        insert_pos.min(n - 1)
-                    };
-                    let item = app.current_mods.remove(src);
-                    app.current_mods.insert(dst, item);
-                    let _ = crate::core::logging::log(
-                        "INFO",
-                        &format!("Moved mod from position {} to {}", src + 1, dst + 1),
-                        "ModList",
-                    );
-                    app.save_mod_config_and_preset();
-                }
-            }
-            // Released outside list — keep original order (drag_state already taken/dropped)
-
-    // Escape cancels drag
-    if ui.input(|i| i.key_pressed(egui::Key::Escape))
-        && let Some(drag) = app.drag_state.take() {
-            app.current_mods = drag.pre_drag_snapshot;
-            let _ = crate::core::logging::log("INFO", "Drag cancelled", "ModList");
+    {
+        let snapshot_idx = drag.pre_drag_snapshot
+            .iter()
+            .position(|m| m.name == app.current_mods[drag.current_index].name);
+        let changed = snapshot_idx.map_or(true, |orig| orig != drag.current_index);
+        if changed {
+            let _ = crate::core::logging::log(
+                "INFO",
+                &format!("Moved mod to position {}", drag.current_index + 1),
+                "ModList",
+            );
+            app.save_mod_config_and_preset();
         }
+    }
+
+    // Escape cancels drag — restore from snapshot
+    if ui.input(|i| i.key_pressed(egui::Key::Escape))
+        && let Some(drag) = app.drag_state.take()
+    {
+        app.current_mods = drag.pre_drag_snapshot;
+        let _ = crate::core::logging::log("INFO", "Drag cancelled", "ModList");
+    }
 }
 
 /// Shown when the save monitor is active, blocking mod list / modpacks access.

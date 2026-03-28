@@ -1,10 +1,14 @@
 use eframe::egui;
 
 pub fn apply_theme(ctx: &egui::Context, dark_mode: bool) {
+    // Set both the theme preference (so egui doesn't override with OS theme each
+    // frame) and the custom visuals for each mode.
     if dark_mode {
-        ctx.set_visuals(dark_visuals());
+        ctx.set_theme(egui::ThemePreference::Dark);
+        ctx.set_visuals_of(egui::Theme::Dark, dark_visuals());
     } else {
-        ctx.set_visuals(light_visuals());
+        ctx.set_theme(egui::ThemePreference::Light);
+        ctx.set_visuals_of(egui::Theme::Light, light_visuals());
     }
 }
 

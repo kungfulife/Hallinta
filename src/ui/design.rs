@@ -37,6 +37,9 @@ pub struct Design {
     pub toggle_on:       egui::Color32,
     pub status_ok:       egui::Color32,
     pub row_number_color: egui::Color32,
+    // Colors: drag ghost row
+    pub drag_ghost_fill:   egui::Color32,
+    pub drag_ghost_border: egui::Color32,
 }
 
 impl Design {
@@ -105,6 +108,16 @@ impl Design {
             toggle_on:       egui::Color32::from_rgb(60, 160, 70),
             status_ok:       egui::Color32::from_rgb(50, 200, 50),
             row_number_color,
+            drag_ghost_fill: if dark {
+                egui::Color32::from_rgba_premultiplied(70, 130, 210, 35)
+            } else {
+                egui::Color32::from_rgba_premultiplied(50, 110, 200, 30)
+            },
+            drag_ghost_border: if dark {
+                egui::Color32::from_rgba_premultiplied(100, 170, 255, 140)
+            } else {
+                egui::Color32::from_rgba_premultiplied(40, 100, 200, 130)
+            },
         }
     }
 

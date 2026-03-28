@@ -337,9 +337,9 @@ pub struct PresetImportData {
 
 #[derive(Clone, Debug)]
 pub struct DragState {
-    /// Index of the item being dragged in `current_mods`. Does NOT change during the drag
-    /// (no live reordering). Committed only on mouse release.
-    pub source_index: usize,
+    /// Where the dragged item currently sits in `current_mods` — updated live as the
+    /// pointer moves so the list previews the final order in real time.
+    pub current_index: usize,
     pub pre_drag_snapshot: Vec<ModEntry>,
 }
 
