@@ -53,6 +53,7 @@ fn main() {
             .with_inner_size([1100.0, 800.0])
             .with_min_inner_size([1050.0, 800.0])
             .with_icon(icon_data),
+        centered: true,
         renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
