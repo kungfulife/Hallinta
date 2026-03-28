@@ -26,6 +26,30 @@ Both calls are needed: `set_theme` controls which theme is active, `set_visuals_
 
 ---
 
+## UI Scaling via `set_zoom_factor`
+
+**Do NOT scale individual widgets manually.** Use `ctx.set_zoom_factor(scale)` which scales the entire UI uniformly — text, widgets, spacing, margins, layout, everything. Called once per frame in `update()` and on startup via `design::apply_zoom()`.
+
+`Design` struct values are fixed base logical pixels (not multiplied by scale). egui's zoom handles the rest.
+
+**Slider feedback loop pitfall:** Changing zoom while a slider is being dragged causes a feedback loop — the slider track shifts in logical coordinates, egui thinks the mouse moved, the value oscillates. Fix: only apply the zoom on `drag_stopped()` or `changed() && !dragged()`, never during an active drag. DragValue (number drag) doesn't have this problem because it has no spatial track.
+
+```rust
+// WRONG — spasms during drag
+if scale_resp.changed() {
+    app.settings.ui_scale = settings.ui_scale;
+}
+
+// CORRECT — applies on release or non-drag changes
+if scale_resp.drag_stopped() || (scale_resp.changed() && !scale_resp.dragged()) {
+    app.settings.ui_scale = settings.ui_scale;
+}
+```
+
+This feedback loop applies to ANY slider that controls zoom, font size, or layout-affecting values. The general rule: if a slider's value changes the coordinate system the slider lives in, defer the effect to `drag_stopped()`.
+
+---
+
 ## Stroke API (0.33 breaking change)
 
 `rect_stroke` requires a 4th parameter in 0.33:
@@ -45,8 +69,6 @@ Takes `i8` values, not `f32`:
 ```rust
 egui::Margin::symmetric(8i8, 5i8)
 ```
-
-At max UI scale (3.0), verify that `(value * scale) as i8` doesn't overflow (max i8 = 127).
 
 ---
 
@@ -98,7 +120,7 @@ Using `Wgpu` avoids the flickering issues seen with the `Glow` renderer on Windo
 When a setting should preview live (e.g., UI scale slider) but also support Cancel:
 
 1. Store the original value in a dedicated field **when entering settings** (e.g., `app.pre_settings_ui_scale`).
-2. Write to `app.settings.<field>` on slider change for immediate visual feedback.
+2. Write to `app.settings.<field>` on value change for immediate visual feedback.
 3. On Save: the value is already applied — just persist.
 4. On Cancel: restore from the saved original.
 
@@ -108,7 +130,7 @@ When a setting should preview live (e.g., UI scale slider) but also support Canc
 
 ## Button Text Centering: `add_sized` vs `add_enabled` + `min_size`
 
-`ui.add_sized([width, 0.0], Button::new("text"))` centers the text within the allocated width. This is what most sidebar buttons use.
+`ui.add_sized([width, 0.0], Button::new("text"))` centers the text within the allocated width.
 
 `ui.add_enabled(cond, Button::new("text").min_size(vec2(width, 0.0)))` sets a minimum size but does **not** center the text — it left-aligns within the button rect.
 
@@ -126,27 +148,26 @@ ui.add_enabled_ui(!is_locked, |ui| {
 
 ## Light Mode Visuals: Selection vs Active
 
-In light mode, egui's default `selection.bg_fill` is a solid color painted behind selected `selectable_label` text. A fully opaque purple makes tab labels like "Mod List" / "Modpacks" unreadable.
+In light mode, egui's default `selection.bg_fill` is a solid color painted behind selected `selectable_label` text. A fully opaque accent color makes tab labels unreadable.
 
-**Fix:** Use a semi-transparent selection fill and set `widgets.active.fg_stroke` for the text color:
+**Fix:** Use a semi-transparent selection fill, set `widgets.active.fg_stroke` for text color, and add `widgets.hovered.bg_fill` for visible hover:
 
 ```rust
-visuals.selection.bg_fill = Color32::from_rgba_premultiplied(100, 65, 160, 60);
+visuals.selection.bg_fill = Color32::from_rgba_premultiplied(100, 65, 160, 90);
 visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::from_rgb(70, 35, 130));
+visuals.widgets.hovered.bg_fill = Color32::from_rgba_premultiplied(100, 65, 160, 30);
 ```
 
-The `fg_stroke` controls the text color of active/selected widgets. Without it, egui picks a contrasting color against the fill, which can be white-on-purple (unreadable on light backgrounds).
+`fg_stroke` controls active/selected widget text color. Without it, egui picks a contrasting color against the fill, which can be white-on-purple (unreadable on light backgrounds).
 
 ---
 
 ## Wrapping a ScrollArea in a Background Frame
 
-To give a scrollable region (like the mod list) a distinct background:
-
 ```rust
 egui::Frame::NONE
     .fill(bg_color)
-    .corner_radius(6.0 * scale)
+    .corner_radius(6.0)
     .inner_margin(Margin::symmetric(pad, pad))
     .show(ui, |ui| {
         egui::ScrollArea::vertical()
@@ -155,4 +176,4 @@ egui::Frame::NONE
     });
 ```
 
-The Frame must be the **outer** wrapper. Putting it inside the ScrollArea would scroll the background away. The `auto_shrink([false, false])` ensures the scroll area fills the frame.
+The Frame must be the **outer** wrapper. Putting it inside the ScrollArea would scroll the background away.
