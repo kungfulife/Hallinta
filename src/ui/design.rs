@@ -206,6 +206,27 @@ pub const SCALE_INTERNAL_MIN: f32 = 1.0;
 pub const SCALE_INTERNAL_MAX: f32 = 2.25;
 pub const SCALE_INTERNAL_DEFAULT: f32 = 1.25;
 
+// Base window sizes at zoom 1.0 (unscaled logical pixels).
+// These are multiplied by the actual zoom factor to get the final size.
+// At default zoom 1.25: min = 680*1.25 × 520*1.25 = 850×650
+pub const BASE_MIN_NORMAL: (f32, f32) = (680.0, 520.0);
+pub const BASE_MIN_COMPACT: (f32, f32) = (240.0, 160.0);
+pub const BASE_SIZE_NORMAL: (f32, f32) = (880.0, 640.0);
+pub const BASE_SIZE_COMPACT: (f32, f32) = (384.0, 320.0);
+
+/// Compute the scaled minimum window size for the current UI scale.
+/// Multiplies the base (zoom-1.0 logical pixels) by the zoom factor.
+pub fn scaled_min_size(base: (f32, f32), ui_scale: f32) -> egui::Vec2 {
+    let scale = ui_scale.clamp(SCALE_INTERNAL_MIN, SCALE_INTERNAL_MAX);
+    egui::vec2(base.0 * scale, base.1 * scale)
+}
+
+/// Compute the scaled window size for the current UI scale.
+pub fn scaled_size(base: (f32, f32), ui_scale: f32) -> egui::Vec2 {
+    let scale = ui_scale.clamp(SCALE_INTERNAL_MIN, SCALE_INTERNAL_MAX);
+    egui::vec2(base.0 * scale, base.1 * scale)
+}
+
 pub fn apply_zoom(ctx: &egui::Context, settings: &AppSettings) {
     let scale = settings.ui_scale.clamp(SCALE_INTERNAL_MIN, SCALE_INTERNAL_MAX);
     if (ctx.zoom_factor() - scale).abs() > 0.001 {

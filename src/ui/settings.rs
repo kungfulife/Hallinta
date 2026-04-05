@@ -67,6 +67,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let prev_compact_mode = app.settings.compact_mode;
     let prev_backup_days = app.settings.backup_settings.auto_delete_days;
     let prev_backup_interval = app.settings.backup_settings.backup_interval_minutes;
+    let prev_ui_scale = app.settings.ui_scale;
 
     // Track whether any "simple" setting changed (no special side-effects, just save)
     let mut needs_save = false;
@@ -74,6 +75,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let mut noita_dir_lost_focus = false;
     let mut entangled_dir_lost_focus = false;
     let mut show_noita_warning = false;
+    let mut scale_changed = false;
 
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.heading("Settings");
@@ -189,12 +191,12 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 // Apply zoom only when released (same feedback-loop prevention as before)
                 if scale_resp.drag_stopped() || (scale_resp.changed() && !scale_resp.dragged()) {
                     app.settings.ui_scale = new_internal;
-                    needs_save = true;
+                    scale_changed = true;
                 }
 
                 if ui.small_button("Reset").clicked() {
                     app.settings.ui_scale = crate::ui::design::SCALE_INTERNAL_DEFAULT;
-                    needs_save = true;
+                    scale_changed = true;
                 }
             });
         });
@@ -419,7 +421,11 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             if ui.button("Reset to Defaults").clicked() {
                 let defaults = default_settings();
                 app.settings = defaults;
-                // Theme + compact side-effects will be picked up below
+                // All side-effects (theme, compact, scale) are picked up below
+                // via the prev_ snapshot comparisons and scale_changed flag
+                if app.settings.ui_scale != prev_ui_scale {
+                    scale_changed = true;
+                }
             }
         });
 
@@ -486,6 +492,11 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
         || app.settings.backup_settings.backup_interval_minutes != prev_backup_interval
     {
         app.on_backup_settings_changed();
+    }
+
+    // UI scale changed — resize window proportionally
+    if scale_changed {
+        app.on_ui_scale_changed(ui.ctx(), prev_ui_scale);
     }
 
     // Generic save for anything else that changed

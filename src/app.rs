@@ -44,6 +44,11 @@ pub struct HallintaApp {
     // Normal mode window size (for restoring after compact)
     normal_window_size: Option<egui::Vec2>,
 
+    // Deferred min size: viewport commands are processed next frame, so when
+    // LOWERING the min we first clear it to (1,1), then apply the real value
+    // on the following frame via this field.
+    deferred_min_size: Option<egui::Vec2>,
+
     // Track whether close was requested while monitor is running
     close_requested: bool,
 }
@@ -183,13 +188,24 @@ impl HallintaApp {
         // Apply theme and UI scale
         let dark_mode = app_settings.dark_mode;
         let compact_mode = app_settings.compact_mode;
+        let scale = app_settings.ui_scale;
         crate::ui::theme::apply_theme(&cc.egui_ctx, dark_mode);
         crate::ui::design::apply_zoom(&cc.egui_ctx, &app_settings);
 
-        // Apply compact mode window size if needed
+        // Apply scale-aware window sizing — must happen after apply_zoom
         if compact_mode {
-            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(300.0, 200.0)));
-            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(480.0, 400.0)));
+            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
+                crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_COMPACT, scale),
+            ));
+            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_COMPACT, scale),
+            ));
+        } else {
+            // Reinforce the scaled min size (main.rs sets it too, but this ensures
+            // consistency if the viewport builder values were clamped by the OS)
+            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
+                crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_NORMAL, scale),
+            ));
         }
 
         // Log system info if configured (now with full detail)
@@ -243,6 +259,7 @@ impl HallintaApp {
             drag_state: None,
             last_log_flush: now,
             normal_window_size: None,
+            deferred_min_size: None,
             close_requested: false,
         };
 
@@ -722,19 +739,68 @@ impl HallintaApp {
         let was_compact = self.compact_mode;
         self.compact_mode = self.settings.compact_mode;
         if was_compact != self.compact_mode {
+            let scale = self.settings.ui_scale;
             if self.compact_mode {
                 let current_size = ctx.input(|i| i.content_rect().size());
                 if current_size.x > 500.0 {
                     self.normal_window_size = Some(current_size);
                 }
-                ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(300.0, 200.0)));
-                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(480.0, 400.0)));
+                ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
+                    crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_COMPACT, scale),
+                ));
+                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                    crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_COMPACT, scale),
+                ));
             } else {
-                ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(1050.0, 800.0)));
-                let size = self.normal_window_size.unwrap_or(egui::vec2(1100.0, 800.0));
+                ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
+                    crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_NORMAL, scale),
+                ));
+                let size = self.normal_window_size.unwrap_or_else(|| {
+                    crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_NORMAL, scale)
+                });
                 ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
             }
         }
+        self.save_current_settings();
+    }
+
+    /// Called when UI scale changes — resize window proportionally and update min size.
+    ///
+    /// Viewport commands are deferred (processed next frame), so lowering `MinInnerSize`
+    /// causes a "one behind" lag — the OS still enforces the old (larger) minimum.
+    /// Fix: immediately clear the min to (1,1) so the OS stops clamping, resize the
+    /// window in the same batch, then queue the correct minimum for the next frame
+    /// via `deferred_min_size`.
+    pub fn on_ui_scale_changed(&mut self, ctx: &egui::Context, prev_scale: f32) {
+        let scale = self.settings.ui_scale;
+        let base_min = if self.compact_mode {
+            crate::ui::design::BASE_MIN_COMPACT
+        } else {
+            crate::ui::design::BASE_MIN_NORMAL
+        };
+
+        let new_min = crate::ui::design::scaled_min_size(base_min, scale);
+
+        // Scale the current window size proportionally to the scale change
+        let current_size = ctx.input(|i| i.content_rect().size());
+        let ratio = scale / prev_scale;
+        let new_w = (current_size.x * ratio).max(new_min.x);
+        let new_h = (current_size.y * ratio).max(new_min.y);
+
+        // Phase 1 (this frame's command batch):
+        // Clear the minimum so the OS stops enforcing the old (possibly larger) value,
+        // then resize the window in the same batch.
+        ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(1.0, 1.0)));
+        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(new_w, new_h)));
+
+        // Phase 2 (next frame): apply the correct minimum.
+        self.deferred_min_size = Some(new_min);
+
+        // Update stored normal size so compact→normal restores correctly
+        if !self.compact_mode {
+            self.normal_window_size = Some(egui::vec2(new_w, new_h));
+        }
+
         self.save_current_settings();
     }
 
@@ -762,6 +828,7 @@ impl HallintaApp {
         self.settings.compact_mode = self.compact_mode;
         let _ = settings::save_settings(&self.settings);
 
+        let scale = self.settings.ui_scale;
         if self.compact_mode {
             // Save current size before shrinking
             let current_size = ctx.input(|i| i.content_rect().size());
@@ -769,11 +836,19 @@ impl HallintaApp {
                 self.normal_window_size = Some(current_size);
             }
             // Must lower min-size BEFORE setting inner size, or the OS clamps it.
-            ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(300.0, 200.0)));
-            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(480.0, 400.0)));
+            ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
+                crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_COMPACT, scale),
+            ));
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_COMPACT, scale),
+            ));
         } else {
-            ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(1050.0, 800.0)));
-            let size = self.normal_window_size.unwrap_or(egui::vec2(1100.0, 800.0));
+            ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
+                crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_NORMAL, scale),
+            ));
+            let size = self.normal_window_size.unwrap_or_else(|| {
+                crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_NORMAL, scale)
+            });
             ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
         }
     }
@@ -1776,6 +1851,11 @@ impl eframe::App for HallintaApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // 0. Apply UI zoom (must be before any rendering)
         crate::ui::design::apply_zoom(ctx, &self.settings);
+
+        // 0b. Apply deferred min size (queued on previous frame to avoid one-behind lag)
+        if let Some(min) = self.deferred_min_size.take() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(min));
+        }
 
         // 1. Poll async task results
         self.poll_task_results();

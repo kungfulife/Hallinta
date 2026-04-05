@@ -335,6 +335,71 @@ pub fn get_window_title() -> String {
     }
 }
 
+/// Returns the centered position for a window of `window_size` on the monitor
+/// where the cursor currently is. Falls back to `None` if detection fails
+/// (caller should use eframe's `centered: true` as fallback).
+#[cfg(target_os = "windows")]
+pub fn get_cursor_monitor_center(window_w: f32, window_h: f32) -> Option<(f32, f32)> {
+    use std::mem;
+
+    #[repr(C)]
+    struct POINT {
+        x: i32,
+        y: i32,
+    }
+
+    #[repr(C)]
+    struct RECT {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+    }
+
+    #[repr(C)]
+    struct MONITORINFO {
+        cb_size: u32,
+        rc_monitor: RECT,
+        rc_work: RECT,
+        dw_flags: u32,
+    }
+
+    unsafe extern "system" {
+        fn GetCursorPos(lp_point: *mut POINT) -> i32;
+        fn MonitorFromPoint(pt: POINT, dw_flags: u32) -> *mut std::ffi::c_void;
+        fn GetMonitorInfoW(h_monitor: *mut std::ffi::c_void, lpmi: *mut MONITORINFO) -> i32;
+    }
+
+    const MONITOR_DEFAULTTONEAREST: u32 = 0x00000002;
+
+    unsafe {
+        let mut cursor = POINT { x: 0, y: 0 };
+        if GetCursorPos(&mut cursor) == 0 {
+            return None;
+        }
+
+        let monitor = MonitorFromPoint(cursor, MONITOR_DEFAULTTONEAREST);
+        if monitor.is_null() {
+            return None;
+        }
+
+        let mut info: MONITORINFO = mem::zeroed();
+        info.cb_size = mem::size_of::<MONITORINFO>() as u32;
+        if GetMonitorInfoW(monitor, &mut info) == 0 {
+            return None;
+        }
+
+        // Use the work area (excludes taskbar)
+        let work = &info.rc_work;
+        let mon_w = (work.right - work.left) as f32;
+        let mon_h = (work.bottom - work.top) as f32;
+        let x = work.left as f32 + (mon_w - window_w) / 2.0;
+        let y = work.top as f32 + (mon_h - window_h) / 2.0;
+
+        Some((x.max(work.left as f32), y.max(work.top as f32)))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
