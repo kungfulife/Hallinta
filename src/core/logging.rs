@@ -25,6 +25,7 @@ fn log_file_name(version: &str, instance_id: &str) -> String {
 
 fn write_session_marker_to_file(file: &mut std::fs::File, marker: &str) {
     let version = platform::get_version();
+    let git_hash = platform::get_git_hash();
     let build_mode = if cfg!(debug_assertions) {
         "debug"
     } else {
@@ -32,8 +33,8 @@ fn write_session_marker_to_file(file: &mut std::fs::File, marker: &str) {
     };
     let timestamp = Utc::now().to_rfc3339();
     let line = format!(
-        "=== {} | Hallinta v{} ({}) | {} ===\n",
-        marker, version, build_mode, timestamp
+        "=== {} | Hallinta v{} ({}) [{}] | {} ===\n",
+        marker, version, build_mode, git_hash, timestamp
     );
     let _ = file.write_all(line.as_bytes());
 }

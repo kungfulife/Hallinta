@@ -331,6 +331,7 @@ fn render_system_info(app: &mut HallintaApp, ctx: &egui::Context) {
                     .min_col_width(120.0)
                     .show(ui, |ui| {
                         sysinfo_row(ui, "Version", &info.app_version);
+                        sysinfo_row(ui, "Git Hash", &info.git_hash);
                         sysinfo_row(ui, "Build Profile", &info.build_profile);
                         sysinfo_row(ui, "Dev Build", &format!("{}", crate::core::platform::is_dev_build()));
                         sysinfo_row(ui, "Rust Version", &info.rust_version);

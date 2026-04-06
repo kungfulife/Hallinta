@@ -15,6 +15,10 @@ pub fn get_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
+pub fn get_git_hash() -> String {
+    env!("HALLINTA_GIT_HASH").to_string()
+}
+
 pub fn get_exe_dir() -> Result<PathBuf, String> {
     std::env::current_exe()
         .map_err(|e| format!("Could not get executable path: {}", e))?
@@ -234,6 +238,7 @@ pub fn get_system_info() -> Result<SystemInfo, String> {
 
     Ok(SystemInfo {
         app_version: get_version(),
+        git_hash: get_git_hash(),
         build_profile: env!("HALLINTA_PROFILE").to_string(),
         rust_version: env!("HALLINTA_RUSTC_VERSION").to_string(),
         cargo_version: env!("HALLINTA_CARGO_VERSION").to_string(),
@@ -329,7 +334,7 @@ pub fn get_open_source_libraries() -> Vec<OpenSourceLibrary> {
 /// Get the application window title, including [DEV] marker if debug build.
 pub fn get_window_title() -> String {
     if is_dev_build() {
-        format!("Hallinta [DEV] v{}", get_version())
+        format!("Hallinta [DEV] v{} ({})", get_version(), get_git_hash())
     } else {
         "Hallinta".to_string()
     }

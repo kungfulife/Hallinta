@@ -91,6 +91,23 @@ fn main() {
     writeln!(f, "    ]").unwrap();
     writeln!(f, "}}").unwrap();
 
+    // Git commit hash
+    let git_hash = Command::new("git")
+        .args(&["rev-parse", "--short", "HEAD"])
+        .output()
+        .ok()
+        .and_then(|out| {
+            if out.status.success() {
+                Some(String::from_utf8_lossy(&out.stdout).trim().to_string())
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| "unknown".to_string());
+    println!("cargo:rustc-env=HALLINTA_GIT_HASH={git_hash}");
+    println!("cargo:rerun-if-changed=.git/HEAD");
+    println!("cargo:rerun-if-changed=.git/refs/heads");
+
     println!("cargo:rerun-if-changed=Cargo.lock");
     println!("cargo:rerun-if-changed=build.rs");
 }

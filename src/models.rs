@@ -158,6 +158,7 @@ pub struct LogEntry {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SystemInfo {
     pub app_version: String,
+    pub git_hash: String,
     pub build_profile: String,
     pub rust_version: String,
     pub cargo_version: String,
