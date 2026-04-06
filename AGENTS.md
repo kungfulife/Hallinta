@@ -13,7 +13,7 @@
   - `src/tasks.rs`: async task result messages.
 - Tests: unit tests are colocated in `#[cfg(test)]` modules.
 - Docs: `docs/`
-  - If you want to put anything planning related, just put it within "temp". 
+  - If you want to put anything planning related, just put it within "temp".
 - Build outputs: `target/`.
 - Runtime data directory:
   - Debug builds: `<repo>/dev_data`
@@ -64,6 +64,7 @@
 - When answering questions, respond with high-confidence answers only: verify in code; do not guess.
 - Patching dependencies requires explicit approval; do not do this by default.
 - Version location: `Cargo.toml`.
+- Do not update  `Cargo.lock` file, it is automatically generated within Rust.
 - **Multi-agent safety:** do **not** create/apply/drop `git stash` entries unless explicitly requested (this includes `git pull --rebase --autostash`). Assume other agents may be working; keep unrelated WIP untouched and avoid cross-cutting state changes.
 - **Multi-agent safety:** when the user says "push", you may `git pull --rebase` to integrate latest changes (never discard other agents' work). When the user says "commit", scope to your changes only. When the user says "commit all", commit everything in grouped chunks.
 - **Multi-agent safety:** do **not** create/remove/modify `git worktree` checkouts (or edit `.worktrees/*`) unless explicitly requested.
