@@ -76,23 +76,22 @@ impl Default for BackupSettings {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SaveMonitorSettings {
-    pub interval_minutes: u32,
-    pub max_snapshots_per_preset: usize,
+    #[serde(default = "default_max_snapshots_per_session")]
+    #[serde(alias = "max_snapshots_per_preset")]
+    pub max_snapshots_per_session: usize,
     pub include_entangled: bool,
     #[serde(default = "default_include_save01")]
     pub include_save01: bool,
     #[serde(default)]
     pub start_in_monitor_mode: bool,
-    #[serde(default = "default_keep_every_nth")]
-    pub keep_every_nth: usize,
+}
+
+fn default_max_snapshots_per_session() -> usize {
+    15
 }
 
 fn default_include_save01() -> bool {
     false
-}
-
-fn default_keep_every_nth() -> usize {
-    5
 }
 
 fn default_ui_scale() -> f32 {
@@ -102,12 +101,10 @@ fn default_ui_scale() -> f32 {
 impl Default for SaveMonitorSettings {
     fn default() -> Self {
         Self {
-            interval_minutes: 3,
-            max_snapshots_per_preset: 10,
+            max_snapshots_per_session: 15,
             include_entangled: false,
             include_save01: false,
             start_in_monitor_mode: false,
-            keep_every_nth: 5,
         }
     }
 }
@@ -174,12 +171,31 @@ pub struct OpenSourceLibrary {
     pub homepage: String,
 }
 
-// ── Save Monitor ───────────────────────────────────────────────────────────
+// ── Session System ────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SessionStatus {
+    Active,
+    Paused,
+    Ended,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct MonitorSnapshot {
-    pub filename: String,
+pub struct SessionInfo {
+    pub id: String,
+    pub name: String,
     pub preset_name: String,
+    pub started_at: String,
+    pub ended_at: Option<String>,
+    pub status: SessionStatus,
+    pub snapshot_count: u32,
+    pub locked_mods: Vec<ModEntry>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SnapshotEntry {
+    pub filename: String,
+    pub session_id: String,
     pub timestamp: String,
     pub size_bytes: u64,
 }
@@ -264,6 +280,10 @@ pub enum ConfirmAction {
     ExitWithoutSnapshot,
     DeleteBackup(String),
     ClearMonitorData,
+    ContinueMonitorSession(String),  // session_id
+    StartNewMonitorSession,
+    StopAndEndSession,
+    StopAndClearSession,
 }
 
 #[derive(Clone, Debug)]
@@ -316,16 +336,24 @@ pub struct DragState {
 /// All mutation checks use `is_running()`.
 pub struct SaveMonitorState {
     pub running: bool,
-    pub last_snapshot: Option<Instant>,
+    pub current_session: Option<SessionInfo>,
     pub snapshot_count: u32,
+    pub last_known_mtime: u64,
+    pub pending_change_since: Option<Instant>,
+    pub snapshot_in_flight: bool,
+    pub last_scan: Option<Instant>,
 }
 
 impl SaveMonitorState {
     pub fn new() -> Self {
         Self {
             running: false,
-            last_snapshot: None,
+            current_session: None,
             snapshot_count: 0,
+            last_known_mtime: 0,
+            pending_change_since: None,
+            snapshot_in_flight: false,
+            last_scan: None,
         }
     }
 
@@ -339,7 +367,7 @@ pub struct BackupState {
     pub in_progress: bool,
     pub restoring: bool,
     pub backup_list: Vec<BackupInfo>,
-    pub snapshot_list: Vec<MonitorSnapshot>,
+    pub snapshot_list: Vec<SnapshotEntry>,
     pub workshop_status: Vec<(String, bool)>,
     pub auto_backup_due: Option<Instant>,
 }

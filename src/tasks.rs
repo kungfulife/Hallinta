@@ -1,4 +1,4 @@
-use crate::models::{BackupInfo, MonitorSnapshot};
+use crate::models::BackupInfo;
 
 /// Results from background tasks dispatched to the tokio runtime.
 #[derive(Debug)]
@@ -9,7 +9,9 @@ pub enum TaskResult {
     UpgradeBackupComplete(Result<(), String>),
     AutoBackupComplete(Result<String, String>),
     BackupListLoaded(Result<Vec<BackupInfo>, String>),
-    SnapshotListLoaded(Result<Vec<MonitorSnapshot>, String>),
+    SessionCheckComplete(Result<Vec<crate::models::SessionInfo>, String>),
+    SessionListLoaded(Result<Vec<crate::models::SessionInfo>, String>),
+    SessionSnapshotsLoaded(Result<Vec<crate::models::SnapshotEntry>, String>),
     WorkshopModsChecked(Result<Vec<(String, bool)>, String>),
     BackupCleanupComplete(Result<u32, String>),
     SnapshotCleanupComplete(Result<u32, String>),

@@ -298,17 +298,22 @@ impl HallintaApp {
             self.check_external_changes();
         }
 
-        // Save monitor (periodic snapshots)
-        if self.save_monitor.is_running() {
-            let interval = Duration::from_secs(
-                self.settings.save_monitor_settings.interval_minutes as u64 * 60,
-            );
-            let should_snapshot = self
+        // Save monitor (change-detection based)
+        if self.save_monitor.is_running() && !self.save_monitor.snapshot_in_flight {
+            let should_scan = self
                 .save_monitor
-                .last_snapshot
-                .is_some_and(|t| now.duration_since(t) > interval);
-            if should_snapshot {
-                self.take_monitor_snapshot();
+                .last_scan
+                .is_none_or(|t| now.duration_since(t) > Duration::from_secs(2));
+            if should_scan {
+                self.save_monitor.last_scan = Some(now);
+                self.check_save_monitor_changes();
+            }
+            // Wait 5 seconds after change detected for stability
+            if let Some(change_time) = self.save_monitor.pending_change_since {
+                if now.duration_since(change_time) > Duration::from_secs(5) {
+                    self.save_monitor.pending_change_since = None;
+                    self.take_monitor_snapshot();
+                }
             }
         }
 
@@ -405,28 +410,34 @@ impl HallintaApp {
                     }
                 }
                 TaskResult::SnapshotComplete(res) => {
+                    self.save_monitor.snapshot_in_flight = false;
                     match res {
                         Ok(filename) => {
                             self.save_monitor.snapshot_count += 1;
-                            self.save_monitor.last_snapshot = Some(Instant::now());
+                            if let Some(ref mut session) = self.save_monitor.current_session {
+                                session.snapshot_count = self.save_monitor.snapshot_count;
+                                let _ = save_monitor::save_session(session);
+                            }
                             let _ = logging::log(
                                 "INFO",
                                 &format!("Snapshot created: {}", filename),
                                 "SaveMonitor",
                             );
-                            // Cleanup old snapshots with keep-every-nth (async)
-                            let preset = self.selected_preset.clone();
-                            let keep = self.settings.save_monitor_settings.max_snapshots_per_preset;
-                            let keep_nth = self.settings.save_monitor_settings.keep_every_nth;
-                            let cleanup_tx = self.task_tx.clone();
-                            self.async_runtime.spawn(async move {
-                                let result = tokio::task::spawn_blocking(move || {
-                                    save_monitor::cleanup_monitor_snapshots(&preset, keep, keep_nth)
-                                })
-                                .await
-                                .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
-                                let _ = cleanup_tx.send(TaskResult::SnapshotCleanupComplete(result));
-                            });
+                            // Session-scoped cleanup
+                            if let Some(ref session) = self.save_monitor.current_session {
+                                let preset = session.preset_name.clone();
+                                let sid = session.id.clone();
+                                let keep = self.settings.save_monitor_settings.max_snapshots_per_session;
+                                let cleanup_tx = self.task_tx.clone();
+                                self.async_runtime.spawn(async move {
+                                    let result = tokio::task::spawn_blocking(move || {
+                                        save_monitor::cleanup_session_snapshots(&preset, &sid, keep)
+                                    })
+                                    .await
+                                    .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
+                                    let _ = cleanup_tx.send(TaskResult::SnapshotCleanupComplete(result));
+                                });
+                            }
                         }
                         Err(e) => {
                             let _ = logging::log(
@@ -470,7 +481,32 @@ impl HallintaApp {
                         self.backup_state.backup_list = list;
                     }
                 }
-                TaskResult::SnapshotListLoaded(res) => {
+                TaskResult::SessionCheckComplete(res) => {
+                    match res {
+                        Ok(paused) if !paused.is_empty() => {
+                            self.active_modal = Some(Modal::Confirm {
+                                message: format!(
+                                    "Found {} paused session(s). Resume the most recent one?",
+                                    paused.len()
+                                ),
+                                confirm_text: "Resume".to_string(),
+                                cancel_text: "New Session".to_string(),
+                                action: ConfirmAction::ContinueMonitorSession(paused[0].id.clone()),
+                                cancel_action: Some(ConfirmAction::StartNewMonitorSession),
+                            });
+                        }
+                        _ => {
+                            self.start_new_monitor_session();
+                        }
+                    }
+                }
+                TaskResult::SessionListLoaded(res) => {
+                    // Will be used by UI in Task 6
+                    if let Ok(_sessions) = res {
+                        // Store for modal use — we'll wire this in Task 6
+                    }
+                }
+                TaskResult::SessionSnapshotsLoaded(res) => {
                     if let Ok(list) = res {
                         self.backup_state.snapshot_list = list;
                     }
@@ -549,14 +585,28 @@ impl HallintaApp {
         });
     }
 
-    pub fn load_snapshot_list_async(&self, preset_name: String) {
+    pub fn load_sessions_async(&self) {
+        let preset = self.selected_preset.clone();
         let tx = self.task_tx.clone();
         self.async_runtime.spawn(async move {
-            let result =
-                tokio::task::spawn_blocking(move || save_monitor::list_monitor_snapshots(&preset_name))
-                    .await
-                    .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
-            let _ = tx.send(TaskResult::SnapshotListLoaded(result));
+            let result = tokio::task::spawn_blocking(move || {
+                save_monitor::list_sessions(&preset)
+            })
+            .await
+            .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
+            let _ = tx.send(TaskResult::SessionListLoaded(result));
+        });
+    }
+
+    pub fn load_session_snapshots_async(&self, preset: String, session_id: String) {
+        let tx = self.task_tx.clone();
+        self.async_runtime.spawn(async move {
+            let result = tokio::task::spawn_blocking(move || {
+                save_monitor::list_session_snapshots(&preset, &session_id)
+            })
+            .await
+            .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
+            let _ = tx.send(TaskResult::SessionSnapshotsLoaded(result));
         });
     }
 
@@ -1275,23 +1325,148 @@ impl HallintaApp {
     // ── Save Monitor ───────────────────────────────────────────────────
 
     pub fn start_save_monitor(&mut self) {
-        self.save_monitor.running = true;
-        self.save_monitor.snapshot_count = 0;
-        let _ = logging::log("INFO", "Save Monitor started", "SaveMonitor");
-        logging::write_session_marker(&format!(
-            "MONITOR_START:preset={},interval={}min",
-            self.selected_preset, self.settings.save_monitor_settings.interval_minutes
-        ));
-        self.take_monitor_snapshot();
+        let preset = self.selected_preset.clone();
+        let tx = self.task_tx.clone();
+        self.async_runtime.spawn(async move {
+            let result = tokio::task::spawn_blocking(move || {
+                save_monitor::list_paused_sessions(&preset)
+            })
+            .await
+            .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
+            let _ = tx.send(TaskResult::SessionCheckComplete(result));
+        });
+    }
+
+    pub fn start_new_monitor_session(&mut self) {
+        let name = save_monitor::generate_session_name();
+        let preset = self.selected_preset.clone();
+        let mods = self.current_mods.clone();
+        match save_monitor::create_session(&preset, &name, &mods) {
+            Ok(session) => {
+                self.save_monitor.running = true;
+                self.save_monitor.snapshot_count = 0;
+                self.save_monitor.current_session = Some(session);
+                let noita_dir = self.get_active_noita_dir();
+                let include_save01 = self.settings.save_monitor_settings.include_save01;
+                let entangled = if self.settings.save_monitor_settings.include_entangled {
+                    self.get_active_entangled_dir()
+                } else {
+                    None
+                };
+                self.save_monitor.last_known_mtime = save_monitor::scan_save_dirs_mtime(
+                    &noita_dir,
+                    include_save01,
+                    entangled.as_deref(),
+                );
+                let _ = logging::log(
+                    "INFO",
+                    &format!("Monitor session started: {}", name),
+                    "SaveMonitor",
+                );
+                logging::write_session_marker(&format!(
+                    "MONITOR_START:preset={},session={}",
+                    preset, name
+                ));
+                self.take_monitor_snapshot();
+            }
+            Err(e) => {
+                let _ = logging::log(
+                    "ERROR",
+                    &format!("Failed to create session: {}", e),
+                    "SaveMonitor",
+                );
+            }
+        }
+    }
+
+    pub fn resume_monitor_session(&mut self, session_id: &str) {
+        let preset = self.selected_preset.clone();
+        match save_monitor::load_session(&preset, session_id) {
+            Ok(mut session) => {
+                session.status = SessionStatus::Active;
+                let _ = save_monitor::save_session(&session);
+                self.save_monitor.running = true;
+                self.save_monitor.snapshot_count = session.snapshot_count;
+                self.save_monitor.current_session = Some(session);
+                let noita_dir = self.get_active_noita_dir();
+                let include_save01 = self.settings.save_monitor_settings.include_save01;
+                let entangled = if self.settings.save_monitor_settings.include_entangled {
+                    self.get_active_entangled_dir()
+                } else {
+                    None
+                };
+                self.save_monitor.last_known_mtime = save_monitor::scan_save_dirs_mtime(
+                    &noita_dir,
+                    include_save01,
+                    entangled.as_deref(),
+                );
+                let _ = logging::log("INFO", "Monitor session resumed", "SaveMonitor");
+            }
+            Err(e) => {
+                let _ = logging::log(
+                    "ERROR",
+                    &format!("Failed to resume session: {}", e),
+                    "SaveMonitor",
+                );
+            }
+        }
+    }
+
+    pub fn end_monitor_session(&mut self) {
+        if let Some(ref mut session) = self.save_monitor.current_session {
+            session.status = SessionStatus::Ended;
+            session.ended_at = Some(chrono::Utc::now().to_rfc3339());
+            let _ = save_monitor::save_session(session);
+        }
+        let count = self.save_monitor.snapshot_count;
+        self.save_monitor.running = false;
+        self.save_monitor.current_session = None;
+        self.save_monitor.pending_change_since = None;
+        let _ = logging::log("INFO", "Monitor session ended", "SaveMonitor");
+        logging::write_session_marker(&format!("MONITOR_STOP:snapshots={}", count));
     }
 
     pub fn stop_save_monitor(&mut self) {
+        if let Some(ref mut session) = self.save_monitor.current_session {
+            session.status = SessionStatus::Paused;
+            session.snapshot_count = self.save_monitor.snapshot_count;
+            let _ = save_monitor::save_session(session);
+        }
+        let count = self.save_monitor.snapshot_count;
         self.save_monitor.running = false;
-        let _ = logging::log("INFO", "Save Monitor stopped", "SaveMonitor");
-        logging::write_session_marker(&format!(
-            "MONITOR_STOP:snapshots={}",
-            self.save_monitor.snapshot_count
-        ));
+        self.save_monitor.current_session = None;
+        self.save_monitor.pending_change_since = None;
+        let _ = logging::log("INFO", "Monitor session paused", "SaveMonitor");
+        logging::write_session_marker(&format!("MONITOR_STOP:snapshots={}", count));
+    }
+
+    fn check_save_monitor_changes(&mut self) {
+        let noita_dir = self.get_active_noita_dir();
+        if noita_dir.is_empty() {
+            return;
+        }
+        let include_save01 = self.settings.save_monitor_settings.include_save01;
+        let entangled_dir = if self.settings.save_monitor_settings.include_entangled {
+            self.get_active_entangled_dir()
+        } else {
+            None
+        };
+        let current_mtime = save_monitor::scan_save_dirs_mtime(
+            &noita_dir,
+            include_save01,
+            entangled_dir.as_deref(),
+        );
+        if current_mtime > self.save_monitor.last_known_mtime {
+            self.save_monitor.last_known_mtime = current_mtime;
+            if self.save_monitor.pending_change_since.is_none() {
+                self.save_monitor.pending_change_since = Some(Instant::now());
+                let _ = logging::log(
+                    "DEBUG",
+                    "Save file change detected, waiting for stability...",
+                    "SaveMonitor",
+                );
+            }
+        }
     }
 
     fn take_monitor_snapshot(&mut self) {
@@ -1299,6 +1474,10 @@ impl HallintaApp {
         if noita_dir.is_empty() {
             return;
         }
+        let session_id = match &self.save_monitor.current_session {
+            Some(s) => s.id.clone(),
+            None => return,
+        };
         let preset_name = self.selected_preset.clone();
         let include_save01 = self.settings.save_monitor_settings.include_save01;
         let include_entangled = self.settings.save_monitor_settings.include_entangled;
@@ -1308,12 +1487,14 @@ impl HallintaApp {
             None
         };
         let tx = self.task_tx.clone();
+        self.save_monitor.snapshot_in_flight = true;
 
         self.async_runtime.spawn(async move {
             let result = tokio::task::spawn_blocking(move || {
-                save_monitor::create_monitor_snapshot(
+                save_monitor::create_snapshot_in_session(
                     &noita_dir,
                     &preset_name,
+                    &session_id,
                     include_save01,
                     include_entangled,
                     entangled_dir.as_deref(),
@@ -1323,8 +1504,6 @@ impl HallintaApp {
             .unwrap_or_else(|e| Err(format!("Snapshot task failed: {}", e)));
             let _ = tx.send(TaskResult::SnapshotComplete(result));
         });
-
-        self.save_monitor.last_snapshot = Some(Instant::now());
     }
 
     // ── Open mod_config.xml ───────────────────────────────────────────
@@ -1403,11 +1582,11 @@ impl HallintaApp {
             }
             ConfirmAction::ExitWithSnapshot => {
                 self.take_monitor_snapshot();
-                self.stop_save_monitor();
+                self.end_monitor_session();
                 self.close_requested = false;
             }
             ConfirmAction::ExitWithoutSnapshot => {
-                self.stop_save_monitor();
+                self.end_monitor_session();
                 self.close_requested = false;
             }
             ConfirmAction::DeleteBackup(filename) => {
@@ -1415,6 +1594,23 @@ impl HallintaApp {
             }
             ConfirmAction::ClearMonitorData => {
                 self.clear_monitor_data_async();
+            }
+            ConfirmAction::ContinueMonitorSession(session_id) => {
+                self.resume_monitor_session(&session_id);
+            }
+            ConfirmAction::StartNewMonitorSession => {
+                self.start_new_monitor_session();
+            }
+            ConfirmAction::StopAndEndSession => {
+                self.end_monitor_session();
+            }
+            ConfirmAction::StopAndClearSession => {
+                if let Some(ref session) = self.save_monitor.current_session {
+                    let preset = session.preset_name.clone();
+                    let sid = session.id.clone();
+                    let _ = save_monitor::delete_session_snapshots(&preset, &sid);
+                }
+                self.end_monitor_session();
             }
         }
     }

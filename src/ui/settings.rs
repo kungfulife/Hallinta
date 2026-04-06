@@ -297,41 +297,13 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             ui.add_space(d.sm);
 
             ui.horizontal(|ui| {
-                ui.label("Snapshot interval (minutes):");
+                ui.label("Max snapshots per session:");
                 if ui
                     .add(
                         egui::DragValue::new(
-                            &mut app.settings.save_monitor_settings.interval_minutes,
-                        )
-                        .range(1..=60),
-                    )
-                    .changed()
-                {
-                    needs_save = true;
-                }
-            });
-            ui.horizontal(|ui| {
-                ui.label("Max snapshots per preset:");
-                if ui
-                    .add(
-                        egui::DragValue::new(
-                            &mut app.settings.save_monitor_settings.max_snapshots_per_preset,
+                            &mut app.settings.save_monitor_settings.max_snapshots_per_session,
                         )
                         .range(1..=100),
-                    )
-                    .changed()
-                {
-                    needs_save = true;
-                }
-            });
-            ui.horizontal(|ui| {
-                ui.label("Keep every Nth snapshot (protected from cleanup):");
-                if ui
-                    .add(
-                        egui::DragValue::new(
-                            &mut app.settings.save_monitor_settings.keep_every_nth,
-                        )
-                        .range(0..=50),
                     )
                     .changed()
                 {
@@ -341,7 +313,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             helper_text(
                 ui,
                 &d,
-                "0 = no protection. 5 = every 5th oldest snapshot is kept during cleanup.",
+                "Oldest snapshots are removed when the limit is reached.",
             );
             if ui
                 .checkbox(

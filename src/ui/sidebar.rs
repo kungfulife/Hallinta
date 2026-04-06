@@ -105,7 +105,10 @@ pub fn render_sidebar(app: &mut HallintaApp, ctx: &egui::Context) {
                 // View snapshots for current preset
                 if ui.add_sized([btn_width, 0.0], egui::Button::new("View Snapshots")).clicked() {
                     let preset = app.selected_preset.clone();
-                    app.load_snapshot_list_async(preset.clone());
+                    // Load snapshots from the current session if active, otherwise show sessions
+                    if let Some(ref session) = app.save_monitor.current_session {
+                        app.load_session_snapshots_async(preset.clone(), session.id.clone());
+                    }
                     app.active_modal = Some(Modal::SnapshotManager {
                         preset_name: preset,
                     });

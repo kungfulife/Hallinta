@@ -139,7 +139,9 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
             .clicked()
         {
             let preset = app.selected_preset.clone();
-            app.load_snapshot_list_async(preset.clone());
+            if let Some(ref session) = app.save_monitor.current_session {
+                app.load_session_snapshots_async(preset.clone(), session.id.clone());
+            }
             app.active_modal = Some(Modal::SnapshotManager {
                 preset_name: preset,
             });

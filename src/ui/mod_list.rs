@@ -368,10 +368,8 @@ pub fn render_monitor_active(app: &mut HallintaApp, ui: &mut egui::Ui) {
         );
         ui.label(
             egui::RichText::new(format!(
-                "Interval: {} min | Max: {} | Keep every {}th",
-                app.settings.save_monitor_settings.interval_minutes,
-                app.settings.save_monitor_settings.max_snapshots_per_preset,
-                app.settings.save_monitor_settings.keep_every_nth,
+                "Max snapshots per session: {}",
+                app.settings.save_monitor_settings.max_snapshots_per_session,
             ))
             .size(d.font_small)
             .color(ui.visuals().weak_text_color()),
