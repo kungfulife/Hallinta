@@ -150,6 +150,23 @@ pub fn open_steam_subscribe(workshop_id: &str) -> Result<(), String> {
     opener::open(&url).map_err(|e| format!("Failed to open Steam subscribe URL: {}", e))
 }
 
+/// Open a mod's workshop page, trying Steam client URI first, falling back to browser.
+pub fn open_workshop_page(workshop_id: &str) {
+    if workshop_id.is_empty() || workshop_id == "0" {
+        return;
+    }
+    // Try Steam client URI first
+    let steam_uri = format!("steam://url/CommunityFilePage/{}", workshop_id);
+    if opener::open(&steam_uri).is_err() {
+        // Fall back to browser
+        let url = format!(
+            "https://steamcommunity.com/sharedfiles/filedetails/?id={}",
+            workshop_id
+        );
+        let _ = opener::open(&url);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

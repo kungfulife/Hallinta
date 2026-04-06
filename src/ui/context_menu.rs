@@ -47,11 +47,7 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
 
     if is_workshop
         && ui.button("Open Workshop Page").clicked() {
-            let url = format!(
-                "https://steamcommunity.com/sharedfiles/filedetails/?id={}",
-                workshop_id
-            );
-            let _ = crate::core::platform::open_url(&url);
+            crate::core::workshop::open_workshop_page(&workshop_id);
             ui.close();
         }
 
