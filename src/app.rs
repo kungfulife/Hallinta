@@ -275,7 +275,7 @@ impl HallintaApp {
         app.load_backup_list_async();
 
         let _ = logging::log("INFO", "Application started", "App");
-        logging::write_session_marker("APP_INITIALIZED");
+        logging::write_session_marker(&format!("APP_INITIALIZED:v{}", platform::get_version()));
         app
     }
 
@@ -1188,24 +1188,7 @@ impl HallintaApp {
         }
 
         // Show checklist for which presets to import
-        let names: Vec<String> = import_data.presets.keys().cloned().collect();
-        let items: Vec<ChecklistItem> = names
-            .iter()
-            .map(|name| {
-                let count = import_data.presets.get(name).map_or(0, |m| m.len());
-                let exists = self.presets.contains_key(name);
-                ChecklistItem {
-                    id: name.clone(),
-                    label: format!(
-                        "{} ({} mods){}",
-                        name,
-                        count,
-                        if exists { " - EXISTS" } else { "" }
-                    ),
-                    checked: true,
-                }
-            })
-            .collect();
+        let items = self.build_preset_import_checklist(&import_data.presets);
 
         self.active_modal = Some(Modal::Checklist {
             title: "Import Presets".to_string(),
@@ -1315,14 +1298,20 @@ impl HallintaApp {
         self.save_monitor.running = true;
         self.save_monitor.snapshot_count = 0;
         let _ = logging::log("INFO", "Save Monitor started", "SaveMonitor");
-        logging::write_session_marker("MONITOR_START");
+        logging::write_session_marker(&format!(
+            "MONITOR_START:preset={},interval={}min",
+            self.selected_preset, self.settings.save_monitor_settings.interval_minutes
+        ));
         self.take_monitor_snapshot();
     }
 
     pub fn stop_save_monitor(&mut self) {
         self.save_monitor.running = false;
         let _ = logging::log("INFO", "Save Monitor stopped", "SaveMonitor");
-        logging::write_session_marker("MONITOR_STOP");
+        logging::write_session_marker(&format!(
+            "MONITOR_STOP:snapshots={}",
+            self.save_monitor.snapshot_count
+        ));
     }
 
     fn take_monitor_snapshot(&mut self) {
@@ -1422,15 +1411,7 @@ impl HallintaApp {
 
         // Import all presets
         for (name, mods_list) in &import_data.presets {
-            let mut target_name = name.clone();
-            if self.presets.contains_key(&target_name) {
-                target_name = format!("{} (imported)", name);
-                let mut counter = 2;
-                while self.presets.contains_key(&target_name) {
-                    target_name = format!("{} (imported {})", name, counter);
-                    counter += 1;
-                }
-            }
+            let target_name = self.unique_preset_name(name);
             self.presets.insert(target_name, mods_list.clone());
         }
 
@@ -1781,24 +1762,7 @@ impl HallintaApp {
             }
             MissingModsAction::PresetImport(import) => {
                 // Show the preset selection checklist after acknowledging missing mods
-                let names: Vec<String> = import.presets.keys().cloned().collect();
-                let items: Vec<ChecklistItem> = names
-                    .iter()
-                    .map(|name| {
-                        let count = import.presets.get(name).map_or(0, |m| m.len());
-                        let exists = self.presets.contains_key(name);
-                        ChecklistItem {
-                            id: name.clone(),
-                            label: format!(
-                                "{} ({} mods){}",
-                                name,
-                                count,
-                                if exists { " - EXISTS" } else { "" }
-                            ),
-                            checked: true,
-                        }
-                    })
-                    .collect();
+                let items = self.build_preset_import_checklist(&import.presets);
                 self.active_modal = Some(Modal::Checklist {
                     title: "Import Presets".to_string(),
                     message: "Select presets to import:".to_string(),
@@ -1814,13 +1778,8 @@ impl HallintaApp {
         for name in &import.selected_names {
             if let Some(mods_list) = import.presets.get(name) {
                 let mut target_name = name.clone();
-                if !overwrite && self.presets.contains_key(&target_name) {
-                    target_name = format!("{} (imported)", name);
-                    let mut counter = 2;
-                    while self.presets.contains_key(&target_name) {
-                        target_name = format!("{} (imported {})", name, counter);
-                        counter += 1;
-                    }
+                if !overwrite {
+                    target_name = self.unique_preset_name(name);
                 }
                 self.presets.insert(target_name, mods_list.clone());
                 imported += 1;
@@ -1833,6 +1792,38 @@ impl HallintaApp {
             &format!("Imported {} preset(s)", imported),
             "PresetManager",
         );
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────
+
+    /// Generate a conflict-free preset name by appending " (imported)" / " (imported N)".
+    fn unique_preset_name(&self, base_name: &str) -> String {
+        let mut target = base_name.to_string();
+        if self.presets.contains_key(&target) {
+            target = format!("{} (imported)", base_name);
+            let mut counter = 2;
+            while self.presets.contains_key(&target) {
+                target = format!("{} (imported {})", base_name, counter);
+                counter += 1;
+            }
+        }
+        target
+    }
+
+    fn build_preset_import_checklist(&self, presets: &BTreeMap<String, Vec<ModEntry>>) -> Vec<ChecklistItem> {
+        presets.keys().map(|name| {
+            let count = presets.get(name).map_or(0, |m| m.len());
+            let exists = self.presets.contains_key(name);
+            ChecklistItem {
+                id: name.clone(),
+                label: format!(
+                    "{} ({} mods){}",
+                    name, count,
+                    if exists { " - EXISTS" } else { "" }
+                ),
+                checked: true,
+            }
+        }).collect()
     }
 
     // ── Cleanup ────────────────────────────────────────────────────────
