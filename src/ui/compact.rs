@@ -1,5 +1,4 @@
 use crate::app::HallintaApp;
-use crate::models::Modal;
 use crate::ui::design::Design;
 use eframe::egui;
 
@@ -84,12 +83,19 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     .size(d.font_body)
                     .strong(),
             );
+            if let Some(ref session) = app.save_monitor.current_session {
+                ui.label(
+                    egui::RichText::new(format!("Session: {}", session.name))
+                        .size(d.font_small)
+                        .color(ui.visuals().weak_text_color()),
+                );
+            }
             ui.add_space(d.sm);
             if ui
                 .add_sized(
                     [btn_w, btn_h],
                     egui::Button::new(
-                        egui::RichText::new("Stop Monitor").size(d.font_body),
+                        egui::RichText::new("Pause Monitor").size(d.font_body),
                     ),
                 )
                 .clicked()
@@ -133,18 +139,12 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
             .add_sized(
                 [btn_w, btn_h],
                 egui::Button::new(
-                    egui::RichText::new("View Snapshots").size(d.font_body),
+                    egui::RichText::new("View Sessions").size(d.font_body),
                 ),
             )
             .clicked()
         {
-            let preset = app.selected_preset.clone();
-            if let Some(ref session) = app.save_monitor.current_session {
-                app.load_session_snapshots_async(preset.clone(), session.id.clone());
-            }
-            app.active_modal = Some(Modal::SnapshotManager {
-                preset_name: preset,
-            });
+            app.load_sessions_async();
         }
 
         // ── Live snapshot count when running ─────────────────────────────────

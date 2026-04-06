@@ -501,14 +501,26 @@ impl HallintaApp {
                     }
                 }
                 TaskResult::SessionListLoaded(res) => {
-                    // Will be used by UI in Task 6
-                    if let Ok(_sessions) = res {
-                        // Store for modal use — we'll wire this in Task 6
+                    if let Ok(sessions) = res {
+                        self.active_modal = Some(Modal::RestoreManager {
+                            sessions,
+                            snapshots: Vec::new(),
+                            selected_session: None,
+                        });
                     }
                 }
                 TaskResult::SessionSnapshotsLoaded(res) => {
                     if let Ok(list) = res {
-                        self.backup_state.snapshot_list = list;
+                        // Update the RestoreManager modal if it's open
+                        if let Some(Modal::RestoreManager { sessions, selected_session, .. }) = self.active_modal.take() {
+                            self.active_modal = Some(Modal::RestoreManager {
+                                sessions,
+                                snapshots: list,
+                                selected_session,
+                            });
+                        } else {
+                            self.backup_state.snapshot_list = list;
+                        }
                     }
                 }
                 TaskResult::WorkshopModsChecked(res) => {

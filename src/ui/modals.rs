@@ -61,8 +61,8 @@ pub fn render_modals(app: &mut HallintaApp, ctx: &egui::Context) {
         Modal::BackupManager => {
             render_backup_manager(app, ctx);
         }
-        Modal::SnapshotManager { preset_name } => {
-            render_snapshot_manager(app, ctx, &preset_name);
+        Modal::RestoreManager { sessions, snapshots, selected_session } => {
+            render_restore_manager(app, ctx, sessions, snapshots, selected_session);
         }
     }
 }
@@ -506,54 +506,144 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
     }
 }
 
-fn render_snapshot_manager(app: &mut HallintaApp, ctx: &egui::Context, preset_name: &str) {
-    let _d = crate::ui::design::Design::new(ctx, &app.settings);
+fn render_restore_manager(
+    app: &mut HallintaApp,
+    ctx: &egui::Context,
+    sessions: Vec<SessionInfo>,
+    snapshots: Vec<SnapshotEntry>,
+    selected_session: Option<(String, String)>,
+) {
+    let d = crate::ui::design::Design::new(ctx, &app.settings);
     let mut open = true;
+    let mut view_session: Option<(String, String)> = None;
+    let mut back_to_list = false;
+    let mut delete_session_id: Option<(String, String)> = None;
 
-    egui::Window::new(format!("Snapshots: {}", preset_name))
+    let title = if let Some((_, ref name)) = selected_session {
+        format!("Snapshots: {}", name)
+    } else {
+        "Monitor Sessions".to_string()
+    };
+
+    egui::Window::new(title)
         .collapsible(false)
         .resizable(true)
-        .default_width(450.0)
+        .default_width(500.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
         .open(&mut open)
         .show(ctx, |ui| {
-            if app.backup_state.snapshot_list.is_empty() {
-                ui.label("No snapshots found for this preset.");
-            } else {
-                ui.label(egui::RichText::new(format!(
-                    "{} snapshot(s)",
-                    app.backup_state.snapshot_list.len()
-                )).strong());
-                ui.add_space(4.0);
+            if let Some((ref _session_id, ref _session_name)) = selected_session {
+                // ── Snapshot list view ──
+                if ui.button("\u{2190} Back to Sessions").clicked() {
+                    back_to_list = true;
+                }
+                ui.add_space(d.sm);
 
-                egui::ScrollArea::vertical()
-                    .max_height(350.0)
-                    .show(ui, |ui| {
-                        let snapshots = app.backup_state.snapshot_list.clone();
-                        for snapshot in &snapshots {
-                            ui.horizontal(|ui| {
-                                ui.label(egui::RichText::new(&snapshot.filename).strong());
-                                ui.label(format!(
-                                    "{:.1} MB",
-                                    snapshot.size_bytes as f64 / 1_048_576.0
-                                ));
-                                ui.label(
-                                    egui::RichText::new(
-                                        &snapshot.timestamp[..19.min(snapshot.timestamp.len())]
-                                    )
-                                    .small()
-                                    .color(ui.visuals().weak_text_color()),
-                                );
-                            });
+                if snapshots.is_empty() {
+                    ui.label("No snapshots in this session.");
+                } else {
+                    ui.label(egui::RichText::new(format!("{} snapshot(s)", snapshots.len())).strong());
+                    ui.add_space(d.sm);
+
+                    egui::ScrollArea::vertical().max_height(350.0).show(ui, |ui| {
+                        let snaps = snapshots.clone();
+                        for snap in &snaps {
+                            egui::Frame::group(ui.style())
+                                .inner_margin(egui::Margin::same(d.sm as i8))
+                                .show(ui, |ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.vertical(|ui| {
+                                            ui.label(egui::RichText::new(&snap.filename).strong());
+                                            ui.label(format!(
+                                                "{:.1} MB | {}",
+                                                snap.size_bytes as f64 / 1_048_576.0,
+                                                &snap.timestamp[..19.min(snap.timestamp.len())]
+                                            ));
+                                        });
+                                    });
+                                });
+                            ui.add_space(2.0);
                         }
                     });
+                }
+            } else {
+                // ── Session list view ──
+                if sessions.is_empty() {
+                    ui.label("No monitor sessions found for this preset.");
+                } else {
+                    ui.label(egui::RichText::new(format!("{} session(s)", sessions.len())).strong());
+                    ui.add_space(d.sm);
+
+                    egui::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
+                        let sess = sessions.clone();
+                        for session in &sess {
+                            egui::Frame::group(ui.style())
+                                .inner_margin(egui::Margin::same(d.sm as i8))
+                                .show(ui, |ui| {
+                                    ui.horizontal(|ui| {
+                                        ui.vertical(|ui| {
+                                            ui.label(egui::RichText::new(&session.name).strong());
+                                            let status_text = match session.status {
+                                                SessionStatus::Active => "Active",
+                                                SessionStatus::Paused => "Paused",
+                                                SessionStatus::Ended => "Ended",
+                                            };
+                                            let status_color = match session.status {
+                                                SessionStatus::Active => d.status_ok,
+                                                SessionStatus::Paused => egui::Color32::from_rgb(230, 180, 50),
+                                                SessionStatus::Ended => ui.visuals().weak_text_color(),
+                                            };
+                                            ui.colored_label(status_color, status_text);
+                                            ui.label(format!(
+                                                "{} snapshots | Started: {}",
+                                                session.snapshot_count,
+                                                &session.started_at[..19.min(session.started_at.len())]
+                                            ));
+                                        });
+                                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                            if ui.button("View").clicked() {
+                                                view_session = Some((session.id.clone(), session.name.clone()));
+                                            }
+                                            if session.status != SessionStatus::Active {
+                                                if ui.button(egui::RichText::new("Delete").color(egui::Color32::from_rgb(220, 60, 60))).clicked() {
+                                                    delete_session_id = Some((session.id.clone(), session.preset_name.clone()));
+                                                }
+                                            }
+                                        });
+                                    });
+                                });
+                            ui.add_space(2.0);
+                        }
+                    });
+                }
             }
         });
 
-    if open {
-        app.active_modal = Some(Modal::SnapshotManager {
-            preset_name: preset_name.to_string(),
+    // Handle actions
+    if let Some((sid, sname)) = view_session {
+        // Load snapshots for this session and switch to snapshot view
+        let preset = app.selected_preset.clone();
+        app.load_session_snapshots_async(preset, sid.clone());
+        app.active_modal = Some(Modal::RestoreManager {
+            sessions,
+            snapshots: Vec::new(),
+            selected_session: Some((sid, sname)),
+        });
+    } else if back_to_list {
+        app.active_modal = Some(Modal::RestoreManager {
+            sessions,
+            snapshots: Vec::new(),
+            selected_session: None,
+        });
+    } else if let Some((sid, preset)) = delete_session_id {
+        let _ = crate::core::save_monitor::delete_session_snapshots(&preset, &sid);
+        app.load_sessions_async();
+    } else if open {
+        app.active_modal = Some(Modal::RestoreManager {
+            sessions,
+            snapshots,
+            selected_session,
         });
     }
 }

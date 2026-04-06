@@ -262,8 +262,11 @@ pub enum Modal {
     SystemInfo,
     OpenSourceLibraries,
     BackupManager,
-    SnapshotManager {
-        preset_name: String,
+    RestoreManager {
+        sessions: Vec<SessionInfo>,
+        snapshots: Vec<SnapshotEntry>,
+        /// Which view: None = session list, Some(session_id) = snapshot list for that session
+        selected_session: Option<(String, String)>,  // (session_id, session_name)
     },
 }
 

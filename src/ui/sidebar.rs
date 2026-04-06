@@ -81,16 +81,23 @@ pub fn render_sidebar(app: &mut HallintaApp, ctx: &egui::Context) {
                 ui.add_space(d.sm);
 
                 if app.save_monitor.is_running() {
-                    ui.colored_label(
-                        d.status_ok,
-                        egui::RichText::new("Running").strong(),
-                    );
-                    ui.label(format!(
-                        "Snapshots: {}",
-                        app.save_monitor.snapshot_count
-                    ));
-                    if ui.add_sized([btn_width, 0.0], egui::Button::new("Stop Monitor")).clicked() {
+                    ui.colored_label(d.status_ok, egui::RichText::new("Running").strong());
+                    if let Some(ref session) = app.save_monitor.current_session {
+                        ui.label(format!("Session: {}", session.name));
+                    }
+                    ui.label(format!("Snapshots: {}", app.save_monitor.snapshot_count));
+
+                    if ui.add_sized([btn_width, 0.0], egui::Button::new("Pause Monitor")).clicked() {
                         app.stop_save_monitor();
+                    }
+                    if ui.add_sized([btn_width, 0.0], egui::Button::new("End Session")).clicked() {
+                        app.active_modal = Some(Modal::Confirm {
+                            message: "End the current monitoring session? Snapshots will be kept.".to_string(),
+                            confirm_text: "End Session".to_string(),
+                            cancel_text: "Cancel".to_string(),
+                            action: ConfirmAction::StopAndEndSession,
+                            cancel_action: None,
+                        });
                     }
                 } else {
                     ui.add_enabled_ui(!backup_busy, |ui| {
@@ -102,23 +109,14 @@ pub fn render_sidebar(app: &mut HallintaApp, ctx: &egui::Context) {
 
                 ui.add_space(d.sm);
 
-                // View snapshots for current preset
-                if ui.add_sized([btn_width, 0.0], egui::Button::new("View Snapshots")).clicked() {
-                    let preset = app.selected_preset.clone();
-                    // Load snapshots from the current session if active, otherwise show sessions
-                    if let Some(ref session) = app.save_monitor.current_session {
-                        app.load_session_snapshots_async(preset.clone(), session.id.clone());
-                    }
-                    app.active_modal = Some(Modal::SnapshotManager {
-                        preset_name: preset,
-                    });
+                if ui.add_sized([btn_width, 0.0], egui::Button::new("View Sessions")).clicked() {
+                    app.load_sessions_async();
                 }
 
-                // Clear all monitor data
                 ui.add_enabled_ui(!is_locked, |ui| {
-                    if ui.add_sized([btn_width, 0.0], egui::Button::new("Clear All Snapshots")).clicked() {
+                    if ui.add_sized([btn_width, 0.0], egui::Button::new("Clear All Data")).clicked() {
                         app.active_modal = Some(Modal::Confirm {
-                            message: "Delete ALL monitor snapshots for ALL presets?".to_string(),
+                            message: "Delete ALL monitor sessions and snapshots for ALL presets?".to_string(),
                             confirm_text: "Delete All".to_string(),
                             cancel_text: "Cancel".to_string(),
                             action: ConfirmAction::ClearMonitorData,
