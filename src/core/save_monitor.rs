@@ -29,10 +29,6 @@ fn sanitize_dirname(name: &str) -> String {
         .collect()
 }
 
-pub fn sanitize_dirname_pub(name: &str) -> String {
-    sanitize_dirname(name)
-}
-
 // --- Session CRUD ---
 
 pub fn create_session(
@@ -283,6 +279,18 @@ pub fn clear_monitor_data() -> Result<(), String> {
             .map_err(|e| format!("Failed to recreate monitor directory: {}", e))?;
     }
     Ok(())
+}
+
+pub fn get_snapshot_path(
+    preset_name: &str,
+    session_id: &str,
+    filename: &str,
+) -> Result<PathBuf, String> {
+    let monitor_dir = get_monitor_dir()?;
+    Ok(monitor_dir
+        .join(sanitize_dirname(preset_name))
+        .join(session_id)
+        .join(filename))
 }
 
 // --- Change detection ---

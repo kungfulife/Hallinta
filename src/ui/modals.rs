@@ -295,6 +295,13 @@ fn render_missing_mods(
                 });
             ui.add_space(8.0);
             ui.horizontal(|ui| {
+                if ui.button("Subscribe All in Steam").clicked() {
+                    for (_, workshop_id) in mods {
+                        if !workshop_id.is_empty() && workshop_id != "0" {
+                            let _ = crate::core::workshop::open_steam_subscribe(workshop_id);
+                        }
+                    }
+                }
                 if ui.button("Continue Anyway").clicked() {
                     confirmed = true;
                 }
@@ -518,6 +525,7 @@ fn render_restore_manager(
     let mut view_session: Option<(String, String)> = None;
     let mut back_to_list = false;
     let mut delete_session_id: Option<(String, String)> = None;
+    let mut restore_snap: Option<SnapshotEntry> = None;
 
     let title = if let Some((_, ref name)) = selected_session {
         format!("Snapshots: {}", name)
@@ -560,6 +568,11 @@ fn render_restore_manager(
                                                 snap.size_bytes as f64 / 1_048_576.0,
                                                 &snap.timestamp[..19.min(snap.timestamp.len())]
                                             ));
+                                        });
+                                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                            if ui.button("Restore").clicked() {
+                                                restore_snap = Some(snap.clone());
+                                            }
                                         });
                                     });
                                 });
@@ -639,6 +652,41 @@ fn render_restore_manager(
     } else if let Some((sid, preset)) = delete_session_id {
         let _ = crate::core::save_monitor::delete_session_snapshots(&preset, &sid);
         app.load_sessions_async();
+    } else if let Some(snap) = restore_snap {
+        // Build restore checklist for this snapshot
+        if let Ok(zip_path) = crate::core::save_monitor::get_snapshot_path(
+            &app.selected_preset,
+            &snap.session_id,
+            &snap.filename,
+        ) {
+            let mut restore_items = vec![
+                crate::models::ChecklistItem {
+                    id: "save00".to_string(),
+                    label: "save00".to_string(),
+                    checked: true,
+                },
+            ];
+            if app.settings.save_monitor_settings.include_save01 {
+                restore_items.push(crate::models::ChecklistItem {
+                    id: "save01".to_string(),
+                    label: "save01".to_string(),
+                    checked: true,
+                });
+            }
+            if app.settings.save_monitor_settings.include_entangled {
+                restore_items.push(crate::models::ChecklistItem {
+                    id: "entangled".to_string(),
+                    label: "Entangled Worlds".to_string(),
+                    checked: true,
+                });
+            }
+            app.active_modal = Some(Modal::Checklist {
+                title: format!("Restore {}", snap.filename),
+                message: "Select components to restore:".to_string(),
+                items: restore_items,
+                action: crate::models::ChecklistAction::RestoreSnapshot(zip_path),
+            });
+        }
     } else if open {
         app.active_modal = Some(Modal::RestoreManager {
             sessions,

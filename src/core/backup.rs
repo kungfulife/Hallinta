@@ -440,6 +440,75 @@ pub fn create_upgrade_backup(
     Ok(())
 }
 
+/// Restore save data from a snapshot ZIP at an arbitrary path.
+pub fn restore_from_path(
+    zip_path: &Path,
+    noita_dir: &Path,
+    options: &RestoreOptions,
+    entangled_dir: Option<&Path>,
+) -> Result<(), String> {
+    let file = fs::File::open(zip_path)
+        .map_err(|e| format!("Failed to open snapshot: {}", e))?;
+    let mut archive =
+        zip::ZipArchive::new(file).map_err(|e| format!("Failed to read snapshot ZIP: {}", e))?;
+
+    let save01_target = noita_dir
+        .parent()
+        .map(|p| p.join("save01"));
+
+    for i in 0..archive.len() {
+        let mut entry = archive
+            .by_index(i)
+            .map_err(|e| format!("Failed to read ZIP entry: {}", e))?;
+        let entry_name = entry.name().to_string();
+
+        let target_path = if entry_name.starts_with("save00/") && options.restore_save00 {
+            let relative = entry_name.strip_prefix("save00/").unwrap_or(&entry_name);
+            if relative.is_empty() {
+                continue;
+            }
+            Some(noita_dir.join(relative))
+        } else if entry_name.starts_with("save01/") && options.restore_save01 {
+            let relative = entry_name.strip_prefix("save01/").unwrap_or(&entry_name);
+            if relative.is_empty() {
+                continue;
+            }
+            save01_target.as_ref().map(|t| t.join(relative))
+        } else if entry_name.starts_with("entangled_worlds/")
+            && options.restore_entangled
+            && entangled_dir.is_some()
+        {
+            let relative = entry_name
+                .strip_prefix("entangled_worlds/")
+                .unwrap_or(&entry_name);
+            if relative.is_empty() {
+                continue;
+            }
+            entangled_dir.map(|d| d.join(relative))
+        } else {
+            None
+        };
+
+        if let Some(target) = target_path {
+            if entry.is_dir() {
+                let _ = fs::create_dir_all(&target);
+            } else {
+                if let Some(parent) = target.parent() {
+                    let _ = fs::create_dir_all(parent);
+                }
+                let mut buf = Vec::new();
+                entry
+                    .read_to_end(&mut buf)
+                    .map_err(|e| format!("Failed to read ZIP entry data: {}", e))?;
+                fs::write(&target, &buf)
+                    .map_err(|e| format!("Failed to write restored file: {}", e))?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn cleanup_old_upgrade_backups(upgrade_backup_dir: &Path, keep_count: usize) -> Result<(), String> {
     if !upgrade_backup_dir.exists() {
         return Ok(());

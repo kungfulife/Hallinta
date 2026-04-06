@@ -1616,14 +1616,6 @@ impl HallintaApp {
             ConfirmAction::StopAndEndSession => {
                 self.end_monitor_session();
             }
-            ConfirmAction::StopAndClearSession => {
-                if let Some(ref session) = self.save_monitor.current_session {
-                    let preset = session.preset_name.clone();
-                    let sid = session.id.clone();
-                    let _ = save_monitor::delete_session_snapshots(&preset, &sid);
-                }
-                self.end_monitor_session();
-            }
         }
     }
 
@@ -1862,6 +1854,37 @@ impl HallintaApp {
                         let _ = tx.send(TaskResult::RestoreComplete(result));
                     });
                 }
+            }
+            ChecklistAction::RestoreSnapshot(zip_path) => {
+                let noita_dir = PathBuf::from(self.get_active_noita_dir());
+                let entangled_dir = if selected.contains(&"entangled".to_string()) {
+                    self.get_active_entangled_dir().map(PathBuf::from)
+                } else {
+                    None
+                };
+                let options = RestoreOptions {
+                    restore_save00: selected.contains(&"save00".to_string()),
+                    restore_save01: selected.contains(&"save01".to_string()),
+                    restore_presets: false,
+                    restore_entangled: selected.contains(&"entangled".to_string()),
+                };
+                let tx = self.task_tx.clone();
+
+                self.backup_state.restoring = true;
+                self.active_modal = Some(Modal::Progress {
+                    message: "Restoring snapshot...".to_string(),
+                    progress: 0.5,
+                });
+
+                logging::write_session_marker("SNAPSHOT_RESTORE_START");
+                self.async_runtime.spawn(async move {
+                    let result = tokio::task::spawn_blocking(move || {
+                        backup::restore_from_path(&zip_path, &noita_dir, &options, entangled_dir.as_deref())
+                    })
+                    .await
+                    .unwrap_or_else(|e| Err(format!("Restore failed: {}", e)));
+                    let _ = tx.send(TaskResult::RestoreComplete(result));
+                });
             }
         }
     }

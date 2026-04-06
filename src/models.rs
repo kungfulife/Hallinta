@@ -286,7 +286,6 @@ pub enum ConfirmAction {
     ContinueMonitorSession(String),  // session_id
     StartNewMonitorSession,
     StopAndEndSession,
-    StopAndClearSession,
 }
 
 #[derive(Clone, Debug)]
@@ -302,6 +301,7 @@ pub enum ChecklistAction {
     ImportPresets(PresetImportData),
     Backup,
     Restore(String), // filename
+    RestoreSnapshot(std::path::PathBuf),
 }
 
 #[derive(Clone, Debug)]
