@@ -17,26 +17,16 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
                 let ml_selected = app.active_view == View::ModList;
                 let ml_fill = if ml_selected { d.tab_bg_selected } else { d.tab_bg };
                 let ml_color = if ml_selected { d.tab_text_selected } else { d.tab_text };
-                let ml_text = egui::RichText::new("Mod List").font(tab_font.clone()).strong().color(ml_color);
+                let ml_text = egui::RichText::new("Mod List").font(tab_font).strong().color(ml_color);
                 if ui.add(egui::Button::new(ml_text).fill(ml_fill).corner_radius(4.0)).clicked()
                     && !app.save_monitor.is_running() {
                         app.active_view = View::ModList;
                     }
 
-                // Tab: Modpacks
-                let vt_selected = app.active_view == View::PresetVault;
-                let vt_fill = if vt_selected { d.tab_bg_selected } else { d.tab_bg };
-                let vt_color = if vt_selected { d.tab_text_selected } else { d.tab_text };
-                let vt_text = egui::RichText::new("Modpacks").font(tab_font).strong().color(vt_color);
-                if ui.add(egui::Button::new(vt_text).fill(vt_fill).corner_radius(4.0)).clicked()
-                    && !app.save_monitor.is_running() {
-                        app.active_view = View::PresetVault;
-                    }
-
                 ui.separator();
 
-                // Search box (only in mod list or modpacks)
-                if app.active_view == View::ModList || app.active_view == View::PresetVault {
+                // Search box (only in mod list)
+                if app.active_view == View::ModList {
                     ui.label(egui::RichText::new("Search:").strong());
                     ui.add(
                         egui::TextEdit::singleline(&mut app.search_query)

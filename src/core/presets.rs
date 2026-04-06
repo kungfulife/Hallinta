@@ -3,6 +3,51 @@ use crate::models::ModEntry;
 use std::collections::BTreeMap;
 use std::fs;
 
+/// Validate a preset file for security and sanity.
+pub fn validate_preset_file(content: &str) -> Result<(), String> {
+    if content.len() > 1_048_576 {
+        return Err("Preset file is too large (max 1 MB).".to_string());
+    }
+
+    let export: crate::models::PresetExportFile = serde_json::from_str(content)
+        .map_err(|e| format!("Invalid preset file format: {}", e))?;
+
+    if export.hallinta_export != "presets" {
+        return Err("Not a valid Hallinta preset file.".to_string());
+    }
+
+    if export.presets.len() > 100 {
+        return Err("Too many presets (max 100).".to_string());
+    }
+
+    for (name, mods) in &export.presets {
+        check_string_safe(name, "preset name")?;
+        if mods.len() > 500 {
+            return Err(format!("Preset \"{}\" has too many mods (max 500).", name));
+        }
+        for m in mods {
+            check_string_safe(&m.name, "mod name")?;
+            check_string_safe(&m.workshop_id, "workshop ID")?;
+        }
+    }
+
+    Ok(())
+}
+
+fn check_string_safe(value: &str, field_name: &str) -> Result<(), String> {
+    if value.contains('\0') {
+        return Err(format!("{} contains null bytes.", field_name));
+    }
+    let lower = value.to_lowercase();
+    if lower.contains("<script") || lower.contains("javascript:") || lower.contains("data:text") {
+        return Err(format!("{} contains suspicious content.", field_name));
+    }
+    if value.contains("../") || value.contains("..\\") {
+        return Err(format!("{} contains path traversal.", field_name));
+    }
+    Ok(())
+}
+
 pub fn load_presets() -> Result<BTreeMap<String, Vec<ModEntry>>, String> {
     let data_dir = get_data_dir()?;
     let presets_path = data_dir.join("presets.json");

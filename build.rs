@@ -19,7 +19,6 @@ const ATTRIBUTED_LIBS: &[(&str, &str, &str)] = &[
     ("zip", "ZIP archive support", "https://crates.io/crates/zip"),
     ("named-lock", "Single-instance process lock", "https://crates.io/crates/named-lock"),
     ("walkdir", "Recursive directory traversal", "https://crates.io/crates/walkdir"),
-    ("reqwest", "HTTP client", "https://crates.io/crates/reqwest"),
     ("sha2", "SHA-256 checksums", "https://crates.io/crates/sha2"),
 ];
 

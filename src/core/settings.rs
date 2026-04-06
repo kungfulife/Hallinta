@@ -1,6 +1,6 @@
 use crate::core::{logging, platform};
 use crate::models::{
-    AppSettings, BackupSettings, GallerySettings, LogSettings, SaveMonitorSettings,
+    AppSettings, BackupSettings, LogSettings, SaveMonitorSettings,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -50,10 +50,7 @@ pub fn load_settings() -> Result<AppSettings, String> {
             log_settings: LogSettings::default(),
             backup_settings: BackupSettings::default(),
             save_monitor_settings: SaveMonitorSettings::default(),
-            gallery_settings: GallerySettings {
-                catalog_url: String::new(),
-                steam_path,
-            },
+            steam_path,
             compact_mode: false,
             ui_scale: 1.0,
         };
@@ -79,9 +76,9 @@ pub fn load_settings() -> Result<AppSettings, String> {
             settings.entangled_dir = p.to_string_lossy().to_string();
             dirty = true;
         }
-    if settings.gallery_settings.steam_path.trim().is_empty()
+    if settings.steam_path.trim().is_empty()
         && let Ok(p) = crate::core::workshop::detect_steam_path() {
-            settings.gallery_settings.steam_path = p.to_string_lossy().to_string();
+            settings.steam_path = p.to_string_lossy().to_string();
             dirty = true;
         }
 
@@ -149,7 +146,7 @@ mod tests {
     #[test]
     fn test_save_and_load_settings_roundtrip() {
         use crate::models::{
-            BackupSettings, GallerySettings, LogSettings, SaveMonitorSettings,
+            BackupSettings, LogSettings, SaveMonitorSettings,
         };
 
         let dir = std::env::temp_dir().join("hallinta_settings_test");
@@ -166,10 +163,7 @@ mod tests {
             log_settings: LogSettings::default(),
             backup_settings: BackupSettings::default(),
             save_monitor_settings: SaveMonitorSettings::default(),
-            gallery_settings: GallerySettings {
-                catalog_url: "https://example.com/catalog.json".to_string(),
-                steam_path: "/test/steam".to_string(),
-            },
+            steam_path: "/test/steam".to_string(),
             compact_mode: true,
             ui_scale: 1.0,
         };
@@ -185,10 +179,7 @@ mod tests {
         assert_eq!(loaded.dark_mode, original.dark_mode);
         assert_eq!(loaded.selected_preset, original.selected_preset);
         assert_eq!(loaded.compact_mode, original.compact_mode);
-        assert_eq!(
-            loaded.gallery_settings.catalog_url,
-            original.gallery_settings.catalog_url
-        );
+        assert_eq!(loaded.steam_path, original.steam_path);
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -221,7 +212,8 @@ mod tests {
             "gallery_settings": {
                 "catalog_url": "",
                 "steam_path": ""
-            }
+            },
+            "steam_path": ""
         }"#;
 
         let settings: AppSettings = serde_json::from_str(minimal_json)

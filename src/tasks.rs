@@ -1,4 +1,4 @@
-use crate::models::{BackupInfo, Catalog, MonitorSnapshot};
+use crate::models::{BackupInfo, MonitorSnapshot};
 
 /// Results from background tasks dispatched to the tokio runtime.
 #[derive(Debug)]
@@ -6,8 +6,6 @@ pub enum TaskResult {
     BackupComplete(Result<String, String>),
     RestoreComplete(Result<(), String>),
     SnapshotComplete(Result<String, String>),
-    CatalogFetched(Result<Catalog, String>),
-    PresetDownloaded(Result<String, String>),
     UpgradeBackupComplete(Result<(), String>),
     AutoBackupComplete(Result<String, String>),
     BackupListLoaded(Result<Vec<BackupInfo>, String>),

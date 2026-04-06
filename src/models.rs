@@ -30,7 +30,7 @@ pub struct AppSettings {
     #[serde(default)]
     pub save_monitor_settings: SaveMonitorSettings,
     #[serde(default)]
-    pub gallery_settings: GallerySettings,
+    pub steam_path: String,
     #[serde(default)]
     pub compact_mode: bool,
     #[serde(default = "default_ui_scale")]
@@ -112,14 +112,6 @@ impl Default for SaveMonitorSettings {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[derive(Default)]
-pub struct GallerySettings {
-    pub catalog_url: String,
-    pub steam_path: String,
-}
-
-
 // ── Backup ─────────────────────────────────────────────────────────────────
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -182,31 +174,6 @@ pub struct OpenSourceLibrary {
     pub homepage: String,
 }
 
-// ── Gallery / Catalog ──────────────────────────────────────────────────────
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Catalog {
-    pub catalog_version: String,
-    pub last_updated: String,
-    pub presets: Vec<CatalogPresetEntry>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct CatalogPresetEntry {
-    pub id: String,
-    pub name: String,
-    pub description: String,
-    pub author: String,
-    pub tags: Vec<String>,
-    pub mod_count: usize,
-    pub version: String,
-    pub checksum: String,
-    pub download_url: String,
-    pub thumbnail_url: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
 // ── Save Monitor ───────────────────────────────────────────────────────────
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -222,7 +189,6 @@ pub struct MonitorSnapshot {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum View {
     ModList,
-    PresetVault,
     Settings,
 }
 
@@ -387,28 +353,6 @@ impl BackupState {
             snapshot_list: Vec::new(),
             workshop_status: Vec::new(),
             auto_backup_due: None,
-        }
-    }
-}
-
-pub struct GalleryState {
-    pub catalog: Option<Catalog>,
-    pub catalog_fetched_at: Option<Instant>,
-    pub search_query: String,
-    pub selected_tags: Vec<String>,
-    pub loading: bool,
-    pub error: Option<String>,
-}
-
-impl GalleryState {
-    pub fn new() -> Self {
-        Self {
-            catalog: None,
-            catalog_fetched_at: None,
-            search_query: String::new(),
-            selected_tags: Vec::new(),
-            loading: false,
-            error: None,
         }
     }
 }

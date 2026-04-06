@@ -374,41 +374,27 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
         ui.add_space(d.md);
 
-        // ── Gallery Settings ─────────��─────────────────────────────────
+        // ── Workshop Settings ────────────────────────────────────────────
         ui.group(|ui| {
-            ui.label(egui::RichText::new("Modpacks").strong().size(d.font_tab));
+            ui.label(egui::RichText::new("Workshop").strong().size(d.font_tab));
             ui.add_space(d.sm);
 
-            ui.label("Catalog URL:");
-            let catalog_prev = app.settings.gallery_settings.catalog_url.clone();
-            let resp = focused_text_edit(
-                ui,
-                &d,
-                &mut app.settings.gallery_settings.catalog_url,
-                ui.available_width() - 10.0,
-            );
-            if resp.lost_focus() && app.settings.gallery_settings.catalog_url != catalog_prev {
-                needs_save = true;
-            }
-
-            ui.add_space(d.sm);
             ui.label("Steam Path:");
             ui.horizontal(|ui| {
-                let steam_prev = app.settings.gallery_settings.steam_path.clone();
+                let steam_prev = app.settings.steam_path.clone();
                 let resp = focused_text_edit(
                     ui,
                     &d,
-                    &mut app.settings.gallery_settings.steam_path,
+                    &mut app.settings.steam_path,
                     ui.available_width() - 110.0,
                 );
-                if resp.lost_focus() && app.settings.gallery_settings.steam_path != steam_prev {
+                if resp.lost_focus() && app.settings.steam_path != steam_prev {
                     needs_save = true;
                 }
                 if ui.button("Auto-detect").clicked()
                     && let Ok(path) = crate::core::workshop::detect_steam_path()
                 {
-                    app.settings.gallery_settings.steam_path =
-                        path.to_string_lossy().to_string();
+                    app.settings.steam_path = path.to_string_lossy().to_string();
                     needs_save = true;
                 }
             });
@@ -515,7 +501,7 @@ fn default_settings() -> AppSettings {
         log_settings: Default::default(),
         backup_settings: Default::default(),
         save_monitor_settings: Default::default(),
-        gallery_settings: Default::default(),
+        steam_path: String::new(),
         compact_mode: false,
         ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
     }

@@ -27,7 +27,6 @@ pub struct HallintaApp {
     // Feature state
     pub save_monitor: SaveMonitorState,
     pub backup_state: BackupState,
-    pub gallery_state: GalleryState,
     pub file_watcher: FileWatcherState,
 
     // Async coordination
@@ -69,7 +68,7 @@ impl HallintaApp {
                 log_settings: LogSettings::default(),
                 backup_settings: BackupSettings::default(),
                 save_monitor_settings: SaveMonitorSettings::default(),
-                gallery_settings: GallerySettings::default(),
+                steam_path: String::new(),
                 compact_mode: false,
                 ui_scale: 1.0,
             }
@@ -251,7 +250,6 @@ impl HallintaApp {
             active_modal: None,
             save_monitor: save_monitor_state,
             backup_state,
-            gallery_state: GalleryState::new(),
             file_watcher: file_watcher_state,
             async_runtime: rt,
             task_tx,
@@ -439,32 +437,6 @@ impl HallintaApp {
                         }
                     }
                 }
-                TaskResult::CatalogFetched(res) => {
-                    self.gallery_state.loading = false;
-                    match res {
-                        Ok(catalog) => {
-                            self.gallery_state.catalog = Some(catalog);
-                            self.gallery_state.catalog_fetched_at = Some(Instant::now());
-                            self.gallery_state.error = None;
-                        }
-                        Err(e) => {
-                            self.gallery_state.error = Some(e);
-                        }
-                    }
-                }
-                TaskResult::PresetDownloaded(res) => {
-                    match res {
-                        Ok(content) => {
-                            self.handle_downloaded_preset(&content);
-                        }
-                        Err(e) => {
-                            self.active_modal = Some(Modal::Info {
-                                title: "Download Failed".to_string(),
-                                message: e,
-                            });
-                        }
-                    }
-                }
                 TaskResult::UpgradeBackupComplete(res) => {
                     if let Err(e) = res {
                         let _ = logging::log(
@@ -589,7 +561,7 @@ impl HallintaApp {
     }
 
     pub fn check_workshop_mods_async(&self) {
-        let steam_path = self.settings.gallery_settings.steam_path.clone();
+        let steam_path = self.settings.steam_path.clone();
         if steam_path.is_empty() {
             return;
         }
@@ -658,7 +630,7 @@ impl HallintaApp {
                 if !matches!(self.active_modal, Some(Modal::Progress { .. })) {
                     self.active_modal = None;
                 }
-            } else if self.active_view == View::Settings || self.active_view == View::PresetVault {
+            } else if self.active_view == View::Settings {
                 self.active_view = View::ModList;
             }
         }
@@ -1107,6 +1079,14 @@ impl HallintaApp {
             }
         };
 
+        if let Err(e) = presets::validate_preset_file(&content) {
+            self.active_modal = Some(Modal::Info {
+                title: "Import Rejected".to_string(),
+                message: e,
+            });
+            return;
+        }
+
         let import_data: PresetExportFile = match serde_json::from_str(&content) {
             Ok(d) => d,
             Err(e) => {
@@ -1149,7 +1129,7 @@ impl HallintaApp {
                 }
 
         // Check for missing workshop mods across all presets
-        let steam_path = &self.settings.gallery_settings.steam_path;
+        let steam_path = &self.settings.steam_path;
         if !steam_path.is_empty() {
             let all_workshop_ids: Vec<String> = import_data
                 .presets
@@ -1345,82 +1325,6 @@ impl HallintaApp {
         });
 
         self.save_monitor.last_snapshot = Some(Instant::now());
-    }
-
-    // ── Gallery ────────────────────────────────────────────────────────
-
-    pub fn fetch_catalog(&mut self) {
-        let url = self.settings.gallery_settings.catalog_url.clone();
-        if url.is_empty() {
-            self.gallery_state.error = Some("Catalog URL not configured".to_string());
-            return;
-        }
-
-        // 5-minute cache
-        if let Some(fetched_at) = self.gallery_state.catalog_fetched_at
-            && Instant::now().duration_since(fetched_at) < Duration::from_secs(300) {
-                return;
-            }
-
-        self.gallery_state.loading = true;
-        self.gallery_state.error = None;
-        let tx = self.task_tx.clone();
-
-        self.async_runtime.spawn(async move {
-            let result = gallery::fetch_catalog(&url).await;
-            let _ = tx.send(TaskResult::CatalogFetched(result));
-        });
-    }
-
-    pub fn download_and_import_preset(&mut self, download_url: &str, _checksum: &str) {
-        let url = download_url.to_string();
-        let tx = self.task_tx.clone();
-
-        self.async_runtime.spawn(async move {
-            let result = gallery::download_preset_file(&url).await;
-            let _ = tx.send(TaskResult::PresetDownloaded(result));
-        });
-    }
-
-    fn handle_downloaded_preset(&mut self, content: &str) {
-        let import_data: PresetExportFile = match serde_json::from_str(content) {
-            Ok(d) => d,
-            Err(e) => {
-                self.active_modal = Some(Modal::Info {
-                    title: "Import Failed".to_string(),
-                    message: format!("Invalid preset data: {}", e),
-                });
-                return;
-            }
-        };
-
-        if import_data.presets.is_empty() {
-            self.active_modal = Some(Modal::Info {
-                title: "Import".to_string(),
-                message: "No presets found in downloaded file.".to_string(),
-            });
-            return;
-        }
-
-        // Verify checksum
-        if let Some(ref checksum) = import_data.checksum
-            && let Ok(canonical) = serde_json::to_string(&import_data.presets)
-                && !gallery::verify_checksum(&canonical, checksum) {
-                    let _ = logging::log("WARN", "Checksum mismatch on downloaded preset", "Gallery");
-                }
-
-        // Import all presets
-        for (name, mods_list) in &import_data.presets {
-            let target_name = self.unique_preset_name(name);
-            self.presets.insert(target_name, mods_list.clone());
-        }
-
-        let _ = presets::save_presets(&self.presets);
-        let _ = logging::log(
-            "INFO",
-            &format!("Imported {} preset(s) from modpacks", import_data.presets.len()),
-            "Gallery",
-        );
     }
 
     // ── Open mod_config.xml ───────────────────────────────────────────
@@ -1877,13 +1781,6 @@ impl eframe::App for HallintaApp {
                         crate::ui::mod_list::render_monitor_active(self, ui);
                     } else {
                         crate::ui::mod_list::render_mod_list(self, ui);
-                    }
-                }
-                View::PresetVault => {
-                    if self.save_monitor.is_running() {
-                        crate::ui::mod_list::render_monitor_active(self, ui);
-                    } else {
-                        crate::ui::gallery::render_gallery(self, ui);
                     }
                 }
                 View::Settings => {
