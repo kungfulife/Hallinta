@@ -70,7 +70,7 @@ impl HallintaApp {
                 save_monitor_settings: SaveMonitorSettings::default(),
                 steam_path: String::new(),
                 compact_mode: false,
-                ui_scale: 1.0,
+                ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
             }
         });
 

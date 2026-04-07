@@ -52,7 +52,7 @@ pub fn load_settings() -> Result<AppSettings, String> {
             save_monitor_settings: SaveMonitorSettings::default(),
             steam_path,
             compact_mode: false,
-            ui_scale: 1.0,
+            ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
         };
         save_settings(&default_settings)?;
         return Ok(default_settings);
