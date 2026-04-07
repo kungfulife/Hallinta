@@ -18,19 +18,21 @@ pub fn write_mod_config(directory: &Path, content: &str) -> Result<(), String> {
 
 pub fn parse_mods_from_xml(xml: &str) -> Result<Vec<ModEntry>, String> {
     let mut mods = Vec::new();
+    let mut remaining = xml;
 
-    for line in xml.lines() {
-        let trimmed = line.trim();
-        if !trimmed.starts_with("<Mod ") {
-            continue;
-        }
+    while let Some(mod_start) = remaining.find("<Mod ") {
+        remaining = &remaining[mod_start..];
+        let tag_end = remaining
+            .find('>')
+            .ok_or_else(|| "Malformed XML: unclosed <Mod tag".to_string())?;
+        let tag = &remaining[..=tag_end];
 
-        let name = extract_xml_attr(trimmed, "name").unwrap_or_else(|| "Unknown Mod".to_string());
-        let enabled = extract_xml_attr(trimmed, "enabled").is_some_and(|v| v == "1");
+        let name = extract_xml_attr(tag, "name").unwrap_or_else(|| "Unknown Mod".to_string());
+        let enabled = extract_xml_attr(tag, "enabled").is_some_and(|v| v == "1");
         let workshop_id =
-            extract_xml_attr(trimmed, "workshop_item_id").unwrap_or_else(|| "0".to_string());
+            extract_xml_attr(tag, "workshop_item_id").unwrap_or_else(|| "0".to_string());
         let settings_fold_open =
-            extract_xml_attr(trimmed, "settings_fold_open").is_some_and(|v| v == "1");
+            extract_xml_attr(tag, "settings_fold_open").is_some_and(|v| v == "1");
 
         mods.push(ModEntry {
             name: unescape_xml_attr(&name),
@@ -38,6 +40,8 @@ pub fn parse_mods_from_xml(xml: &str) -> Result<Vec<ModEntry>, String> {
             workshop_id,
             settings_fold_open,
         });
+
+        remaining = &remaining[tag_end + 1..];
     }
 
     Ok(mods)
@@ -125,6 +129,19 @@ mod tests {
         let xml = "<Mods>\n</Mods>";
         let mods = parse_mods_from_xml(xml).unwrap();
         assert!(mods.is_empty());
+    }
+
+    /// Noita writes mod_config.xml as a single line with no newlines — parser must handle this.
+    #[test]
+    fn test_parse_compact_single_line_noita_format() {
+        let xml = r#"<Mods><Mod enabled="1" name="quant.ew" settings_fold_open="0" workshop_item_id="0"/><Mod enabled="0" name="bruh" settings_fold_open="0" workshop_item_id="2362171854"/></Mods>"#;
+        let mods = parse_mods_from_xml(xml).unwrap();
+        assert_eq!(mods.len(), 2, "compact single-line format should parse all mods");
+        assert_eq!(mods[0].name, "quant.ew");
+        assert!(mods[0].enabled);
+        assert_eq!(mods[1].name, "bruh");
+        assert!(!mods[1].enabled);
+        assert_eq!(mods[1].workshop_id, "2362171854");
     }
 
     /// Verifies the real Noita mod_config.xml format (attribute-order-independent).
