@@ -36,15 +36,20 @@ Release builds use `%LOCALAPPDATA%\Hallinta\` (Windows) or `~/.local/share/Halli
 
 **Phase 2 — Seed sandbox:**
 
-*Initial run* (no `dev_data/save00/mod_config.xml` exists):
+The sandbox is considered "needs seeding" when `mod_config.xml` is missing OR
+`dev_data/save00/` contains only `mod_config.xml` with no other files (i.e. the
+directory is essentially empty or leftover from a failed run).
+
+*Needs seed* (empty/missing/incomplete sandbox):
 - Full recursive copy of real Noita save → `dev_data/save00/`
 - Full recursive copy of real Entangled Worlds → `dev_data/entangled_worlds/`
 - If real paths can't be detected, creates an empty `mod_config.xml` placeholder
 
-*Subsequent runs* (sandbox already populated):
+*Already populated* (sandbox has real content):
 - Sandbox is preserved as-is from the previous session
 - Dev changes (mod toggles, reordering, etc.) persist across dev runs
 - No files are overwritten from the real directories
+- If `dev_data/entangled_worlds/` was independently deleted, it is re-seeded
 
 ### During Session
 

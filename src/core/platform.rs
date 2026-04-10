@@ -185,7 +185,20 @@ pub fn seed_dev_sandbox() -> Result<String, String> {
     let originals = get_originals_dir()?;
     let mut messages = Vec::new();
 
-    let is_initial = !dev_save_dir.join("mod_config.xml").exists();
+    // The sandbox needs a full re-seed if mod_config.xml is missing OR if
+    // the directory is essentially empty (e.g. user deleted files, leftover
+    // from a failed previous run). We check for at least one file beyond
+    // mod_config.xml to consider the sandbox "populated".
+    let config_exists = dev_save_dir.join("mod_config.xml").exists();
+    let has_other_files = config_exists
+        && fs::read_dir(&dev_save_dir)
+            .map(|entries| {
+                entries
+                    .filter_map(|e| e.ok())
+                    .any(|e| e.file_name() != "mod_config.xml")
+            })
+            .unwrap_or(false);
+    let needs_seed = !config_exists || !has_other_files;
 
     // ── Step 1: Snapshot real files into .originals ────────────────────
     if let Ok(real_save) = get_noita_save_path() {
@@ -213,7 +226,7 @@ pub fn seed_dev_sandbox() -> Result<String, String> {
     }
 
     // ── Step 2: Seed the dev sandbox ───────────────────────────────────
-    if is_initial {
+    if needs_seed {
         // First run: full copy of real dirs into dev sandbox
         match get_noita_save_path() {
             Ok(real_save) if real_save.exists() => {
@@ -247,6 +260,18 @@ pub fn seed_dev_sandbox() -> Result<String, String> {
     } else {
         // Subsequent runs: keep the dev sandbox as-is (preserves dev session state)
         messages.push("Dev sandbox intact from previous session".to_string());
+
+        // But re-seed entangled if its dev dir is empty (may have been deleted independently)
+        let ew_empty = !dev_ew_dir.join("mod_config.xml").exists()
+            && fs::read_dir(&dev_ew_dir).map(|mut d| d.next().is_none()).unwrap_or(true);
+        if ew_empty {
+            if let Ok(real_ew) = get_entangled_worlds_save_path() {
+                if real_ew.exists() {
+                    let count = copy_dir_recursive(&real_ew, &dev_ew_dir)?;
+                    messages.push(format!("Re-seeded {} entangled file(s)", count));
+                }
+            }
+        }
     }
 
     Ok(messages.join(" | "))
