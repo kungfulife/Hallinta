@@ -4,7 +4,7 @@ How Hallinta isolates debug runs from real Noita save data.
 
 ## Overview
 
-Debug builds (`cargo run`) never read from or write to the user's real Noita save files. All file operations are redirected to a sandboxed `dev_data/` directory under the repo root. This means you can freely test mod toggling, preset switching, backup/restore, and save monitoring without touching your actual game data.
+Debug builds (`cargo run`) never read from or write to the user's real Noita save files during a session. All file operations are redirected to a sandboxed `dev_data/` directory under the repo root. On exit, the real files are explicitly restored from a snapshot taken at startup. This means you can freely test mod toggling, preset switching, backup/restore, and save monitoring without touching your actual game data.
 
 ## Directory Layout
 
@@ -12,6 +12,9 @@ Debug builds (`cargo run`) never read from or write to the user's real Noita sav
 <repo>/dev_data/
 ├── save00/              # Sandbox copy of real Noita save (mod_config.xml, etc.)
 ├── entangled_worlds/    # Sandbox copy of Entangled Worlds save
+├── .originals/          # Pristine snapshots of real files (created at startup, cleaned on exit)
+│   ├── save00/mod_config.xml
+│   └── entangled_worlds/mod_config.xml
 ├── backups/             # Backups created during dev sessions
 ├── logs/                # Dev session logs (filenames include _dev)
 ├── presets.json         # Presets storage
@@ -24,16 +27,24 @@ Release builds use `%LOCALAPPDATA%\Hallinta\` (Windows) or `~/.local/share/Halli
 
 ### Startup
 
-`platform::seed_dev_sandbox()` runs before any mod loading or UI rendering.
+`platform::seed_dev_sandbox()` runs before any mod loading or UI rendering. Two phases:
 
-**Initial run** (no `dev_data/save00/mod_config.xml` exists yet):
+**Phase 1 — Snapshot originals:**
+- Copies real `mod_config.xml` → `dev_data/.originals/save00/mod_config.xml`
+- Copies real entangled `mod_config.xml` → `dev_data/.originals/entangled_worlds/mod_config.xml`
+- These snapshots are the restore source on exit
+
+**Phase 2 — Seed sandbox:**
+
+*Initial run* (no `dev_data/save00/mod_config.xml` exists):
 - Full recursive copy of real Noita save → `dev_data/save00/`
 - Full recursive copy of real Entangled Worlds → `dev_data/entangled_worlds/`
 - If real paths can't be detected, creates an empty `mod_config.xml` placeholder
 
-**Subsequent runs** (sandbox already populated):
-- Only syncs `mod_config.xml` from the real save to pick up changes made in-game
-- All other files in the sandbox are preserved between dev sessions
+*Subsequent runs* (sandbox already populated):
+- Sandbox is preserved as-is from the previous session
+- Dev changes (mod toggles, reordering, etc.) persist across dev runs
+- No files are overwritten from the real directories
 
 ### During Session
 
@@ -47,7 +58,13 @@ Key functions:
 
 ### Shutdown
 
-`platform::restore_real_dirs_from_dev()` runs during `cleanup_on_exit()`. Since the app only writes to `dev_data/` during debug sessions, this is a verification step — it confirms real directories were not modified. Logged for auditing.
+`platform::restore_real_dirs_from_dev()` runs during `cleanup_on_exit()`:
+
+1. Restores real `mod_config.xml` from `dev_data/.originals/save00/mod_config.xml`
+2. Restores real entangled `mod_config.xml` from `dev_data/.originals/entangled_worlds/mod_config.xml`
+3. Deletes the `.originals/` directory
+
+This guarantees the real save directories match their pre-session state, even if a code path accidentally wrote to them.
 
 ## Settings vs Active Paths
 
@@ -55,8 +72,8 @@ Settings UI shows the real detected paths (e.g., `C:\Users\...\AppData\Local\Noi
 
 The settings paths still matter in dev mode because:
 - They're the source for the initial sandbox seed
-- `mod_config.xml` is re-synced from them on each startup
 - They're what gets auto-detected by Browse/Auto-detect buttons
+- They're where snapshots are taken from and restored to
 
 ## Resetting the Sandbox
 
@@ -74,6 +91,7 @@ rm -rf dev_data/save00/ dev_data/entangled_worlds/
 
 - `cfg!(debug_assertions)` gates all dev-specific code paths
 - `get_dev_save_dir()` and `get_dev_entangled_dir()` return `Err` in release builds
+- Real files are snapshotted at startup and restored on exit via `.originals/`
 - Window title shows `[DEV]` in debug builds
 - Log filenames include `_dev` suffix
 - Dev data directory is `.gitignore`d
@@ -83,3 +101,4 @@ rm -rf dev_data/save00/ dev_data/entangled_worlds/
 - **Empty mod list on first run:** If real Noita save path can't be detected, the sandbox gets an empty `mod_config.xml`. Fix: set the Noita path in Settings (it's used as the seed source).
 - **Stale sandbox:** If your real Noita save has changed significantly and you want a fresh copy, delete `dev_data/save00/` and restart.
 - **Tests must not touch dev_data:** Unit tests use isolated temp directories (via `test_tmp()` helper). They never read from or write to `dev_data/`.
+- **Crash without exit:** If the dev build crashes before `cleanup_on_exit()` runs, `.originals/` will still exist. The next startup will overwrite it with a fresh snapshot, so the restore will use the correct data.

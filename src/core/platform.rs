@@ -159,92 +159,133 @@ fn copy_dir_recursive(src_dir: &Path, dst_dir: &Path) -> Result<u64, String> {
     Ok(count)
 }
 
-/// Seed the dev sandbox by doing a full recursive copy of the real Noita
-/// save directory (and entangled worlds) into dev_data.
+/// Directory inside dev_data that holds pristine snapshots of the real files
+/// taken at startup, used to restore on exit.
+fn get_originals_dir() -> Result<PathBuf, String> {
+    let dir = get_data_dir()?.join(".originals");
+    fs::create_dir_all(&dir)
+        .map_err(|e| format!("Failed to create .originals dir: {}", e))?;
+    Ok(dir)
+}
+
+/// Seed the dev sandbox with a full copy of real save data.
 ///
-/// On the very first run (empty dev_data/save00), copies everything from the
-/// real directories. On subsequent runs, only copies `mod_config.xml` to pick
-/// up any changes the user made in the real game, preserving the rest of the
-/// dev sandbox state.
+/// **Step 1 — Snapshot originals:** Before touching anything, back up the real
+/// `mod_config.xml` (and entangled equivalent) into `dev_data/.originals/` so
+/// we can restore them on exit even if something goes wrong.
+///
+/// **Step 2 — Seed sandbox:**
+/// - Initial run (no `dev_data/save00/mod_config.xml`): full recursive copy of
+///   real save dirs into `dev_data/`.
+/// - Subsequent runs: sandbox is preserved from the previous session (no
+///   overwrite). Dev changes persist across dev runs.
 pub fn seed_dev_sandbox() -> Result<String, String> {
     let dev_save_dir = get_dev_save_dir()?;
     let dev_ew_dir = get_dev_entangled_dir()?;
+    let originals = get_originals_dir()?;
     let mut messages = Vec::new();
 
-    // Check if this is the initial seed (no mod_config.xml yet)
     let is_initial = !dev_save_dir.join("mod_config.xml").exists();
 
-    // --- Noita save ---
-    match get_noita_save_path() {
-        Ok(real_save) if real_save.exists() => {
-            if is_initial {
-                let count = copy_dir_recursive(&real_save, &dev_save_dir)?;
-                messages.push(format!(
-                    "Initial seed: copied {} file(s) from {} -> {}",
-                    count,
-                    real_save.display(),
-                    dev_save_dir.display()
-                ));
-            } else {
-                // Subsequent runs: only sync mod_config.xml
-                let real_config = real_save.join("mod_config.xml");
-                if real_config.exists() {
-                    fs::copy(&real_config, dev_save_dir.join("mod_config.xml"))
-                        .map_err(|e| format!("Failed to sync mod_config.xml: {}", e))?;
-                    messages.push("Synced mod_config.xml from real save".to_string());
-                } else {
-                    messages.push("Real save has no mod_config.xml; keeping dev copy".to_string());
-                }
-            }
-        }
-        Ok(real_save) => {
-            messages.push(format!("Real Noita save dir does not exist: {}", real_save.display()));
-            ensure_mod_config_exists(&dev_save_dir)?;
-        }
-        Err(e) => {
-            messages.push(format!("Could not detect Noita save: {}", e));
-            ensure_mod_config_exists(&dev_save_dir)?;
+    // ── Step 1: Snapshot real files into .originals ────────────────────
+    if let Ok(real_save) = get_noita_save_path() {
+        let real_config = real_save.join("mod_config.xml");
+        if real_config.exists() {
+            let orig_save = originals.join("save00");
+            fs::create_dir_all(&orig_save)
+                .map_err(|e| format!("Failed to create .originals/save00: {}", e))?;
+            fs::copy(&real_config, orig_save.join("mod_config.xml"))
+                .map_err(|e| format!("Failed to snapshot real mod_config.xml: {}", e))?;
+            messages.push("Snapshotted real mod_config.xml".to_string());
         }
     }
 
-    // --- Entangled Worlds ---
-    match get_entangled_worlds_save_path() {
-        Ok(real_ew) if real_ew.exists() && is_initial => {
-            let count = copy_dir_recursive(&real_ew, &dev_ew_dir)?;
-            messages.push(format!(
-                "Initial seed: copied {} entangled file(s)",
-                count
-            ));
+    if let Ok(real_ew) = get_entangled_worlds_save_path() {
+        let real_ew_config = real_ew.join("mod_config.xml");
+        if real_ew_config.exists() {
+            let orig_ew = originals.join("entangled_worlds");
+            fs::create_dir_all(&orig_ew)
+                .map_err(|e| format!("Failed to create .originals/entangled_worlds: {}", e))?;
+            fs::copy(&real_ew_config, orig_ew.join("mod_config.xml"))
+                .map_err(|e| format!("Failed to snapshot real entangled mod_config.xml: {}", e))?;
+            messages.push("Snapshotted real entangled mod_config.xml".to_string());
         }
-        _ => {}
+    }
+
+    // ── Step 2: Seed the dev sandbox ───────────────────────────────────
+    if is_initial {
+        // First run: full copy of real dirs into dev sandbox
+        match get_noita_save_path() {
+            Ok(real_save) if real_save.exists() => {
+                let count = copy_dir_recursive(&real_save, &dev_save_dir)?;
+                messages.push(format!(
+                    "Initial seed: copied {} file(s) from {}",
+                    count,
+                    real_save.display()
+                ));
+            }
+            Ok(real_save) => {
+                messages.push(format!("Real Noita save dir does not exist: {}", real_save.display()));
+                ensure_mod_config_exists(&dev_save_dir)?;
+            }
+            Err(e) => {
+                messages.push(format!("Could not detect Noita save: {}", e));
+                ensure_mod_config_exists(&dev_save_dir)?;
+            }
+        }
+
+        match get_entangled_worlds_save_path() {
+            Ok(real_ew) if real_ew.exists() => {
+                let count = copy_dir_recursive(&real_ew, &dev_ew_dir)?;
+                messages.push(format!(
+                    "Initial seed: copied {} entangled file(s)",
+                    count
+                ));
+            }
+            _ => {}
+        }
+    } else {
+        // Subsequent runs: keep the dev sandbox as-is (preserves dev session state)
+        messages.push("Dev sandbox intact from previous session".to_string());
     }
 
     Ok(messages.join(" | "))
 }
 
-/// Restore the real Noita save directory from the dev sandbox snapshot
-/// taken at startup. Called on exit to prevent dev changes from leaking.
+/// Restore the real save directories from the snapshots taken at startup.
+/// Called on exit to guarantee real files match their pre-session state.
 pub fn restore_real_dirs_from_dev() -> Result<String, String> {
     if !cfg!(debug_assertions) {
         return Err("Not in dev mode".to_string());
     }
-    let dev_save_dir = get_dev_save_dir()?;
+    let originals = get_originals_dir()?;
     let mut messages = Vec::new();
 
-    // Only restore mod_config.xml — that's the file we modify.
-    // We don't want to overwrite real saves with dev copies.
-    if let Ok(real_save) = get_noita_save_path() {
-        let dev_config = dev_save_dir.join("mod_config.xml");
-        let real_config = real_save.join("mod_config.xml");
-        // We stored the original at startup; the real file should still match
-        // what the user had before. Only restore if the real file was somehow
-        // modified (shouldn't happen since we work with dev_data, but safety net).
-        if dev_config.exists() && real_config.exists() {
-            // The dev sandbox has our modified version; the real one should
-            // be untouched since we only write to dev_data. No action needed.
-            messages.push("Real mod_config.xml untouched (dev sandbox isolated)".to_string());
+    // ── Restore real Noita mod_config.xml ──────────────────────────────
+    let orig_config = originals.join("save00").join("mod_config.xml");
+    if orig_config.exists() {
+        if let Ok(real_save) = get_noita_save_path() {
+            let real_config = real_save.join("mod_config.xml");
+            fs::copy(&orig_config, &real_config)
+                .map_err(|e| format!("Failed to restore real mod_config.xml: {}", e))?;
+            messages.push(format!("Restored real mod_config.xml at {}", real_save.display()));
         }
     }
+
+    // ── Restore real Entangled Worlds mod_config.xml ───────────────────
+    let orig_ew_config = originals.join("entangled_worlds").join("mod_config.xml");
+    if orig_ew_config.exists() {
+        if let Ok(real_ew) = get_entangled_worlds_save_path() {
+            let real_ew_config = real_ew.join("mod_config.xml");
+            fs::copy(&orig_ew_config, &real_ew_config)
+                .map_err(|e| format!("Failed to restore real entangled mod_config.xml: {}", e))?;
+            messages.push(format!("Restored real entangled mod_config.xml at {}", real_ew.display()));
+        }
+    }
+
+    // Clean up .originals
+    let _ = fs::remove_dir_all(&originals);
+    messages.push("Cleaned up .originals".to_string());
 
     Ok(messages.join(" | "))
 }
