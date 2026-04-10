@@ -232,39 +232,6 @@ pub fn delete_backup(filename: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn cleanup_old_backups(max_age_days: u32) -> Result<u32, String> {
-    if max_age_days == 0 {
-        return Ok(0);
-    }
-    let data_dir = get_data_dir()?;
-    let backups_dir = data_dir.join("backups");
-    if !backups_dir.exists() {
-        return Ok(0);
-    }
-
-    let cutoff = SystemTime::now()
-        .checked_sub(std::time::Duration::from_secs(max_age_days as u64 * 86400))
-        .ok_or_else(|| "Failed to calculate cutoff time".to_string())?;
-
-    let mut deleted = 0u32;
-    let entries = fs::read_dir(&backups_dir)
-        .map_err(|e| format!("Failed to read backups directory: {}", e))?;
-
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
-        let path = entry.path();
-        if path.extension().is_some_and(|ext| ext == "zip")
-            && let Ok(metadata) = fs::metadata(&path)
-                && let Ok(modified) = metadata.modified()
-                    && modified < cutoff
-                        && fs::remove_file(&path).is_ok() {
-                            deleted += 1;
-                        }
-    }
-
-    Ok(deleted)
-}
-
 pub fn get_backup_contents(filename: &str) -> Result<BackupInfo, String> {
     let data_dir = get_data_dir()?;
     let backup_path = data_dir.join("backups").join(filename);

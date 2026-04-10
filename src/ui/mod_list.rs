@@ -72,6 +72,8 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let mut drag_started: Option<usize> = None;
     // Live-reorder target: row index the dragged item should move to this frame.
     let mut drag_move_to: Option<usize> = None;
+    let mut enable_all = false;
+    let mut disable_all = false;
 
     // Subtle tinted panel background to frame the mod list
     egui::Frame::NONE
@@ -263,18 +265,30 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
             // Mod count footer
             ui.add_space(d.sm);
             ui.separator();
-            let total = app.current_mods.len();
-            let shown = rows.len();
-            let count_text = if shown == total {
-                format!("{} mod{}", total, if total == 1 { "" } else { "s" })
-            } else {
-                format!("{} of {} mods", shown, total)
-            };
-            ui.label(
-                egui::RichText::new(count_text)
-                    .size(d.font_small)
-                    .color(ui.visuals().weak_text_color()),
-            );
+            ui.horizontal(|ui| {
+                let total = app.current_mods.len();
+                let shown = rows.len();
+                let count_text = if shown == total {
+                    format!("{} mod{}", total, if total == 1 { "" } else { "s" })
+                } else {
+                    format!("{} of {} mods", shown, total)
+                };
+                ui.label(
+                    egui::RichText::new(count_text)
+                        .size(d.font_small)
+                        .color(ui.visuals().weak_text_color()),
+                );
+
+                if !is_locked && total > 0 {
+                    ui.separator();
+                    if ui.small_button("Enable All").clicked() {
+                        enable_all = true;
+                    }
+                    if ui.small_button("Disable All").clicked() {
+                        disable_all = true;
+                    }
+                }
+            });
         });
     }); // mod list background frame
 
@@ -282,6 +296,20 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
     if let Some(idx) = toggle_idx {
         app.current_mods[idx].enabled = !app.current_mods[idx].enabled;
+        app.save_mod_config_and_preset();
+    }
+
+    if enable_all {
+        for m in &mut app.current_mods {
+            m.enabled = true;
+        }
+        app.save_mod_config_and_preset();
+    }
+
+    if disable_all {
+        for m in &mut app.current_mods {
+            m.enabled = false;
+        }
         app.save_mod_config_and_preset();
     }
 

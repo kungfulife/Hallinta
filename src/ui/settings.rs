@@ -65,8 +65,6 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let prev_entangled_dir = app.settings.entangled_dir.clone();
     let prev_dark_mode = app.settings.dark_mode;
     let prev_compact_mode = app.settings.compact_mode;
-    let prev_backup_days = app.settings.backup_settings.auto_delete_days;
-    let prev_backup_interval = app.settings.backup_settings.backup_interval_minutes;
     let prev_ui_scale = app.settings.ui_scale;
 
     // Track whether any "simple" setting changed (no special side-effects, just save)
@@ -93,7 +91,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     ui,
                     &d,
                     &mut app.settings.noita_dir,
-                    ui.available_width() - 180.0,
+                    ui.available_width() - 250.0,
                 );
                 if resp.lost_focus() && app.settings.noita_dir != prev_noita_dir {
                     noita_dir_lost_focus = true;
@@ -112,6 +110,9 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     app.settings.noita_dir = path.to_string_lossy().to_string();
                     noita_dir_lost_focus = true;
                 }
+                if !app.settings.noita_dir.is_empty() && ui.button("Open").clicked() {
+                    let _ = crate::core::platform::open_directory(std::path::Path::new(&app.settings.noita_dir));
+                }
             });
 
             ui.add_space(d.sm);
@@ -123,7 +124,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     ui,
                     &d,
                     &mut app.settings.entangled_dir,
-                    ui.available_width() - 180.0,
+                    ui.available_width() - 250.0,
                 );
                 if resp.lost_focus() && app.settings.entangled_dir != prev_entangled_dir {
                     entangled_dir_lost_focus = true;
@@ -141,6 +142,9 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 {
                     app.settings.entangled_dir = path.to_string_lossy().to_string();
                     entangled_dir_lost_focus = true;
+                }
+                if !app.settings.entangled_dir.is_empty() && ui.button("Open").clicked() {
+                    let _ = crate::core::platform::open_directory(std::path::Path::new(&app.settings.entangled_dir));
                 }
             });
 
@@ -221,18 +225,6 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 }
             });
             ui.horizontal(|ui| {
-                ui.label("Max Log Size (MB):");
-                if ui
-                    .add(
-                        egui::DragValue::new(&mut app.settings.log_settings.max_log_size_mb)
-                            .range(1..=100),
-                    )
-                    .changed()
-                {
-                    needs_save = true;
-                }
-            });
-            ui.horizontal(|ui| {
                 ui.label("Log Level:");
                 let prev_level = app.settings.log_settings.log_level.clone();
                 egui::ComboBox::from_id_salt("log_level")
@@ -259,34 +251,6 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             {
                 needs_save = true;
             }
-        });
-
-        ui.add_space(d.md);
-
-        // ── Backup Settings ─────────────────────���──────────────────────
-        ui.group(|ui| {
-            ui.label(egui::RichText::new("Backup").strong().size(d.font_tab));
-            ui.add_space(d.sm);
-
-            ui.horizontal(|ui| {
-                ui.label("Auto-delete backups older than (days):");
-                ui.add(
-                    egui::DragValue::new(&mut app.settings.backup_settings.auto_delete_days)
-                        .range(0..=365),
-                );
-            });
-            helper_text(ui, &d, "0 = never auto-delete");
-
-            ui.add_space(d.xs);
-
-            ui.horizontal(|ui| {
-                ui.label("Auto-backup interval (minutes):");
-                ui.add(
-                    egui::DragValue::new(&mut app.settings.backup_settings.backup_interval_minutes)
-                        .range(0..=1440),
-                );
-            });
-            helper_text(ui, &d, "0 = disabled");
         });
 
         ui.add_space(d.md);
@@ -358,9 +322,17 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     ui,
                     &d,
                     &mut app.settings.steam_path,
-                    ui.available_width() - 110.0,
+                    ui.available_width() - 250.0,
                 );
                 if resp.lost_focus() && app.settings.steam_path != steam_prev {
+                    needs_save = true;
+                }
+                if ui.button("Browse").clicked()
+                    && let Some(folder) = rfd::FileDialog::new()
+                        .set_title("Select Steam Directory")
+                        .pick_folder()
+                {
+                    app.settings.steam_path = folder.to_string_lossy().to_string();
                     needs_save = true;
                 }
                 if ui.button("Auto-detect").clicked()
@@ -368,6 +340,9 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 {
                     app.settings.steam_path = path.to_string_lossy().to_string();
                     needs_save = true;
+                }
+                if !app.settings.steam_path.is_empty() && ui.button("Open").clicked() {
+                    let _ = crate::core::platform::open_directory(std::path::Path::new(&app.settings.steam_path));
                 }
             });
         });
@@ -377,13 +352,25 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
         // ── Action Buttons ───────────────────────��─────────────────────
         ui.horizontal(|ui| {
             if ui.button("Reset to Defaults").clicked() {
-                let defaults = default_settings();
+                let mut defaults = default_settings();
+                // Auto-detect directories so the user sees populated paths
+                if let Ok(path) = crate::core::platform::get_noita_save_path() {
+                    defaults.noita_dir = path.to_string_lossy().to_string();
+                }
+                if let Ok(path) = crate::core::platform::get_entangled_worlds_save_path() {
+                    defaults.entangled_dir = path.to_string_lossy().to_string();
+                }
+                if let Ok(path) = crate::core::workshop::detect_steam_path() {
+                    defaults.steam_path = path.to_string_lossy().to_string();
+                }
                 app.settings = defaults;
                 // All side-effects (theme, compact, scale) are picked up below
                 // via the prev_ snapshot comparisons and scale_changed flag
                 if app.settings.ui_scale != prev_ui_scale {
                     scale_changed = true;
                 }
+                noita_dir_lost_focus = true;
+                needs_save = true;
             }
         });
 
@@ -443,13 +430,6 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
     // Compact mode toggled
     if app.settings.compact_mode != prev_compact_mode {
         app.on_compact_mode_changed(ui.ctx());
-    }
-
-    // Backup settings changed
-    if app.settings.backup_settings.auto_delete_days != prev_backup_days
-        || app.settings.backup_settings.backup_interval_minutes != prev_backup_interval
-    {
-        app.on_backup_settings_changed();
     }
 
     // UI scale changed — resize window proportionally

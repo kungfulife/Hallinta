@@ -16,7 +16,7 @@
   - If you want to put anything planning related, just put it within "temp".
 - Build outputs: `target/`.
 - Runtime data directory:
-  - Debug builds: `<repo>/dev_data`
+  - Debug builds: `<repo>/dev_data` (sandboxed — see `docs/dev-mode.md`)
   - Release builds: local app data `Hallinta` directory via `dirs::data_local_dir()`.
 
 ## Build, Test, and Development Commands

@@ -82,15 +82,15 @@ impl HallintaApp {
             m
         });
 
-        // Dev build sandbox paths (never touch real save files in debug runs).
-        // On first run, seed dev_data/save00/mod_config.xml from the real Noita save.
+        // Dev build sandbox: full copy of real save dirs into dev_data on first run,
+        // mod_config.xml sync on subsequent runs. Never touch real files during session.
         let dev_noita_dir = if cfg!(debug_assertions) {
-            match platform::seed_dev_mod_config() {
+            match platform::seed_dev_sandbox() {
                 Ok(msg) => {
                     let _ = logging::log("INFO", &format!("[DEV] {}", msg), "DevData");
                 }
                 Err(e) => {
-                    let _ = logging::log("WARN", &format!("[DEV] Dev data seed error: {}", e), "DevData");
+                    let _ = logging::log("WARN", &format!("[DEV] Dev sandbox error: {}", e), "DevData");
                 }
             }
             platform::get_dev_save_dir().ok()
@@ -212,9 +212,6 @@ impl HallintaApp {
             platform::log_system_info_on_startup();
         }
 
-        // Backup cleanup
-        let _ = backup::cleanup_old_backups(app_settings.backup_settings.auto_delete_days);
-
         // File watcher: get initial mtime
         let mut file_watcher_state = FileWatcherState::new();
         if !active_noita_dir.is_empty() {
@@ -225,15 +222,7 @@ impl HallintaApp {
         }
 
         let now = Instant::now();
-        let auto_backup_interval = app_settings.backup_settings.backup_interval_minutes;
-        let backup_state = BackupState {
-            auto_backup_due: if auto_backup_interval > 0 {
-                Some(now + Duration::from_secs(auto_backup_interval as u64 * 60))
-            } else {
-                None
-            },
-            ..BackupState::new()
-        };
+        let backup_state = BackupState::new();
 
         let save_monitor_state = SaveMonitorState::new();
 
@@ -316,15 +305,6 @@ impl HallintaApp {
                 }
             }
         }
-
-        // Auto-backup
-        if let Some(due) = self.backup_state.auto_backup_due
-            && now >= due && !self.backup_state.in_progress {
-                self.run_auto_backup();
-                let interval = self.settings.backup_settings.backup_interval_minutes;
-                self.backup_state.auto_backup_due =
-                    Some(now + Duration::from_secs(interval as u64 * 60));
-            }
 
         // Request periodic repaint for timers
         ctx.request_repaint_after(Duration::from_secs(1));
@@ -457,25 +437,6 @@ impl HallintaApp {
                         );
                     }
                 }
-                TaskResult::AutoBackupComplete(res) => {
-                    match res {
-                        Ok(filename) => {
-                            let _ = logging::log(
-                                "INFO",
-                                &format!("Auto-backup created: {}", filename),
-                                "Backup",
-                            );
-                            self.load_backup_list_async();
-                        }
-                        Err(e) => {
-                            let _ = logging::log(
-                                "ERROR",
-                                &format!("Auto-backup failed: {}", e),
-                                "Backup",
-                            );
-                        }
-                    }
-                }
                 TaskResult::BackupListLoaded(res) => {
                     if let Ok(list) = res {
                         self.backup_state.backup_list = list;
@@ -527,17 +488,6 @@ impl HallintaApp {
                     if let Ok(status) = res {
                         self.backup_state.workshop_status = status;
                     }
-                }
-                TaskResult::BackupCleanupComplete(res) => {
-                    if let Ok(count) = res
-                        && count > 0 {
-                            let _ = logging::log(
-                                "INFO",
-                                &format!("Cleaned up {} old backup(s)", count),
-                                "Backup",
-                            );
-                            self.load_backup_list_async();
-                        }
                 }
                 TaskResult::SnapshotCleanupComplete(res) => {
                     if let Ok(count) = res
@@ -670,19 +620,6 @@ impl HallintaApp {
         });
     }
 
-    pub fn run_backup_cleanup_async(&self) {
-        let days = self.settings.backup_settings.auto_delete_days;
-        if days == 0 {
-            return;
-        }
-        let tx = self.task_tx.clone();
-        self.async_runtime.spawn(async move {
-            let result = tokio::task::spawn_blocking(move || backup::cleanup_old_backups(days))
-                .await
-                .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
-            let _ = tx.send(TaskResult::BackupCleanupComplete(result));
-        });
-    }
 
     // ── Keyboard Handling ──────────────────────────────────────────────
 
@@ -846,16 +783,6 @@ impl HallintaApp {
     }
 
     /// Called when backup settings change.
-    pub fn on_backup_settings_changed(&mut self) {
-        self.run_backup_cleanup_async();
-        let interval = self.settings.backup_settings.backup_interval_minutes;
-        self.backup_state.auto_backup_due = if interval > 0 {
-            Some(Instant::now() + Duration::from_secs(interval as u64 * 60))
-        } else {
-            None
-        };
-        self.save_current_settings();
-    }
 
     pub fn toggle_compact_mode(&mut self, ctx: &egui::Context) {
         self.compact_mode = !self.compact_mode;
@@ -1317,22 +1244,6 @@ impl HallintaApp {
         });
     }
 
-    fn run_auto_backup(&mut self) {
-        let noita_dir = PathBuf::from(self.get_active_noita_dir());
-        if noita_dir.as_os_str().is_empty() {
-            return;
-        }
-        let tx = self.task_tx.clone();
-        logging::write_session_marker("AUTO_BACKUP_START");
-        self.async_runtime.spawn(async move {
-            let result = tokio::task::spawn_blocking(move || {
-                backup::create_backup(&noita_dir, false, true, false, None)
-            })
-            .await
-            .unwrap_or_else(|e| Err(format!("Auto-backup task failed: {}", e)));
-            let _ = tx.send(TaskResult::AutoBackupComplete(result));
-        });
-    }
 
     // ── Save Monitor ───────────────────────────────────────────────────
 
@@ -1965,6 +1876,19 @@ impl HallintaApp {
 
     pub fn cleanup_on_exit(&mut self) {
         let _ = logging::log("INFO", "Application shutting down", "App");
+
+        // Dev mode: verify real directories are untouched
+        if cfg!(debug_assertions) {
+            match platform::restore_real_dirs_from_dev() {
+                Ok(msg) => {
+                    let _ = logging::log("INFO", &format!("[DEV] Exit: {}", msg), "DevData");
+                }
+                Err(e) => {
+                    let _ = logging::log("WARN", &format!("[DEV] Exit restore error: {}", e), "DevData");
+                }
+            }
+        }
+
         logging::write_session_marker("APP_SHUTDOWN");
 
         let _ = logging::flush_log_buffer_sync();

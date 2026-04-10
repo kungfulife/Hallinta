@@ -125,9 +125,9 @@ Settings use a reactive auto-save pattern — no Save/Cancel buttons:
 - **Slider (UI scale):** Save on `drag_stopped()` to avoid feedback loop during drag.
 - **Dropdowns:** Save on selection change.
 
-Side-effects (theme change, mod reload, backup timer) are triggered by comparing
+Side-effects (theme change, mod reload) are triggered by comparing
 snapshot values from before/after the frame. See `on_dark_mode_changed()`,
-`on_noita_dir_changed()`, `on_backup_settings_changed()` in `app.rs`.
+`on_noita_dir_changed()` in `app.rs`.
 
 **Scale obfuscation:** Internal value 1.25 displays as "1.0×" (offset 0.25).
 Constants in `design.rs`: `SCALE_OFFSET`, `SCALE_INTERNAL_MIN/MAX/DEFAULT`.

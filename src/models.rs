@@ -156,7 +156,6 @@ pub struct SystemInfo {
     pub os: String,
     pub os_family: String,
     pub arch: String,
-    pub logical_cpu_cores: usize,
     pub local_time: String,
     pub utc_time: String,
     pub executable_dir: String,
@@ -372,7 +371,6 @@ pub struct BackupState {
     pub backup_list: Vec<BackupInfo>,
     pub snapshot_list: Vec<SnapshotEntry>,
     pub workshop_status: Vec<(String, bool)>,
-    pub auto_backup_due: Option<Instant>,
 }
 
 impl BackupState {
@@ -383,7 +381,6 @@ impl BackupState {
             backup_list: Vec::new(),
             snapshot_list: Vec::new(),
             workshop_status: Vec::new(),
-            auto_backup_due: None,
         }
     }
 }

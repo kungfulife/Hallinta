@@ -348,36 +348,12 @@ fn render_system_info(app: &mut HallintaApp, ctx: &egui::Context) {
                         sysinfo_row(ui, "OS", &info.os);
                         sysinfo_row(ui, "OS Family", &info.os_family);
                         sysinfo_row(ui, "Architecture", &info.arch);
-                        sysinfo_row(ui, "CPU Cores", &info.logical_cpu_cores.to_string());
                         sysinfo_row(ui, "Local Time", &info.local_time);
                         sysinfo_row(ui, "UTC Time", &info.utc_time);
                         sysinfo_row(ui, "Executable Dir", &info.executable_dir);
                         sysinfo_row(ui, "App Data Dir", &info.app_data_dir);
                     });
 
-                ui.add_space(8.0);
-                ui.label(egui::RichText::new("Detected Paths").strong());
-                ui.add_space(4.0);
-                egui::Grid::new("paths_grid")
-                    .num_columns(2)
-                    .striped(true)
-                    .min_col_width(120.0)
-                    .show(ui, |ui| {
-                        let noita_path = crate::core::platform::get_noita_save_path()
-                            .map(|p| p.to_string_lossy().to_string())
-                            .unwrap_or_else(|e| format!("Not found: {}", e));
-                        sysinfo_row(ui, "Noita Save", &noita_path);
-
-                        let steam_path = crate::core::workshop::detect_steam_path()
-                            .map(|p| p.to_string_lossy().to_string())
-                            .unwrap_or_else(|e| format!("Not found: {}", e));
-                        sysinfo_row(ui, "Steam", &steam_path);
-
-                        let ew_path = crate::core::platform::get_entangled_worlds_save_path()
-                            .map(|p| p.to_string_lossy().to_string())
-                            .unwrap_or_else(|e| format!("Not found: {}", e));
-                        sysinfo_row(ui, "Entangled Worlds", &ew_path);
-                    });
             }
         });
 

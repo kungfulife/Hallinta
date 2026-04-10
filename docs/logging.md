@@ -62,7 +62,6 @@ App markers:
 - `APP_SHUTDOWN`
 - `PRESET_SWITCH:<preset_name>`
 - `BACKUP_START`
-- `AUTO_BACKUP_START`
 - `RESTORE_START`
 - `MONITOR_START`
 - `MONITOR_STOP`
@@ -71,14 +70,15 @@ App markers:
 
 `settings.json` includes:
 - `max_log_files`
-- `max_log_size_mb`
+- `max_log_size_mb` (hardcoded to 10 MB, not user-adjustable)
 - `log_level`
 - `auto_save`
 - `collect_system_info`
 
 Current runtime behavior:
 - `collect_system_info` is active and controls startup system-information logging.
-- `max_log_files`, `max_log_size_mb`, `log_level`, and `auto_save` are persisted but currently not enforced in `core::logging`.
+- `max_log_files`, `log_level`, and `auto_save` are persisted but currently not enforced in `core::logging`.
+- `max_log_size_mb` is kept at 10 MB default and not exposed in the settings UI.
 
 ## Privacy Notes
 

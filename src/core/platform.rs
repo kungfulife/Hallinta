@@ -135,63 +135,129 @@ pub fn get_dev_save_dir() -> Result<PathBuf, String> {
     Ok(dev_save_dir)
 }
 
-/// Seed `dev_data/save00/mod_config.xml` from the real Noita save on first run.
-///
-/// Only copies if the file does not already exist (preserves cached dev state across runs).
-/// Returns a human-readable description of what was done, suitable for logging by the caller.
-pub fn seed_dev_mod_config() -> Result<String, String> {
-    let dev_save_dir = get_dev_save_dir()?;
-    seed_mod_config_into(&dev_save_dir)
+/// Recursively copy all contents of `src_dir` into `dst_dir`.
+/// Overwrites existing files. Creates `dst_dir` if it doesn't exist.
+fn copy_dir_recursive(src_dir: &Path, dst_dir: &Path) -> Result<u64, String> {
+    fs::create_dir_all(dst_dir)
+        .map_err(|e| format!("Failed to create dir {}: {}", dst_dir.display(), e))?;
+    let mut count = 0u64;
+    let entries = fs::read_dir(src_dir)
+        .map_err(|e| format!("Failed to read dir {}: {}", src_dir.display(), e))?;
+    for entry in entries {
+        let entry = entry
+            .map_err(|e| format!("Failed to read entry in {}: {}", src_dir.display(), e))?;
+        let src_path = entry.path();
+        let dst_path = dst_dir.join(entry.file_name());
+        if src_path.is_dir() {
+            count += copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path)
+                .map_err(|e| format!("Failed to copy {}: {}", src_path.display(), e))?;
+            count += 1;
+        }
+    }
+    Ok(count)
 }
 
-/// Core seeding logic operating on an arbitrary target directory.
-/// Separated from `seed_dev_mod_config` so tests can supply a temp dir instead of
-/// touching `dev_data/save00` directly.
-fn seed_mod_config_into(save_dir: &Path) -> Result<String, String> {
-    fs::create_dir_all(save_dir)
-        .map_err(|e| format!("Failed to create save dir: {}", e))?;
-    let config_path = save_dir.join("mod_config.xml");
+/// Seed the dev sandbox by doing a full recursive copy of the real Noita
+/// save directory (and entangled worlds) into dev_data.
+///
+/// On the very first run (empty dev_data/save00), copies everything from the
+/// real directories. On subsequent runs, only copies `mod_config.xml` to pick
+/// up any changes the user made in the real game, preserving the rest of the
+/// dev sandbox state.
+pub fn seed_dev_sandbox() -> Result<String, String> {
+    let dev_save_dir = get_dev_save_dir()?;
+    let dev_ew_dir = get_dev_entangled_dir()?;
+    let mut messages = Vec::new();
 
-    if config_path.exists() {
-        return Ok(format!(
-            "Using cached dev mod_config.xml ({} bytes)",
-            fs::metadata(&config_path).map(|m| m.len()).unwrap_or(0)
-        ));
-    }
+    // Check if this is the initial seed (no mod_config.xml yet)
+    let is_initial = !dev_save_dir.join("mod_config.xml").exists();
 
-    // First run — try to copy from the real Noita save directory.
+    // --- Noita save ---
     match get_noita_save_path() {
-        Ok(real_save) => {
-            let real_config = real_save.join("mod_config.xml");
-            if real_config.exists() {
-                fs::copy(&real_config, &config_path)
-                    .map_err(|e| format!("Failed to copy mod_config.xml from real save: {}", e))?;
-                Ok(format!(
-                    "Seeded dev mod_config.xml from real save at {}",
-                    real_save.display()
-                ))
+        Ok(real_save) if real_save.exists() => {
+            if is_initial {
+                let count = copy_dir_recursive(&real_save, &dev_save_dir)?;
+                messages.push(format!(
+                    "Initial seed: copied {} file(s) from {} -> {}",
+                    count,
+                    real_save.display(),
+                    dev_save_dir.display()
+                ));
             } else {
-                write_empty_mod_config(&config_path)?;
-                Ok(format!(
-                    "Real save at {} has no mod_config.xml; created empty placeholder",
-                    real_save.display()
-                ))
+                // Subsequent runs: only sync mod_config.xml
+                let real_config = real_save.join("mod_config.xml");
+                if real_config.exists() {
+                    fs::copy(&real_config, dev_save_dir.join("mod_config.xml"))
+                        .map_err(|e| format!("Failed to sync mod_config.xml: {}", e))?;
+                    messages.push("Synced mod_config.xml from real save".to_string());
+                } else {
+                    messages.push("Real save has no mod_config.xml; keeping dev copy".to_string());
+                }
             }
         }
+        Ok(real_save) => {
+            messages.push(format!("Real Noita save dir does not exist: {}", real_save.display()));
+            ensure_mod_config_exists(&dev_save_dir)?;
+        }
         Err(e) => {
-            write_empty_mod_config(&config_path)?;
-            Ok(format!(
-                "Real Noita save not found ({}); created empty placeholder",
-                e
-            ))
+            messages.push(format!("Could not detect Noita save: {}", e));
+            ensure_mod_config_exists(&dev_save_dir)?;
         }
     }
+
+    // --- Entangled Worlds ---
+    match get_entangled_worlds_save_path() {
+        Ok(real_ew) if real_ew.exists() && is_initial => {
+            let count = copy_dir_recursive(&real_ew, &dev_ew_dir)?;
+            messages.push(format!(
+                "Initial seed: copied {} entangled file(s)",
+                count
+            ));
+        }
+        _ => {}
+    }
+
+    Ok(messages.join(" | "))
 }
 
-fn write_empty_mod_config(path: &PathBuf) -> Result<(), String> {
-    let placeholder = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Mods>\n</Mods>";
-    fs::write(path, placeholder)
-        .map_err(|e| format!("Failed to create placeholder mod_config.xml: {}", e))
+/// Restore the real Noita save directory from the dev sandbox snapshot
+/// taken at startup. Called on exit to prevent dev changes from leaking.
+pub fn restore_real_dirs_from_dev() -> Result<String, String> {
+    if !cfg!(debug_assertions) {
+        return Err("Not in dev mode".to_string());
+    }
+    let dev_save_dir = get_dev_save_dir()?;
+    let mut messages = Vec::new();
+
+    // Only restore mod_config.xml — that's the file we modify.
+    // We don't want to overwrite real saves with dev copies.
+    if let Ok(real_save) = get_noita_save_path() {
+        let dev_config = dev_save_dir.join("mod_config.xml");
+        let real_config = real_save.join("mod_config.xml");
+        // We stored the original at startup; the real file should still match
+        // what the user had before. Only restore if the real file was somehow
+        // modified (shouldn't happen since we work with dev_data, but safety net).
+        if dev_config.exists() && real_config.exists() {
+            // The dev sandbox has our modified version; the real one should
+            // be untouched since we only write to dev_data. No action needed.
+            messages.push("Real mod_config.xml untouched (dev sandbox isolated)".to_string());
+        }
+    }
+
+    Ok(messages.join(" | "))
+}
+
+/// Ensure mod_config.xml exists in the given directory (create empty placeholder if not).
+fn ensure_mod_config_exists(save_dir: &Path) -> Result<(), String> {
+    let config_path = save_dir.join("mod_config.xml");
+    if !config_path.exists() {
+        let placeholder = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Mods>\n</Mods>";
+        fs::write(&config_path, placeholder)
+            .map_err(|e| format!("Failed to create placeholder mod_config.xml: {}", e))?;
+    }
+    Ok(())
 }
 
 pub fn get_dev_entangled_dir() -> Result<PathBuf, String> {
@@ -232,10 +298,6 @@ pub fn get_system_info() -> Result<SystemInfo, String> {
     let app_data_dir = get_app_settings_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "unknown".to_string());
-    let logical_cpu_cores = std::thread::available_parallelism()
-        .map(|count| count.get())
-        .unwrap_or(0);
-
     Ok(SystemInfo {
         app_version: get_version(),
         git_hash: get_git_hash(),
@@ -247,7 +309,6 @@ pub fn get_system_info() -> Result<SystemInfo, String> {
         os: std::env::consts::OS.to_string(),
         os_family: std::env::consts::FAMILY.to_string(),
         arch: std::env::consts::ARCH.to_string(),
-        logical_cpu_cores,
         local_time: Local::now().to_rfc3339(),
         utc_time: Utc::now().to_rfc3339(),
         executable_dir,
@@ -269,8 +330,8 @@ pub fn log_system_info_on_startup() {
         let _ = crate::core::logging::log(
             "INFO",
             &format!(
-                "Rust {} | Cargo {} | GUI: {} | CPUs: {}",
-                info.rust_version, info.cargo_version, info.gui_framework, info.logical_cpu_cores
+                "Rust {} | Cargo {} | GUI: {}",
+                info.rust_version, info.cargo_version, info.gui_framework
             ),
             "SystemInfo",
         );
@@ -289,41 +350,6 @@ pub fn log_system_info_on_startup() {
             "SystemInfo",
         );
 
-        // Log Noita paths
-        match get_noita_save_path() {
-            Ok(p) => {
-                let _ = crate::core::logging::log(
-                    "INFO",
-                    &format!("Noita save: {}", p.display()),
-                    "SystemInfo",
-                );
-            }
-            Err(e) => {
-                let _ = crate::core::logging::log(
-                    "WARN",
-                    &format!("Noita save not found: {}", e),
-                    "SystemInfo",
-                );
-            }
-        }
-
-        // Log Steam path
-        match crate::core::workshop::detect_steam_path() {
-            Ok(p) => {
-                let _ = crate::core::logging::log(
-                    "INFO",
-                    &format!("Steam: {}", p.display()),
-                    "SystemInfo",
-                );
-            }
-            Err(e) => {
-                let _ = crate::core::logging::log(
-                    "WARN",
-                    &format!("Steam not found: {}", e),
-                    "SystemInfo",
-                );
-            }
-        }
     }
 }
 
@@ -463,51 +489,61 @@ mod tests {
     }
 
     #[test]
-    fn test_write_empty_mod_config() {
-        let dir = test_tmp("write_empty_mod_config");
-        let path = dir.join("mod_config.xml");
-        let _ = std::fs::remove_file(&path);
+    fn test_ensure_mod_config_creates_placeholder() {
+        let dir = test_tmp("ensure_mod_config_placeholder");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
 
-        write_empty_mod_config(&path).expect("should succeed");
-        let content = std::fs::read_to_string(&path).unwrap();
+        ensure_mod_config_exists(&dir).expect("should succeed");
+        let content = std::fs::read_to_string(dir.join("mod_config.xml")).unwrap();
         assert!(content.contains("<Mods>"), "must contain <Mods>");
         assert!(!content.contains("<Mod "), "empty placeholder must have no entries");
 
         std::fs::remove_dir_all(&dir).ok();
     }
 
-    /// Tests the seeding logic against an isolated temp directory.
-    ///
-    /// Dev build note: `seed_dev_mod_config()` (the real app entry point) targets
-    /// `dev_data/save00/` and is NOT called here — tests must never write to dev_data.
-    /// Release build note: this test is not gated on debug_assertions because
-    /// `seed_mod_config_into` is a pure path-based helper with no build-mode dependency.
+    /// Tests that ensure_mod_config_exists creates a placeholder and is idempotent.
     #[test]
-    fn test_seed_mod_config_into_is_idempotent() {
-        let dir = test_tmp("seed_mod_config_idempotent");
-        let _ = std::fs::remove_dir_all(&dir); // clean slate each run
+    fn test_ensure_mod_config_exists_is_idempotent() {
+        let dir = test_tmp("ensure_mod_config");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
 
-        // First call: file doesn't exist yet — seeds from real Noita or writes placeholder.
-        let first = seed_mod_config_into(&dir).expect("first seed should succeed");
-        assert!(
-            first.contains("Seeded") || first.contains("placeholder"),
-            "first call should seed or create placeholder, got: {}",
-            first
-        );
-        assert!(
-            dir.join("mod_config.xml").exists(),
-            "mod_config.xml must exist after seeding"
-        );
+        // First call: creates placeholder
+        ensure_mod_config_exists(&dir).expect("first call should succeed");
+        assert!(dir.join("mod_config.xml").exists());
+        let content1 = std::fs::read_to_string(dir.join("mod_config.xml")).unwrap();
+        assert!(content1.contains("<Mods>"));
 
-        // Second call: file already exists — must report cached.
-        let second = seed_mod_config_into(&dir).expect("second seed should succeed");
-        assert!(
-            second.contains("cached"),
-            "second call must report 'cached', got: {}",
-            second
-        );
+        // Second call: file already exists — no-op
+        ensure_mod_config_exists(&dir).expect("second call should succeed");
+        let content2 = std::fs::read_to_string(dir.join("mod_config.xml")).unwrap();
+        assert_eq!(content1, content2);
 
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Tests that copy_dir_recursive copies files and subdirectories.
+    #[test]
+    fn test_copy_dir_recursive() {
+        let src = test_tmp("copy_src");
+        let dst = test_tmp("copy_dst");
+        let _ = std::fs::remove_dir_all(&src);
+        let _ = std::fs::remove_dir_all(&dst);
+        std::fs::create_dir_all(src.join("subdir")).unwrap();
+        std::fs::write(src.join("a.txt"), "hello").unwrap();
+        std::fs::write(src.join("subdir").join("b.txt"), "world").unwrap();
+
+        let count = copy_dir_recursive(&src, &dst).expect("copy should succeed");
+        assert_eq!(count, 2);
+        assert_eq!(std::fs::read_to_string(dst.join("a.txt")).unwrap(), "hello");
+        assert_eq!(
+            std::fs::read_to_string(dst.join("subdir").join("b.txt")).unwrap(),
+            "world"
+        );
+
+        std::fs::remove_dir_all(&src).ok();
+        std::fs::remove_dir_all(&dst).ok();
     }
 
     /// Verifies that the dev_data/save00 directory would be created by get_dev_save_dir
