@@ -6,13 +6,15 @@
 
 - Source code: `src/`
   - `src/main.rs`: process bootstrap (panic hook, log session init, single-instance lock, eframe startup).
-  - `src/app.rs`: main application state, async task orchestration, timers, and action handlers.
+  - `src/app.rs`: main application state and startup constructor.
+  - `src/app/`: split `HallintaApp` behavior modules (`actions`, `async_tasks`, `backup_actions`, `import_export`, `input`, `lifecycle`, `modal_actions`, `monitor`, `sorting`, `task_results`, `timers`).
   - `src/core/`: domain logic (`mods`, `presets`, `backup`, `save_monitor`, `gallery`, `workshop`, `settings`, `logging`, `platform`).
-  - `src/ui/`: egui rendering modules (`header`, `sidebar`, `mod_list`, `preset_bar`, `gallery`, `settings`, `modals`, `theme`).
+  - `src/ui/`: egui rendering modules (`header`, `sidebar`, `mod_list`, `preset_bar`, `compact`, `context_menu`, `settings`, `modals`, `design`, `theme`).
   - `src/models.rs`: shared data models and UI enums.
   - `src/tasks.rs`: async task result messages.
 - Tests: unit tests are colocated in `#[cfg(test)]` modules.
 - Docs: `docs/`
+  - `docs/code-map.md`: high-signal navigation map for app/core/ui modules.
   - If you want to put anything planning related, just put it within "temp".
 - Build outputs: `target/`.
 - Runtime data directory:
@@ -59,6 +61,7 @@
 
 ## Agent-Specific Notes
 
+- For codebase orientation, read `docs/code-map.md` before broad edits. For app-level workflows, start at `src/app.rs`, then jump to the matching `src/app/*.rs` behavior module.
 - When adding a new `AGENTS.md` anywhere in the repo, also add a `CLAUDE.md` symlink pointing to it (example: `ln -s AGENTS.md CLAUDE.md`).
 - When working on a GitHub Issue or PR, print the full URL at the end of the task.
 - When answering questions, respond with high-confidence answers only: verify in code; do not guess.

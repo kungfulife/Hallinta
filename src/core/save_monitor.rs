@@ -92,12 +92,11 @@ pub fn list_sessions(preset_name: &str) -> Result<Vec<SessionInfo>, String> {
         let entry = entry.map_err(|e| format!("Entry error: {}", e))?;
         if entry.path().is_dir() {
             let meta_path = entry.path().join("session.json");
-            if meta_path.exists() {
-                if let Ok(content) = fs::read_to_string(&meta_path) {
-                    if let Ok(session) = serde_json::from_str::<SessionInfo>(&content) {
-                        sessions.push(session);
-                    }
-                }
+            if meta_path.exists()
+                && let Ok(content) = fs::read_to_string(&meta_path)
+                && let Ok(session) = serde_json::from_str::<SessionInfo>(&content)
+            {
+                sessions.push(session);
             }
         }
     }
@@ -150,23 +149,20 @@ pub fn create_snapshot_in_session(
         add_directory_to_zip(&mut zip, &save00_path, "save00")?;
     }
 
-    if include_save01 {
-        if let Some(parent) = save00_path.parent() {
-            let save01_path = parent.join("save01");
-            if save01_path.exists() {
-                add_directory_to_zip(&mut zip, &save01_path, "save01")?;
-            }
+    if include_save01 && let Some(parent) = save00_path.parent() {
+        let save01_path = parent.join("save01");
+        if save01_path.exists() {
+            add_directory_to_zip(&mut zip, &save01_path, "save01")?;
         }
     }
 
-    if include_entangled {
-        if let Some(ew_dir) = entangled_dir {
-            if !ew_dir.is_empty() {
-                let ew_path = PathBuf::from(ew_dir);
-                if ew_path.exists() {
-                    add_directory_to_zip(&mut zip, &ew_path, "entangled_worlds")?;
-                }
-            }
+    if include_entangled
+        && let Some(ew_dir) = entangled_dir
+        && !ew_dir.is_empty()
+    {
+        let ew_path = PathBuf::from(ew_dir);
+        if ew_path.exists() {
+            add_directory_to_zip(&mut zip, &ew_path, "entangled_worlds")?;
         }
     }
 
@@ -302,20 +298,18 @@ pub fn scan_save_dirs_mtime(
     if save00.exists() {
         max_mtime = max_mtime.max(dir_max_mtime(&save00));
     }
-    if include_save01 {
-        if let Some(parent) = save00.parent() {
-            let save01 = parent.join("save01");
-            if save01.exists() {
-                max_mtime = max_mtime.max(dir_max_mtime(&save01));
-            }
+    if include_save01 && let Some(parent) = save00.parent() {
+        let save01 = parent.join("save01");
+        if save01.exists() {
+            max_mtime = max_mtime.max(dir_max_mtime(&save01));
         }
     }
-    if let Some(ew) = entangled_dir {
-        if !ew.is_empty() {
-            let ew_path = PathBuf::from(ew);
-            if ew_path.exists() {
-                max_mtime = max_mtime.max(dir_max_mtime(&ew_path));
-            }
+    if let Some(ew) = entangled_dir
+        && !ew.is_empty()
+    {
+        let ew_path = PathBuf::from(ew);
+        if ew_path.exists() {
+            max_mtime = max_mtime.max(dir_max_mtime(&ew_path));
         }
     }
     max_mtime
@@ -327,14 +321,14 @@ fn dir_max_mtime(dir: &PathBuf) -> u64 {
         .into_iter()
         .filter_map(|e| e.ok())
     {
-        if let Ok(meta) = entry.metadata() {
-            if let Ok(modified) = meta.modified() {
-                let epoch = modified
-                    .duration_since(std::time::SystemTime::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs();
-                max = max.max(epoch);
-            }
+        if let Ok(meta) = entry.metadata()
+            && let Ok(modified) = meta.modified()
+        {
+            let epoch = modified
+                .duration_since(std::time::SystemTime::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            max = max.max(epoch);
         }
     }
     max

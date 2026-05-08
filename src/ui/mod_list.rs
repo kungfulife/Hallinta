@@ -384,14 +384,13 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     }
 
     // Live-reorder: move the dragged item to the hovered position each frame
-    if let Some(target) = drag_move_to {
-        if let Some(drag) = &mut app.drag_state {
-            if target != drag.current_index {
-                let item = app.current_mods.remove(drag.current_index);
-                app.current_mods.insert(target, item);
-                drag.current_index = target;
-            }
-        }
+    if let Some(target) = drag_move_to
+        && let Some(drag) = &mut app.drag_state
+        && target != drag.current_index
+    {
+        let item = app.current_mods.remove(drag.current_index);
+        app.current_mods.insert(target, item);
+        drag.current_index = target;
     }
 
     // Commit drag on pointer release — list is already in the right order

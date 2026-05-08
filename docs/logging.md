@@ -1,6 +1,6 @@
 # Hallinta Logging
 
-This document describes the current logging implementation in `src/core/logging.rs` and related lifecycle calls in `src/main.rs` and `src/app.rs`.
+This document describes the current logging implementation in `src/core/logging.rs` and related lifecycle calls in `src/main.rs`, `src/app.rs`, and `src/app/*.rs`.
 
 ## Log Storage Location
 
@@ -41,8 +41,8 @@ Markers are written directly to the session file.
 1. `main()` installs the panic hook via `install_panic_logging_hook()`.
 2. `main()` starts the session via `init_log_session()` (`SESSION BEGIN` marker).
 3. During runtime, `log()` appends entries to an in-memory queue.
-4. `HallintaApp::check_timers()` calls `flush_log_buffer()` every 5 seconds.
-5. On normal exit, `cleanup_on_exit()` writes `APP_SHUTDOWN`, flushes synchronously, writes `SESSION END`, and flushes again.
+4. `HallintaApp::check_timers()` in `src/app/timers.rs` calls `flush_log_buffer()` every 5 seconds.
+5. On normal exit, `cleanup_on_exit()` in `src/app/lifecycle.rs` writes `APP_SHUTDOWN`, flushes synchronously, writes `SESSION END`, and flushes again.
 6. On panic, the panic hook logs panic details, flushes synchronously, and writes `SESSION CRASH`.
 
 ## In-Memory Buffers

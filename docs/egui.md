@@ -127,7 +127,7 @@ Settings use a reactive auto-save pattern — no Save/Cancel buttons:
 
 Side-effects (theme change, mod reload) are triggered by comparing
 snapshot values from before/after the frame. See `on_dark_mode_changed()`,
-`on_noita_dir_changed()` in `app.rs`.
+`on_noita_dir_changed()` in `src/app/actions.rs`.
 
 **Scale obfuscation:** Internal value 1.25 displays as "1.0×" (offset 0.25).
 Constants in `design.rs`: `SCALE_OFFSET`, `SCALE_INTERNAL_MIN/MAX/DEFAULT`.

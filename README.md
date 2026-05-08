@@ -118,6 +118,13 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - **File Monitoring**: Real-time mod_config.xml watching
 - **Logging**: Structured session logging with file rotation
 
+## Developer Docs
+
+- `docs/code-map.md` - quick map from features to source files
+- `docs/dev-mode.md` - debug sandbox behavior
+- `docs/logging.md` - log lifecycle and session markers
+- `docs/design-system.md` / `docs/egui.md` - UI conventions and egui notes
+
 ## Planned
 
 - macOS directory detection improvements

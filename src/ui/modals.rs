@@ -648,8 +648,8 @@ fn render_restore_manager(
                                                             session.name.clone(),
                                                         ));
                                                     }
-                                                    if session.status != SessionStatus::Active {
-                                                        if ui
+                                                    if session.status != SessionStatus::Active
+                                                        && ui
                                                             .button(
                                                                 egui::RichText::new("Delete")
                                                                     .color(
@@ -659,12 +659,11 @@ fn render_restore_manager(
                                                                     ),
                                                             )
                                                             .clicked()
-                                                        {
-                                                            delete_session_id = Some((
-                                                                session.id.clone(),
-                                                                session.preset_name.clone(),
-                                                            ));
-                                                        }
+                                                    {
+                                                        delete_session_id = Some((
+                                                            session.id.clone(),
+                                                            session.preset_name.clone(),
+                                                        ));
                                                     }
                                                 },
                                             );

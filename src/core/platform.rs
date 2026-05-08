@@ -265,13 +265,12 @@ pub fn seed_dev_sandbox() -> Result<String, String> {
             && fs::read_dir(&dev_ew_dir)
                 .map(|mut d| d.next().is_none())
                 .unwrap_or(true);
-        if ew_empty {
-            if let Ok(real_ew) = get_entangled_worlds_save_path() {
-                if real_ew.exists() {
-                    let count = copy_dir_recursive(&real_ew, &dev_ew_dir)?;
-                    messages.push(format!("Re-seeded {} entangled file(s)", count));
-                }
-            }
+        if ew_empty
+            && let Ok(real_ew) = get_entangled_worlds_save_path()
+            && real_ew.exists()
+        {
+            let count = copy_dir_recursive(&real_ew, &dev_ew_dir)?;
+            messages.push(format!("Re-seeded {} entangled file(s)", count));
         }
     }
 
@@ -289,30 +288,30 @@ pub fn restore_real_dirs_from_dev() -> Result<String, String> {
 
     // ── Restore real Noita mod_config.xml ──────────────────────────────
     let orig_config = originals.join("save00").join("mod_config.xml");
-    if orig_config.exists() {
-        if let Ok(real_save) = get_noita_save_path() {
-            let real_config = real_save.join("mod_config.xml");
-            fs::copy(&orig_config, &real_config)
-                .map_err(|e| format!("Failed to restore real mod_config.xml: {}", e))?;
-            messages.push(format!(
-                "Restored real mod_config.xml at {}",
-                real_save.display()
-            ));
-        }
+    if orig_config.exists()
+        && let Ok(real_save) = get_noita_save_path()
+    {
+        let real_config = real_save.join("mod_config.xml");
+        fs::copy(&orig_config, &real_config)
+            .map_err(|e| format!("Failed to restore real mod_config.xml: {}", e))?;
+        messages.push(format!(
+            "Restored real mod_config.xml at {}",
+            real_save.display()
+        ));
     }
 
     // ── Restore real Entangled Worlds mod_config.xml ───────────────────
     let orig_ew_config = originals.join("entangled_worlds").join("mod_config.xml");
-    if orig_ew_config.exists() {
-        if let Ok(real_ew) = get_entangled_worlds_save_path() {
-            let real_ew_config = real_ew.join("mod_config.xml");
-            fs::copy(&orig_ew_config, &real_ew_config)
-                .map_err(|e| format!("Failed to restore real entangled mod_config.xml: {}", e))?;
-            messages.push(format!(
-                "Restored real entangled mod_config.xml at {}",
-                real_ew.display()
-            ));
-        }
+    if orig_ew_config.exists()
+        && let Ok(real_ew) = get_entangled_worlds_save_path()
+    {
+        let real_ew_config = real_ew.join("mod_config.xml");
+        fs::copy(&orig_ew_config, &real_ew_config)
+            .map_err(|e| format!("Failed to restore real entangled mod_config.xml: {}", e))?;
+        messages.push(format!(
+            "Restored real entangled mod_config.xml at {}",
+            real_ew.display()
+        ));
     }
 
     // Clean up .originals
