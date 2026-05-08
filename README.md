@@ -1,6 +1,6 @@
 # Hallinta - Noita Mod Manager
 
-A mod manager for Noita with preset support, backup/restore, and a structured logging system. Built with Rust + Tauri.
+A mod manager for Noita with preset support, backup/restore, and a structured logging system. Built with Rust + egui (eframe).
 
 ## Features
 
@@ -8,8 +8,14 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Load and manage mods from Noita's mod_config.xml
 - Toggle mods on/off with visual indicators
 - Drag-and-drop reordering with live updates
+- Sort modes (A→Z, Z→A, Enabled first, Disabled first) — visual or persisted
+- Search by mod name or workshop ID
+- Bulk Enable All / Disable All
+- Footer status: "N enabled / M total" (and "K shown" when filtered)
 - Workshop and local mod support
 - Real-time file monitoring for external changes
+- Right-click menu: Enable/Disable, Move to position, Delete, Open Workshop
+  page, Copy Workshop ID, Copy Workshop URL, Copy Mod Name
 
 ### Preset System
 - Create, rename, and delete mod presets
@@ -19,7 +25,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Alphabetical preset sorting (Default always first)
 - Conflict resolution when external changes detected
 
-### Preset Vault
+### Modpacks
 - Browse and download presets from a configurable catalog URL
 - Search and tag-based filtering
 - One-click download with JSON validation and checksum verification
@@ -32,10 +38,12 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Manual and automatic backups of Noita save data (save00, save01) and presets
 - Save monitoring with per-preset snapshots for crash recovery
 - Save Monitor blocks mod/preset mutations while running (independent of UI layout)
-- Configurable auto-backup interval
-- Auto-deletion of old backups (configurable retention period)
+- Configurable auto-backup interval (silent quick backups: save00 + presets)
+- Auto-deletion of old backups (configurable retention period; runs every 6h)
+- One-click "Restore Latest" from the sidebar
 - Selective restore with per-component options
 - Upgrade backups created automatically on version change (keeps last 5)
+- Zip Slip protection: malicious archives can't write outside the target directory
 
 ### Entangled Worlds
 - Optional support for [Noita Entangled Worlds](https://github.com/IntQuant/noita_entangled_worlds) multiplayer mod directories
@@ -54,12 +62,22 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Manual directory selection with Browse and Auto-detect buttons
 
 ### User Interface
-- Dark and light mode
+- Native desktop GUI powered by egui/eframe
+- Dark and light mode (quick toggle in header)
 - Compact Mode: independent toggle that shrinks the window and hides the mod list for a monitoring-focused layout
-- Context menus for mod operations (toggle, delete, reorder, workshop links)
-- Search and filter functionality
-- Theme-safe custom dropdowns for Presets and Log Level (consistent light/dark list-item rendering)
+- Resizable sidebar with hover tooltips on every action
+- Quick reload button (`⟳`) and theme toggle in the header
+- Context menus for mod operations (toggle, delete, reorder, workshop links, copy ID/URL/name)
+- Search and filter functionality (filter + sort persist across sessions)
 - Responsive layout
+
+### Keyboard Shortcuts
+- `Ctrl+F` — focus the search box
+- `F5` — reload `mod_config.xml` from disk
+- `Ctrl+B` — open the backup dialog
+- `Ctrl+E` / `Ctrl+D` — enable / disable all mods
+- `Ctrl+,` — toggle Settings view
+- `Esc` — close active modal, exit Settings, or cancel an in-flight drag
 
 ### Settings & Configuration
 - Persistent settings stored in system data directories
@@ -87,15 +105,15 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ## Interface Overview
 
-- **Header**: `Mod List` / `Preset Vault` tabs, search bar, preset controls, settings access
+- **Header**: `Mod List` / `Modpacks` tabs, search bar, preset controls, settings access
 - **Mod List View**: Main mod list with drag-and-drop reordering
-- **Preset Vault**: Browse, search, and download presets from a configured catalog
+- **Modpacks**: Browse, search, and download presets from a configured catalog
 - **Settings**: Directory configuration, appearance, backup, logging, catalog URL, Steam path
 
 ## Technical Details
 
-- **Backend**: Rust with Tauri 2
-- **Frontend**: Vanilla JavaScript (ES6 modules, no bundler)
+- **Language**: Rust
+- **GUI Framework**: eframe/egui 0.33
 - **Data Storage**: JSON files in platform data directories
 - **File Monitoring**: Real-time mod_config.xml watching
 - **Logging**: Structured session logging with file rotation
@@ -108,41 +126,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ## Prerequisites
 
-### Windows
-No additional system dependencies required beyond Rust and the [Tauri CLI](https://v2.tauri.app/start/prerequisites/).
-
-### Linux (Ubuntu, Pop!_OS, Debian-based)
-
-Install the system libraries required to **build** the application:
-
-```bash
-sudo apt-get install -y \
-  libgtk-3-dev \
-  libwebkit2gtk-4.1-dev \
-  libjavascriptcoregtk-4.1-dev \
-  libsoup-3.0-dev \
-  librsvg2-dev \
-  libssl-dev \
-  pkg-config \
-  patchelf
-```
-
-> **Note:** For system tray support, install **one** of: `libappindicator3-dev` or `libayatana-appindicator3-dev`. Pop!_OS and newer Ubuntu versions ship with the Ayatana variant (`libayatana-appindicator3-dev`); older Ubuntu or plain Debian may use `libappindicator3-dev`. If one conflicts, use the other.
-
-These provide the GTK, WebKit, and related libraries that Tauri v2 links against at compile time. The corresponding runtime libraries (`libgtk-3-0`, `libwebkit2gtk-4.1-0`, etc.) are needed to **run** the built application and are typically already present on desktop Linux installations.
-
-### Linux (Arch, CachyOS, Manjaro)
-
-```bash
-sudo pacman -S --needed \
-  webkit2gtk-4.1 \
-  gtk3 \
-  libappindicator-gtk3 \
-  librsvg \
-  patchelf \
-  openssl \
-  pkgconf
-```
+Unknown, planning for none aside from compiling within Rust within all platforms (Mac, Linux, Windows)
 
 ### Noita on Linux
 Hallinta auto-detects Noita save data under Steam's Proton prefix:
@@ -155,22 +139,8 @@ If your Steam library is in a non-default location, use **Settings > Auto-detect
 
 ```bash
 # Development
-cargo tauri dev
+cargo run
 
 # Production build
-cargo tauri build
+cargo build --release
 ```
-
-## Latest Version
-
-Current version: **0.7.8**
-
-Latest update highlights:
-- Decoupled Compact Mode from Save Monitor into an independent UI toggle (header button + settings checkbox)
-- Save Monitor now only blocks mutation actions without changing the layout
-- Removed the in-app log viewer entirely (log files remain accessible via Settings > Open Settings Folder)
-- Changed Save Monitor default snapshot interval from 15 to 3 minutes
-- Renamed "Find Default" to "Auto-detect" in settings directory fields
-- Updated application version to `0.7.8`
-
-For older release notes, see `UPDATEHISTORY.md`.

@@ -1,0 +1,483 @@
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+use std::time::Instant;
+
+// ── Core Data ──────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ModEntry {
+    pub name: String,
+    pub enabled: bool,
+    #[serde(default)]
+    pub workshop_id: String,
+    #[serde(default)]
+    pub settings_fold_open: bool,
+}
+
+// ── Settings ───────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AppSettings {
+    pub noita_dir: String,
+    pub entangled_dir: String,
+    pub dark_mode: bool,
+    pub selected_preset: String,
+    pub version: String,
+    #[serde(default)]
+    pub log_settings: LogSettings,
+    #[serde(default)]
+    pub backup_settings: BackupSettings,
+    #[serde(default)]
+    pub save_monitor_settings: SaveMonitorSettings,
+    #[serde(default)]
+    pub steam_path: String,
+    #[serde(default)]
+    pub compact_mode: bool,
+    #[serde(default = "default_ui_scale")]
+    pub ui_scale: f32,
+    #[serde(default)]
+    pub last_filter_mode: String,
+    #[serde(default)]
+    pub last_sort_mode: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct LogSettings {
+    pub max_log_files: usize,
+    pub max_log_size_mb: usize,
+    pub log_level: String,
+    pub auto_save: bool,
+    #[serde(default)]
+    pub collect_system_info: bool,
+}
+
+impl Default for LogSettings {
+    fn default() -> Self {
+        Self {
+            max_log_files: 50,
+            max_log_size_mb: 10,
+            log_level: "INFO".to_string(),
+            auto_save: true,
+            collect_system_info: false,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct BackupSettings {
+    pub auto_delete_days: u32,
+    pub backup_interval_minutes: u32,
+}
+
+impl Default for BackupSettings {
+    fn default() -> Self {
+        Self {
+            auto_delete_days: 30,
+            backup_interval_minutes: 0,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SaveMonitorSettings {
+    #[serde(default = "default_max_snapshots_per_session")]
+    #[serde(alias = "max_snapshots_per_preset")]
+    pub max_snapshots_per_session: usize,
+    pub include_entangled: bool,
+    #[serde(default = "default_include_save01")]
+    pub include_save01: bool,
+    #[serde(default)]
+    pub start_in_monitor_mode: bool,
+}
+
+fn default_max_snapshots_per_session() -> usize {
+    15
+}
+
+fn default_include_save01() -> bool {
+    false
+}
+
+fn default_ui_scale() -> f32 {
+    1.25
+}
+
+impl Default for SaveMonitorSettings {
+    fn default() -> Self {
+        Self {
+            max_snapshots_per_session: 15,
+            include_entangled: false,
+            include_save01: false,
+            start_in_monitor_mode: false,
+        }
+    }
+}
+
+// ── Backup ─────────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct BackupInfo {
+    pub filename: String,
+    pub timestamp: String,
+    pub size_bytes: u64,
+    pub contains_save00: bool,
+    pub contains_save01: bool,
+    pub contains_presets: bool,
+    #[serde(default)]
+    pub contains_entangled: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RestoreOptions {
+    pub restore_save00: bool,
+    pub restore_save01: bool,
+    pub restore_presets: bool,
+    #[serde(default)]
+    pub restore_entangled: bool,
+}
+
+// ── Logging ────────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct LogEntry {
+    pub timestamp: String,
+    pub level: String,
+    pub message: String,
+    pub module: String,
+}
+
+// ── System Info ────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SystemInfo {
+    pub app_version: String,
+    pub git_hash: String,
+    pub build_profile: String,
+    pub rust_version: String,
+    pub cargo_version: String,
+    pub build_target: String,
+    pub gui_framework: String,
+    pub os: String,
+    pub os_family: String,
+    pub arch: String,
+    #[serde(default)]
+    pub logical_cpu_cores: usize,
+    pub local_time: String,
+    pub utc_time: String,
+    pub executable_dir: String,
+    pub app_data_dir: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct OpenSourceLibrary {
+    pub name: String,
+    pub version: String,
+    pub purpose: String,
+    pub homepage: String,
+}
+
+// ── Session System ────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum SessionStatus {
+    Active,
+    Paused,
+    Ended,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SessionInfo {
+    pub id: String,
+    pub name: String,
+    pub preset_name: String,
+    pub started_at: String,
+    pub ended_at: Option<String>,
+    pub status: SessionStatus,
+    pub snapshot_count: u32,
+    pub locked_mods: Vec<ModEntry>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct SnapshotEntry {
+    pub filename: String,
+    pub session_id: String,
+    pub timestamp: String,
+    pub size_bytes: u64,
+}
+
+// ── UI State Enums ─────────────────────────────────────────────────────────
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum View {
+    ModList,
+    Settings,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FilterMode {
+    All,
+    Enabled,
+    Disabled,
+}
+
+impl FilterMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::All => "All",
+            Self::Enabled => "Enabled",
+            Self::Disabled => "Disabled",
+        }
+    }
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Enabled => "enabled",
+            Self::Disabled => "disabled",
+        }
+    }
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "enabled" => Self::Enabled,
+            "disabled" => Self::Disabled,
+            _ => Self::All,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SortMode {
+    Default,
+    NameAsc,
+    NameDesc,
+    EnabledFirst,
+    DisabledFirst,
+}
+
+impl SortMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Default => "Order",
+            Self::NameAsc => "A → Z",
+            Self::NameDesc => "Z → A",
+            Self::EnabledFirst => "Enabled ↑",
+            Self::DisabledFirst => "Disabled ↑",
+        }
+    }
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Default => "default",
+            Self::NameAsc => "name_asc",
+            Self::NameDesc => "name_desc",
+            Self::EnabledFirst => "enabled_first",
+            Self::DisabledFirst => "disabled_first",
+        }
+    }
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "name_asc" => Self::NameAsc,
+            "name_desc" => Self::NameDesc,
+            "enabled_first" => Self::EnabledFirst,
+            "disabled_first" => Self::DisabledFirst,
+            _ => Self::Default,
+        }
+    }
+}
+
+// ── Modal System ───────────────────────────────────────────────────────────
+
+#[derive(Clone, Debug)]
+pub enum Modal {
+    Confirm {
+        message: String,
+        confirm_text: String,
+        cancel_text: String,
+        action: ConfirmAction,
+        cancel_action: Option<ConfirmAction>,
+    },
+    Input {
+        title: String,
+        value: String,
+        action: InputAction,
+    },
+    Checklist {
+        title: String,
+        message: String,
+        items: Vec<ChecklistItem>,
+        action: ChecklistAction,
+    },
+    Info {
+        title: String,
+        message: String,
+    },
+    Progress {
+        message: String,
+        progress: f32,
+    },
+    MissingMods {
+        mods: Vec<(String, String)>, // (name, workshop_id)
+        action: MissingModsAction,
+    },
+    SystemInfo,
+    OpenSourceLibraries,
+    BackupManager,
+    RestoreManager {
+        sessions: Vec<SessionInfo>,
+        snapshots: Vec<SnapshotEntry>,
+        /// Which view: None = session list, Some(session_id) = snapshot list for that session
+        selected_session: Option<(String, String)>, // (session_id, session_name)
+    },
+}
+
+#[derive(Clone, Debug)]
+pub enum ConfirmAction {
+    DeletePreset,
+    /// (preferred_index, name, workshop_id) — index is a hint, name+workshop_id used to verify.
+    DeleteMod(usize, String, String),
+    AcceptExternalChanges(Vec<ModEntry>),
+    KeepCurrentPreset,
+    OverwritePresetImport(PresetImportData),
+    RenamePresetImport(PresetImportData),
+    ChecksumMismatchContinue(PresetImportData),
+    ExitWithSnapshot,
+    ExitWithoutSnapshot,
+    DeleteBackup(String),
+    RestoreLatest(String),
+    ClearMonitorData,
+    ContinueMonitorSession(String), // session_id
+    StartNewMonitorSession,
+    StopAndEndSession,
+}
+
+#[derive(Clone, Debug)]
+pub enum InputAction {
+    CreatePreset,
+    RenamePreset,
+    MoveModToPosition(usize),
+}
+
+#[derive(Clone, Debug)]
+pub enum ChecklistAction {
+    ExportPresets,
+    ImportPresets(PresetImportData),
+    Backup,
+    Restore(String), // filename
+    RestoreSnapshot(std::path::PathBuf),
+}
+
+#[derive(Clone, Debug)]
+pub enum MissingModsAction {
+    ModImport(Vec<ModEntry>),
+    PresetImport(PresetImportData),
+}
+
+#[derive(Clone, Debug)]
+pub struct ChecklistItem {
+    pub id: String,
+    pub label: String,
+    pub checked: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct PresetImportData {
+    pub presets: BTreeMap<String, Vec<ModEntry>>,
+    pub selected_names: Vec<String>,
+}
+
+// ── Drag State ─────────────────────────────────────────────────────────────
+
+#[derive(Clone, Debug)]
+pub struct DragState {
+    /// Where the dragged item currently sits in `current_mods` — updated live as the
+    /// pointer moves so the list previews the final order in real time.
+    pub current_index: usize,
+    pub pre_drag_snapshot: Vec<ModEntry>,
+}
+
+// ── Feature State Structs ──────────────────────────────────────────────────
+
+/// BUG-2 FIX: Single authoritative state for Save Monitor.
+/// All mutation checks use `is_running()`.
+pub struct SaveMonitorState {
+    pub running: bool,
+    pub current_session: Option<SessionInfo>,
+    pub snapshot_count: u32,
+    pub last_known_mtime: u64,
+    pub pending_change_since: Option<Instant>,
+    pub snapshot_in_flight: bool,
+    pub last_scan: Option<Instant>,
+}
+
+impl SaveMonitorState {
+    pub fn new() -> Self {
+        Self {
+            running: false,
+            current_session: None,
+            snapshot_count: 0,
+            last_known_mtime: 0,
+            pending_change_since: None,
+            snapshot_in_flight: false,
+            last_scan: None,
+        }
+    }
+
+    /// Single source of truth for whether mutations should be blocked.
+    pub fn is_running(&self) -> bool {
+        self.running
+    }
+}
+
+pub struct BackupState {
+    pub in_progress: bool,
+    pub restoring: bool,
+    pub backup_list: Vec<BackupInfo>,
+    pub snapshot_list: Vec<SnapshotEntry>,
+    pub workshop_status: Vec<(String, bool)>,
+}
+
+impl BackupState {
+    pub fn new() -> Self {
+        Self {
+            in_progress: false,
+            restoring: false,
+            backup_list: Vec::new(),
+            snapshot_list: Vec::new(),
+            workshop_status: Vec::new(),
+        }
+    }
+}
+
+pub struct FileWatcherState {
+    pub last_check: Option<Instant>,
+    pub last_modified_time: u64,
+    pub check_interval: std::time::Duration,
+}
+
+impl FileWatcherState {
+    pub fn new() -> Self {
+        Self {
+            last_check: None,
+            last_modified_time: 0,
+            check_interval: std::time::Duration::from_secs(5),
+        }
+    }
+}
+
+// ── Preset Export/Import Format ────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PresetExportFile {
+    pub hallinta_export: String,
+    pub version: String,
+    pub presets: BTreeMap<String, Vec<ModEntry>>,
+    #[serde(default)]
+    pub checksum: Option<String>,
+}
+
+// ── Mod List Export/Import Format ──────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ModListEntry {
+    pub name: String,
+    #[serde(default, alias = "workshopId")]
+    pub workshop_id: String,
+}
