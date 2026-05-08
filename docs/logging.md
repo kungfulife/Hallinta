@@ -71,20 +71,31 @@ App markers:
 - `MONITOR_START:preset=<preset>,session=<name>`
 - `MONITOR_STOP:snapshots=<count>`
 
-## Modules Currently Logged
+## What Gets Logged
+
+The log is an audit trail for diagnosing crashes and tracking the state changes
+that matter (mods enabled, presets switched, backups taken, saves restored).
+Cosmetic UI knobs (filter, sort, theme, scale, compact mode, copy-to-clipboard,
+keyboard-shortcut activations) are **not** logged — `settings.json` already
+captures the relevant state.
 
 The `module` field categorizes events. Key modules:
-- `App` — startup, shutdown, close-prompt intent, initial state snapshot
-- `Settings` — theme/scale/window-mode/path changes, save errors
-- `ModManager` — toggle, bulk enable/disable, delete, move, drag commit, reload, import/export
-- `ModList` — drag start/cancel/commit, abort-on-disruptive-op
-- `PresetManager` — create, rename, delete, switch, import, export
-- `Backup` — create/restore/delete, auto-cleanup, auto-backup
-- `SaveMonitor` — session start/pause/end, snapshot create, snapshot cleanup
+- `App` — startup, shutdown, close-prompt intent, initial preset / mod-count
+  snapshot, exit-snapshot intent
+- `Settings` — path changes (noita_dir, entangled_dir), save errors
+- `ModManager` — single-mod toggle, bulk enable/disable, delete (with
+  workshop_id), move-to-position, manual reload counts, import/export results
+- `ModList` — drag committed (with name + position delta), drag cancelled by
+  disruptive op, defensive aborts
+- `PresetManager` — create, rename, delete, switch (with mod-count delta),
+  import/export, refusals (e.g. delete Default)
+- `Backup` — create / restore / delete with detail, auto-cleanup of old zips,
+  auto-backup invocation
+- `SaveMonitor` — session start / pause / end, snapshot create / cleanup
 - `FileWatcher` — external `mod_config.xml` change detection
-- `Workshop` — workshop install check results, page/URL/ID copy actions
-- `UI` — keyboard shortcut activations, filter/sort changes
+- `Workshop` — install check results (installed / missing counts)
 - `CrashHandler` — panic payload, location, thread, backtrace
+- `SystemInfo` — startup hardware/runtime snapshot (when enabled)
 - `DevData` — dev sandbox seed/restore (debug builds only)
 
 ## Settings Integration (Current State)

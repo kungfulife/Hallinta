@@ -295,47 +295,31 @@ impl HallintaApp {
         let _ = logging::log(
             "INFO",
             &format!(
-                "Initial state: preset=\"{}\" mods={} (enabled={}) compact={} dark={} scale={:.2} filter={} sort={}",
+                "Loaded preset \"{}\" with {} mods ({} enabled)",
                 app.selected_preset,
                 app.current_mods.len(),
                 app.current_mods.iter().filter(|m| m.enabled).count(),
-                app.compact_mode,
-                app.dark_mode,
-                app.settings.ui_scale,
-                app.filter_mode.label(),
-                app.sort_mode.label(),
             ),
             "App",
         );
+        let bs = &app.settings.backup_settings;
         let _ = logging::log(
             "INFO",
             &format!(
-                "Backup config: auto_delete_days={} auto_backup_interval_min={}",
-                app.settings.backup_settings.auto_delete_days,
-                app.settings.backup_settings.backup_interval_minutes
+                "Backup config: auto-delete {} | auto-backup {}",
+                if bs.auto_delete_days > 0 {
+                    format!("after {}d", bs.auto_delete_days)
+                } else {
+                    "off".to_string()
+                },
+                if bs.backup_interval_minutes > 0 {
+                    format!("every {}min", bs.backup_interval_minutes)
+                } else {
+                    "off".to_string()
+                },
             ),
             "Backup",
         );
-        if app.settings.backup_settings.backup_interval_minutes > 0 {
-            let _ = logging::log(
-                "INFO",
-                &format!(
-                    "Auto-backup enabled: every {} minute(s)",
-                    app.settings.backup_settings.backup_interval_minutes
-                ),
-                "Backup",
-            );
-        }
-        if app.settings.backup_settings.auto_delete_days > 0 {
-            let _ = logging::log(
-                "INFO",
-                &format!(
-                    "Auto-delete enabled: backups older than {} day(s) will be removed",
-                    app.settings.backup_settings.auto_delete_days
-                ),
-                "Backup",
-            );
-        }
         logging::write_session_marker(&format!("APP_INITIALIZED:v{}", platform::get_version()));
         app
     }
@@ -354,13 +338,6 @@ impl HallintaApp {
         // File watcher (every 5 seconds — paused while unfocused, eagerly fires on regain)
         let focused = ctx.input(|i| i.viewport().focused.unwrap_or(true));
         let regained_focus = focused && !self.was_focused;
-        if regained_focus {
-            let _ = logging::log(
-                "DEBUG",
-                "Window focus regained — running mod_config watch immediately",
-                "FileWatcher",
-            );
-        }
         self.was_focused = focused;
 
         let should_check = focused
@@ -836,7 +813,6 @@ impl HallintaApp {
         if ctrl && ctx.input(|i| i.key_pressed(egui::Key::F)) {
             self.focus_search_requested = true;
             self.active_view = View::ModList;
-            let _ = logging::log("DEBUG", "Shortcut: focus search (Ctrl+F)", "UI");
         }
         if ctx.input(|i| i.key_pressed(egui::Key::F5)) && !typing {
             self.reload_mods_explicit();
@@ -847,7 +823,6 @@ impl HallintaApp {
             && !monitor_running
             && self.active_view == View::ModList
         {
-            let _ = logging::log("INFO", "Shortcut: open backup (Ctrl+B)", "UI");
             self.start_backup_modal();
         }
         if ctrl
@@ -856,16 +831,7 @@ impl HallintaApp {
             && !typing
             && self.active_view == View::ModList
         {
-            let total = self.current_mods.len();
-            for m in &mut self.current_mods {
-                m.enabled = true;
-            }
-            let _ = logging::log(
-                "INFO",
-                &format!("Shortcut: Enable All (Ctrl+E, {} mods)", total),
-                "ModManager",
-            );
-            self.save_mod_config_and_preset();
+            self.bulk_set_enabled(true);
         }
         if ctrl
             && ctx.input(|i| i.key_pressed(egui::Key::D))
@@ -873,16 +839,7 @@ impl HallintaApp {
             && !typing
             && self.active_view == View::ModList
         {
-            let total = self.current_mods.len();
-            for m in &mut self.current_mods {
-                m.enabled = false;
-            }
-            let _ = logging::log(
-                "INFO",
-                &format!("Shortcut: Disable All (Ctrl+D, {} mods)", total),
-                "ModManager",
-            );
-            self.save_mod_config_and_preset();
+            self.bulk_set_enabled(false);
         }
         if ctrl && ctx.input(|i| i.key_pressed(egui::Key::Comma)) {
             self.active_view = if self.active_view == View::Settings {
@@ -890,8 +847,39 @@ impl HallintaApp {
             } else {
                 View::Settings
             };
-            let _ = logging::log("DEBUG", "Shortcut: toggle Settings (Ctrl+,)", "UI");
         }
+    }
+
+    /// Enable or disable every mod. Single audit log line; same path used by
+    /// both keyboard shortcut and footer button so the trail is uniform.
+    pub fn bulk_set_enabled(&mut self, enabled: bool) {
+        if self.save_monitor.is_running() {
+            return;
+        }
+        let total = self.current_mods.len();
+        if total == 0 {
+            return;
+        }
+        let was_set = self
+            .current_mods
+            .iter()
+            .filter(|m| m.enabled == enabled)
+            .count();
+        for m in &mut self.current_mods {
+            m.enabled = enabled;
+        }
+        let _ = logging::log(
+            "INFO",
+            &format!(
+                "{} all mods ({} now {}, {} were already)",
+                if enabled { "Enabled" } else { "Disabled" },
+                total,
+                if enabled { "enabled" } else { "disabled" },
+                was_set,
+            ),
+            "ModManager",
+        );
+        self.save_mod_config_and_preset();
     }
 
     // ── Close Handling ─────────────────────────────────────────────────
@@ -1011,14 +999,6 @@ impl HallintaApp {
     pub fn on_dark_mode_changed(&mut self, ctx: &egui::Context) {
         self.dark_mode = self.settings.dark_mode;
         crate::ui::theme::apply_theme(ctx, self.settings.dark_mode);
-        let _ = logging::log(
-            "INFO",
-            &format!(
-                "Theme changed: {}",
-                if self.dark_mode { "dark" } else { "light" }
-            ),
-            "Settings",
-        );
         self.save_current_settings();
     }
 
@@ -1027,19 +1007,6 @@ impl HallintaApp {
         let was_compact = self.compact_mode;
         self.compact_mode = self.settings.compact_mode;
         if was_compact != self.compact_mode {
-            let _ = logging::log(
-                "INFO",
-                &format!(
-                    "Window mode: {} -> {}",
-                    if was_compact { "compact" } else { "normal" },
-                    if self.compact_mode {
-                        "compact"
-                    } else {
-                        "normal"
-                    }
-                ),
-                "Settings",
-            );
             let scale = self.settings.ui_scale;
             if self.compact_mode {
                 let current_size = ctx.input(|i| i.content_rect().size());
@@ -1074,11 +1041,6 @@ impl HallintaApp {
     /// via `deferred_min_size`.
     pub fn on_ui_scale_changed(&mut self, ctx: &egui::Context, prev_scale: f32) {
         let scale = self.settings.ui_scale;
-        let _ = logging::log(
-            "INFO",
-            &format!("UI scale changed: {:.2} -> {:.2}", prev_scale, scale),
-            "Settings",
-        );
         let base_min = if self.compact_mode {
             crate::ui::design::BASE_MIN_COMPACT
         } else {
@@ -1204,7 +1166,6 @@ impl HallintaApp {
         self.cancel_drag_if_active();
         self.filter_mode = mode;
         self.settings.last_filter_mode = mode.as_str().to_string();
-        let _ = logging::log("DEBUG", &format!("Filter changed: {}", mode.label()), "UI");
         self.save_current_settings();
     }
 
@@ -1215,7 +1176,6 @@ impl HallintaApp {
         self.cancel_drag_if_active();
         self.sort_mode = mode;
         self.settings.last_sort_mode = mode.as_str().to_string();
-        let _ = logging::log("DEBUG", &format!("Sort changed: {}", mode.label()), "UI");
         self.save_current_settings();
     }
 
@@ -2056,11 +2016,6 @@ impl HallintaApp {
             }
             ConfirmAction::KeepCurrentPreset => {
                 self.save_mod_config_and_preset();
-                let _ = logging::log(
-                    "INFO",
-                    "Kept current preset, re-wrote mod_config.xml",
-                    "ModManager",
-                );
             }
             ConfirmAction::OverwritePresetImport(import) => {
                 self.do_import_presets(&import, true);

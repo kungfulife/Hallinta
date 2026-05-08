@@ -26,8 +26,8 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
         let _ = crate::core::logging::log(
             "INFO",
             &format!(
-                "Context menu: {} mod \"{}\"",
-                if new_state { "enabled" } else { "disabled" },
+                "{} mod: {}",
+                if new_state { "Enabled" } else { "Disabled" },
                 mod_name
             ),
             "ModManager",
@@ -62,21 +62,11 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
 
     if is_workshop {
         if ui.button("Open Workshop Page").clicked() {
-            let _ = crate::core::logging::log(
-                "INFO",
-                &format!("Opening workshop page for {} ({})", mod_name, workshop_id),
-                "Workshop",
-            );
             crate::core::workshop::open_workshop_page(&workshop_id);
             ui.close();
         }
         if ui.button("Copy Workshop ID").clicked() {
             ui.ctx().copy_text(workshop_id.clone());
-            let _ = crate::core::logging::log(
-                "INFO",
-                &format!("Copied workshop ID {} for {}", workshop_id, mod_name),
-                "Workshop",
-            );
             ui.close();
         }
         if ui.button("Copy Workshop URL").clicked() {
@@ -85,11 +75,6 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
                 workshop_id
             );
             ui.ctx().copy_text(url);
-            let _ = crate::core::logging::log(
-                "INFO",
-                &format!("Copied workshop URL for {}", mod_name),
-                "Workshop",
-            );
             ui.close();
         }
     }

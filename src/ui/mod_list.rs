@@ -365,37 +365,11 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     }
 
     if enable_all {
-        let total = app.current_mods.len();
-        let was_enabled = app.current_mods.iter().filter(|m| m.enabled).count();
-        for m in &mut app.current_mods {
-            m.enabled = true;
-        }
-        let _ = crate::core::logging::log(
-            "INFO",
-            &format!(
-                "Enabled all mods ({} were already enabled, {} total)",
-                was_enabled, total
-            ),
-            "ModManager",
-        );
-        app.save_mod_config_and_preset();
+        app.bulk_set_enabled(true);
     }
 
     if disable_all {
-        let total = app.current_mods.len();
-        let was_enabled = app.current_mods.iter().filter(|m| m.enabled).count();
-        for m in &mut app.current_mods {
-            m.enabled = false;
-        }
-        let _ = crate::core::logging::log(
-            "INFO",
-            &format!(
-                "Disabled all mods ({} were enabled, {} total)",
-                was_enabled, total
-            ),
-            "ModManager",
-        );
-        app.save_mod_config_and_preset();
+        app.bulk_set_enabled(false);
     }
 
     if apply_sort {
@@ -407,11 +381,6 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
             current_index: idx,
             pre_drag_snapshot: app.current_mods.clone(),
         });
-        let _ = crate::core::logging::log(
-            "INFO",
-            &format!("Drag started: mod at position {}", idx + 1),
-            "ModList",
-        );
     }
 
     // Live-reorder: move the dragged item to the hovered position each frame
@@ -451,7 +420,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 let _ = crate::core::logging::log(
                     "INFO",
                     &format!(
-                        "Drag committed: \"{}\" moved {} -> {}",
+                        "Reordered \"{}\": position {} -> {}",
                         moved_name,
                         from,
                         drag.current_index + 1
@@ -459,12 +428,6 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     "ModList",
                 );
                 app.save_mod_config_and_preset();
-            } else {
-                let _ = crate::core::logging::log(
-                    "DEBUG",
-                    &format!("Drag released without movement: {}", moved_name),
-                    "ModList",
-                );
             }
         }
     }
