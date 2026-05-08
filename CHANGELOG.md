@@ -3,6 +3,13 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 # Update History
 
 ## 0.8.0 (Work In Progress)
+- **Master parity sweep** — audited the egui port against the original Tauri
+  branch and brought back two non-UI features that were dropped in transit:
+  - `SystemInfo.logical_cpu_cores` — shown in the System Info modal and logged
+    on startup
+  - File watcher now pauses while the window is unfocused and forces an
+    immediate `mod_config.xml` check on regaining focus (matches the original
+    JS behaviour; quieter polling when the user isn't looking)
 - Full rewrite from Tauri to native egui/eframe GUI
 - No web frontend dependencies — pure Rust application
 - Streamlined build process (standard cargo build, no Tauri CLI needed)

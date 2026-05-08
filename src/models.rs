@@ -160,6 +160,8 @@ pub struct SystemInfo {
     pub os: String,
     pub os_family: String,
     pub arch: String,
+    #[serde(default)]
+    pub logical_cpu_cores: usize,
     pub local_time: String,
     pub utc_time: String,
     pub executable_dir: String,

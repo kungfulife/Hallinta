@@ -59,6 +59,11 @@ pub struct HallintaApp {
 
     // Keyboard / focus signals
     pub focus_search_requested: bool,
+
+    // Window focus tracking. File watcher pauses while unfocused and forces an
+    // immediate check on regaining focus (matches the JS version's behaviour
+    // and avoids polling a directory the user isn't looking at).
+    was_focused: bool,
 }
 
 impl HallintaApp {
@@ -272,6 +277,7 @@ impl HallintaApp {
             deferred_min_size: None,
             close_requested: false,
             focus_search_requested: false,
+            was_focused: true,
         };
 
         // Start monitor if configured
@@ -345,11 +351,24 @@ impl HallintaApp {
             self.last_log_flush = now;
         }
 
-        // File watcher (every 5 seconds)
-        let should_check = self
-            .file_watcher
-            .last_check
-            .is_none_or(|t| now.duration_since(t) > self.file_watcher.check_interval);
+        // File watcher (every 5 seconds — paused while unfocused, eagerly fires on regain)
+        let focused = ctx.input(|i| i.viewport().focused.unwrap_or(true));
+        let regained_focus = focused && !self.was_focused;
+        if regained_focus {
+            let _ = logging::log(
+                "DEBUG",
+                "Window focus regained — running mod_config watch immediately",
+                "FileWatcher",
+            );
+        }
+        self.was_focused = focused;
+
+        let should_check = focused
+            && (regained_focus
+                || self
+                    .file_watcher
+                    .last_check
+                    .is_none_or(|t| now.duration_since(t) > self.file_watcher.check_interval));
         if should_check && self.active_modal.is_none() {
             self.file_watcher.last_check = Some(now);
             self.check_external_changes();

@@ -371,6 +371,9 @@ pub fn get_system_info() -> Result<SystemInfo, String> {
     let app_data_dir = get_app_settings_dir()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| "unknown".to_string());
+    let logical_cpu_cores = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(0);
     Ok(SystemInfo {
         app_version: get_version(),
         git_hash: get_git_hash(),
@@ -382,6 +385,7 @@ pub fn get_system_info() -> Result<SystemInfo, String> {
         os: std::env::consts::OS.to_string(),
         os_family: std::env::consts::FAMILY.to_string(),
         arch: std::env::consts::ARCH.to_string(),
+        logical_cpu_cores,
         local_time: Local::now().to_rfc3339(),
         utc_time: Utc::now().to_rfc3339(),
         executable_dir,
@@ -403,8 +407,8 @@ pub fn log_system_info_on_startup() {
         let _ = crate::core::logging::log(
             "INFO",
             &format!(
-                "Rust {} | Cargo {} | GUI: {}",
-                info.rust_version, info.cargo_version, info.gui_framework
+                "Rust {} | Cargo {} | GUI: {} | CPU cores: {}",
+                info.rust_version, info.cargo_version, info.gui_framework, info.logical_cpu_cores
             ),
             "SystemInfo",
         );

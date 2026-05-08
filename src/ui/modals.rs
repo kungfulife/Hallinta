@@ -366,6 +366,7 @@ fn render_system_info(app: &mut HallintaApp, ctx: &egui::Context) {
                         sysinfo_row(ui, "OS", &info.os);
                         sysinfo_row(ui, "OS Family", &info.os_family);
                         sysinfo_row(ui, "Architecture", &info.arch);
+                        sysinfo_row(ui, "Logical CPU Cores", &info.logical_cpu_cores.to_string());
                         sysinfo_row(ui, "Local Time", &info.local_time);
                         sysinfo_row(ui, "UTC Time", &info.utc_time);
                         sysinfo_row(ui, "Executable Dir", &info.executable_dir);
