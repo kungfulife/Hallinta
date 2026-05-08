@@ -105,9 +105,21 @@ fn log_panic_to_session(panic_info: &PanicHookInfo<'_>) {
     let backtrace = Backtrace::force_capture().to_string();
 
     let _ = log("ERROR", "Application panic detected", "CrashHandler");
-    let _ = log("ERROR", &format!("Panic payload: {}", payload), "CrashHandler");
-    let _ = log("ERROR", &format!("Panic location: {}", location), "CrashHandler");
-    let _ = log("ERROR", &format!("Panic thread: {}", thread_name), "CrashHandler");
+    let _ = log(
+        "ERROR",
+        &format!("Panic payload: {}", payload),
+        "CrashHandler",
+    );
+    let _ = log(
+        "ERROR",
+        &format!("Panic location: {}", location),
+        "CrashHandler",
+    );
+    let _ = log(
+        "ERROR",
+        &format!("Panic thread: {}", thread_name),
+        "CrashHandler",
+    );
     let _ = log(
         "ERROR",
         &format!("Panic backtrace:\n{}", backtrace),

@@ -58,13 +58,34 @@ Core markers:
 - `SESSION CRASH`
 
 App markers:
-- `APP_INITIALIZED`
+- `APP_INITIALIZED:v<version>`
 - `APP_SHUTDOWN`
 - `PRESET_SWITCH:<preset_name>`
 - `BACKUP_START`
-- `RESTORE_START`
-- `MONITOR_START`
-- `MONITOR_STOP`
+- `BACKUP_OK:<filename>`
+- `BACKUP_FAILED`
+- `AUTO_BACKUP_START:interval=<N>min`
+- `RESTORE_START` / `RESTORE_START:auto=<filename>`
+- `RESTORE_COMPLETE` / `RESTORE_FAILED`
+- `SNAPSHOT_RESTORE_START`
+- `MONITOR_START:preset=<preset>,session=<name>`
+- `MONITOR_STOP:snapshots=<count>`
+
+## Modules Currently Logged
+
+The `module` field categorizes events. Key modules:
+- `App` — startup, shutdown, close-prompt intent, initial state snapshot
+- `Settings` — theme/scale/window-mode/path changes, save errors
+- `ModManager` — toggle, bulk enable/disable, delete, move, drag commit, reload, import/export
+- `ModList` — drag start/cancel/commit, abort-on-disruptive-op
+- `PresetManager` — create, rename, delete, switch, import, export
+- `Backup` — create/restore/delete, auto-cleanup, auto-backup
+- `SaveMonitor` — session start/pause/end, snapshot create, snapshot cleanup
+- `FileWatcher` — external `mod_config.xml` change detection
+- `Workshop` — workshop install check results, page/URL/ID copy actions
+- `UI` — keyboard shortcut activations, filter/sort changes
+- `CrashHandler` — panic payload, location, thread, backtrace
+- `DevData` — dev sandbox seed/restore (debug builds only)
 
 ## Settings Integration (Current State)
 

@@ -3,6 +3,11 @@ use crate::models::{ConfirmAction, InputAction, Modal};
 use eframe::egui;
 
 pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: usize) {
+    // Bounds-check: list may have mutated between menu open and render
+    if mod_index >= app.current_mods.len() {
+        ui.label(egui::RichText::new("(mod no longer in list)").italics());
+        return;
+    }
     let is_locked = app.save_monitor.is_running();
     let mod_entry = &app.current_mods[mod_index];
     let is_workshop = mod_entry.workshop_id != "0" && !mod_entry.workshop_id.is_empty();
@@ -16,7 +21,17 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
         "Enable"
     };
     if ui.button(toggle_label).clicked() && !is_locked {
-        app.current_mods[mod_index].enabled = !app.current_mods[mod_index].enabled;
+        let new_state = !app.current_mods[mod_index].enabled;
+        app.current_mods[mod_index].enabled = new_state;
+        let _ = crate::core::logging::log(
+            "INFO",
+            &format!(
+                "Context menu: {} mod \"{}\"",
+                if new_state { "enabled" } else { "disabled" },
+                mod_name
+            ),
+            "ModManager",
+        );
         app.save_mod_config_and_preset();
         ui.close();
     }
@@ -37,7 +52,7 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
             message: format!("Delete mod \"{}\"?", mod_name),
             confirm_text: "Delete".to_string(),
             cancel_text: "Cancel".to_string(),
-            action: ConfirmAction::DeleteMod(mod_index),
+            action: ConfirmAction::DeleteMod(mod_index, mod_name.clone(), workshop_id.clone()),
             cancel_action: None,
         });
         ui.close();
@@ -45,11 +60,44 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
 
     ui.separator();
 
-    if is_workshop
-        && ui.button("Open Workshop Page").clicked() {
+    if is_workshop {
+        if ui.button("Open Workshop Page").clicked() {
+            let _ = crate::core::logging::log(
+                "INFO",
+                &format!("Opening workshop page for {} ({})", mod_name, workshop_id),
+                "Workshop",
+            );
             crate::core::workshop::open_workshop_page(&workshop_id);
             ui.close();
         }
+        if ui.button("Copy Workshop ID").clicked() {
+            ui.ctx().copy_text(workshop_id.clone());
+            let _ = crate::core::logging::log(
+                "INFO",
+                &format!("Copied workshop ID {} for {}", workshop_id, mod_name),
+                "Workshop",
+            );
+            ui.close();
+        }
+        if ui.button("Copy Workshop URL").clicked() {
+            let url = format!(
+                "https://steamcommunity.com/sharedfiles/filedetails/?id={}",
+                workshop_id
+            );
+            ui.ctx().copy_text(url);
+            let _ = crate::core::logging::log(
+                "INFO",
+                &format!("Copied workshop URL for {}", mod_name),
+                "Workshop",
+            );
+            ui.close();
+        }
+    }
+
+    if ui.button("Copy Mod Name").clicked() {
+        ui.ctx().copy_text(mod_name.clone());
+        ui.close();
+    }
 
     if ui.button("Open mod_config.xml").clicked() {
         app.open_mod_config_file();

@@ -9,8 +9,8 @@ pub fn validate_preset_file(content: &str) -> Result<(), String> {
         return Err("Preset file is too large (max 1 MB).".to_string());
     }
 
-    let export: crate::models::PresetExportFile = serde_json::from_str(content)
-        .map_err(|e| format!("Invalid preset file format: {}", e))?;
+    let export: crate::models::PresetExportFile =
+        serde_json::from_str(content).map_err(|e| format!("Invalid preset file format: {}", e))?;
 
     if export.hallinta_export != "presets" {
         return Err("Not a valid Hallinta preset file.".to_string());

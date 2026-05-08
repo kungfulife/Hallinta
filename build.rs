@@ -5,20 +5,60 @@ use std::process::Command;
 
 /// Libraries we want to attribute (crate name -> (purpose, homepage))
 const ATTRIBUTED_LIBS: &[(&str, &str, &str)] = &[
-    ("eframe", "GUI application framework", "https://crates.io/crates/eframe"),
-    ("egui", "Immediate-mode GUI library", "https://crates.io/crates/egui"),
-    ("egui_extras", "Additional egui widgets", "https://crates.io/crates/egui_extras"),
+    (
+        "eframe",
+        "GUI application framework",
+        "https://crates.io/crates/eframe",
+    ),
+    (
+        "egui",
+        "Immediate-mode GUI library",
+        "https://crates.io/crates/egui",
+    ),
+    (
+        "egui_extras",
+        "Additional egui widgets",
+        "https://crates.io/crates/egui_extras",
+    ),
     ("rfd", "Native file dialogs", "https://crates.io/crates/rfd"),
-    ("opener", "Open files/URLs with OS handler", "https://crates.io/crates/opener"),
+    (
+        "opener",
+        "Open files/URLs with OS handler",
+        "https://crates.io/crates/opener",
+    ),
     ("image", "Image loading", "https://crates.io/crates/image"),
-    ("serde", "Serialization framework", "https://crates.io/crates/serde"),
-    ("serde_json", "JSON serialization", "https://crates.io/crates/serde_json"),
-    ("dirs", "Platform directory lookup", "https://crates.io/crates/dirs"),
+    (
+        "serde",
+        "Serialization framework",
+        "https://crates.io/crates/serde",
+    ),
+    (
+        "serde_json",
+        "JSON serialization",
+        "https://crates.io/crates/serde_json",
+    ),
+    (
+        "dirs",
+        "Platform directory lookup",
+        "https://crates.io/crates/dirs",
+    ),
     ("tokio", "Async runtime", "https://crates.io/crates/tokio"),
-    ("chrono", "Date/time handling", "https://crates.io/crates/chrono"),
+    (
+        "chrono",
+        "Date/time handling",
+        "https://crates.io/crates/chrono",
+    ),
     ("zip", "ZIP archive support", "https://crates.io/crates/zip"),
-    ("named-lock", "Single-instance process lock", "https://crates.io/crates/named-lock"),
-    ("walkdir", "Recursive directory traversal", "https://crates.io/crates/walkdir"),
+    (
+        "named-lock",
+        "Single-instance process lock",
+        "https://crates.io/crates/named-lock",
+    ),
+    (
+        "walkdir",
+        "Recursive directory traversal",
+        "https://crates.io/crates/walkdir",
+    ),
     ("sha2", "SHA-256 checksums", "https://crates.io/crates/sha2"),
 ];
 
@@ -54,9 +94,10 @@ fn parse_cargo_lock_versions() -> HashMap<String, String> {
         } else if let Some(name) = trimmed.strip_prefix("name = \"") {
             current_name = name.strip_suffix('"').map(|s| s.to_string());
         } else if let Some(ver) = trimmed.strip_prefix("version = \"")
-            && let (Some(name), Some(ver)) = (current_name.take(), ver.strip_suffix('"')) {
-                versions.entry(name).or_insert_with(|| ver.to_string());
-            }
+            && let (Some(name), Some(ver)) = (current_name.take(), ver.strip_suffix('"'))
+        {
+            versions.entry(name).or_insert_with(|| ver.to_string());
+        }
     }
     versions
 }
@@ -78,10 +119,17 @@ fn main() {
     let dest_path = Path::new(&out_dir).join("libraries.rs");
     let mut f = std::fs::File::create(dest_path).unwrap();
 
-    writeln!(f, "pub fn generated_open_source_libraries() -> Vec<crate::models::OpenSourceLibrary> {{").unwrap();
+    writeln!(
+        f,
+        "pub fn generated_open_source_libraries() -> Vec<crate::models::OpenSourceLibrary> {{"
+    )
+    .unwrap();
     writeln!(f, "    vec![").unwrap();
     for (name, purpose, homepage) in ATTRIBUTED_LIBS {
-        let version = lock_versions.get(*name).cloned().unwrap_or_else(|| "?".to_string());
+        let version = lock_versions
+            .get(*name)
+            .cloned()
+            .unwrap_or_else(|| "?".to_string());
         writeln!(
             f,
             "        crate::models::OpenSourceLibrary {{ name: \"{name}\".into(), version: \"{version}\".into(), purpose: \"{purpose}\".into(), homepage: \"{homepage}\".into() }},",
@@ -92,7 +140,7 @@ fn main() {
 
     // Git commit hash
     let git_hash = Command::new("git")
-        .args(&["rev-parse", "--short", "HEAD"])
+        .args(["rev-parse", "--short", "HEAD"])
         .output()
         .ok()
         .and_then(|out| {

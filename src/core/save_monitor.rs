@@ -66,8 +66,7 @@ pub fn save_session(session: &SessionInfo) -> Result<(), String> {
     let meta_path = session_dir.join("session.json");
     let json = serde_json::to_string_pretty(session)
         .map_err(|e| format!("Failed to serialize session: {}", e))?;
-    fs::write(&meta_path, json)
-        .map_err(|e| format!("Failed to write session metadata: {}", e))?;
+    fs::write(&meta_path, json).map_err(|e| format!("Failed to write session metadata: {}", e))?;
     Ok(())
 }
 
@@ -77,8 +76,8 @@ pub fn load_session(preset_name: &str, session_id: &str) -> Result<SessionInfo, 
         .join(sanitize_dirname(preset_name))
         .join(session_id)
         .join("session.json");
-    let content = fs::read_to_string(&meta_path)
-        .map_err(|e| format!("Failed to read session: {}", e))?;
+    let content =
+        fs::read_to_string(&meta_path).map_err(|e| format!("Failed to read session: {}", e))?;
     serde_json::from_str(&content).map_err(|e| format!("Failed to parse session: {}", e))
 }
 
@@ -142,8 +141,8 @@ pub fn create_snapshot_in_session(
     let filename = format!("snapshot_{}.zip", timestamp);
     let zip_path = session_dir.join(&filename);
 
-    let file = fs::File::create(&zip_path)
-        .map_err(|e| format!("Failed to create snapshot zip: {}", e))?;
+    let file =
+        fs::File::create(&zip_path).map_err(|e| format!("Failed to create snapshot zip: {}", e))?;
     let mut zip = ZipWriter::new(file);
 
     let save00_path = PathBuf::from(noita_dir);
@@ -196,8 +195,7 @@ pub fn list_session_snapshots(
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
-            let metadata =
-                fs::metadata(&path).map_err(|e| format!("Metadata error: {}", e))?;
+            let metadata = fs::metadata(&path).map_err(|e| format!("Metadata error: {}", e))?;
             let modified = metadata
                 .modified()
                 .map(|t| {
@@ -264,8 +262,7 @@ pub fn delete_session_snapshots(preset_name: &str, session_id: &str) -> Result<(
         .join(sanitize_dirname(preset_name))
         .join(session_id);
     if session_dir.exists() {
-        fs::remove_dir_all(&session_dir)
-            .map_err(|e| format!("Failed to delete session: {}", e))?;
+        fs::remove_dir_all(&session_dir).map_err(|e| format!("Failed to delete session: {}", e))?;
     }
     Ok(())
 }

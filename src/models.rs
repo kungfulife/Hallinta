@@ -35,6 +35,10 @@ pub struct AppSettings {
     pub compact_mode: bool,
     #[serde(default = "default_ui_scale")]
     pub ui_scale: f32,
+    #[serde(default)]
+    pub last_filter_mode: String,
+    #[serde(default)]
+    pub last_sort_mode: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -222,6 +226,59 @@ impl FilterMode {
             Self::Disabled => "Disabled",
         }
     }
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Enabled => "enabled",
+            Self::Disabled => "disabled",
+        }
+    }
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "enabled" => Self::Enabled,
+            "disabled" => Self::Disabled,
+            _ => Self::All,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SortMode {
+    Default,
+    NameAsc,
+    NameDesc,
+    EnabledFirst,
+    DisabledFirst,
+}
+
+impl SortMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Default => "Order",
+            Self::NameAsc => "A → Z",
+            Self::NameDesc => "Z → A",
+            Self::EnabledFirst => "Enabled ↑",
+            Self::DisabledFirst => "Disabled ↑",
+        }
+    }
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Default => "default",
+            Self::NameAsc => "name_asc",
+            Self::NameDesc => "name_desc",
+            Self::EnabledFirst => "enabled_first",
+            Self::DisabledFirst => "disabled_first",
+        }
+    }
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "name_asc" => Self::NameAsc,
+            "name_desc" => Self::NameDesc,
+            "enabled_first" => Self::EnabledFirst,
+            "disabled_first" => Self::DisabledFirst,
+            _ => Self::Default,
+        }
+    }
 }
 
 // ── Modal System ───────────────────────────────────────────────────────────
@@ -265,14 +322,15 @@ pub enum Modal {
         sessions: Vec<SessionInfo>,
         snapshots: Vec<SnapshotEntry>,
         /// Which view: None = session list, Some(session_id) = snapshot list for that session
-        selected_session: Option<(String, String)>,  // (session_id, session_name)
+        selected_session: Option<(String, String)>, // (session_id, session_name)
     },
 }
 
 #[derive(Clone, Debug)]
 pub enum ConfirmAction {
     DeletePreset,
-    DeleteMod(usize),
+    /// (preferred_index, name, workshop_id) — index is a hint, name+workshop_id used to verify.
+    DeleteMod(usize, String, String),
     AcceptExternalChanges(Vec<ModEntry>),
     KeepCurrentPreset,
     OverwritePresetImport(PresetImportData),
@@ -281,8 +339,9 @@ pub enum ConfirmAction {
     ExitWithSnapshot,
     ExitWithoutSnapshot,
     DeleteBackup(String),
+    RestoreLatest(String),
     ClearMonitorData,
-    ContinueMonitorSession(String),  // session_id
+    ContinueMonitorSession(String), // session_id
     StartNewMonitorSession,
     StopAndEndSession,
 }

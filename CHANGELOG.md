@@ -6,6 +6,48 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 - Full rewrite from Tauri to native egui/eframe GUI
 - No web frontend dependencies — pure Rust application
 - Streamlined build process (standard cargo build, no Tauri CLI needed)
+- **Security**: Fixed Zip Slip vulnerability in `restore_backup` and `restore_from_path`
+  — crafted backups can no longer write outside their target directory. Added
+  `is_safe_relative()` guard with unit tests
+- **Backups**: Wired the previously dead `backup_settings.auto_delete_days` and
+  `backup_interval_minutes` settings; auto-cleanup runs every 6h, auto-backup runs
+  on the configured interval. Both log their activity
+- **Quick Restore**: Added "Restore Latest" sidebar button — one-click restore of
+  the most recent backup with default options
+- **Search/Filter/Sort**:
+  - Search now matches mod name *and* workshop_id
+  - New Sort dropdown (A→Z, Z→A, Enabled first, Disabled first) with optional
+    "Apply Sort to Order" to persist the visual sort into mod_config.xml
+  - `last_filter_mode` and `last_sort_mode` persist across sessions
+- **Header**: Added quick reload (`⟳`) and dark/light theme toggle buttons.
+  Search box has hover hints and `Ctrl+F` focuses it
+- **Keyboard shortcuts**: `Ctrl+F` (focus search), `F5` (reload mod_config),
+  `Ctrl+B` (open backup modal), `Ctrl+E` (enable all), `Ctrl+D` (disable all),
+  `Ctrl+,` (toggle Settings)
+- **Mod list footer** now shows "N enabled / M total" (and "K shown" when filtered)
+- **Sidebar**: now resizable, every button has a tooltip explaining its action
+- **Context menu**: Added "Copy Workshop ID", "Copy Workshop URL", "Copy Mod Name".
+  Workshop URL/ID actions log the operation
+- **Mod list edit bug fixes**:
+  - `DeleteMod` now re-resolves the target by name+workshop_id at confirm time —
+    the old behavior could delete the wrong mod if the list mutated between menu
+    open and confirm click
+  - Context menu bounds-checks `mod_index` and shows a graceful "(mod no longer
+    in list)" instead of panicking when the underlying list shrinks
+  - Drag is cancelled and the snapshot restored whenever a disruptive op fires
+    (filter/sort change, reload, preset switch, accept-external-changes,
+    noita_dir change). Prevents stale-index panics
+  - Drag commit now bounds-checks `current_index` defensively before reading
+- **Logging overhaul** — added structured logs for: app initial state, mod
+  enable/disable (single and bulk), preset switch with mod counts, drag move
+  with name + position delta, manual reload counts, theme/scale/window-mode
+  changes, noita_dir changes, workshop check results (installed/missing),
+  external mod_config detection, backup config (interval/auto-delete) at startup,
+  filter/sort changes, restore start/complete/fail with detail, save errors
+  (`mod_config.xml`, `presets.json`, `settings.json`)
+- **Lints**: Cleaned orphan doc comment, `build.rs` borrow, `mod_list` `map_or`
+  → `is_none_or`, sort_mods now uses `sort_by_key`, Win32 FFI structs annotated
+  with `#[allow(clippy::upper_case_acronyms)]`
 
 ## 0.7.8
 - Decoupled Compact Mode from Save Monitor into an independent UI toggle

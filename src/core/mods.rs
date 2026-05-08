@@ -109,8 +109,9 @@ pub fn get_file_modified_time(path: &Path) -> Result<u64, String> {
         return Err("File does not exist".to_string());
     }
     let metadata = fs::metadata(path).map_err(|e| format!("Failed to get file metadata: {}", e))?;
-    let modified =
-        metadata.modified().map_err(|e| format!("Failed to get modification time: {}", e))?;
+    let modified = metadata
+        .modified()
+        .map_err(|e| format!("Failed to get modification time: {}", e))?;
     let secs = modified
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_err(|e| format!("Failed to convert time: {}", e))?
@@ -136,7 +137,11 @@ mod tests {
     fn test_parse_compact_single_line_noita_format() {
         let xml = r#"<Mods><Mod enabled="1" name="quant.ew" settings_fold_open="0" workshop_item_id="0"/><Mod enabled="0" name="bruh" settings_fold_open="0" workshop_item_id="2362171854"/></Mods>"#;
         let mods = parse_mods_from_xml(xml).unwrap();
-        assert_eq!(mods.len(), 2, "compact single-line format should parse all mods");
+        assert_eq!(
+            mods.len(),
+            2,
+            "compact single-line format should parse all mods"
+        );
         assert_eq!(mods[0].name, "quant.ew");
         assert!(mods[0].enabled);
         assert_eq!(mods[1].name, "bruh");

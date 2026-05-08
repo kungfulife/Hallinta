@@ -8,8 +8,14 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Load and manage mods from Noita's mod_config.xml
 - Toggle mods on/off with visual indicators
 - Drag-and-drop reordering with live updates
+- Sort modes (A→Z, Z→A, Enabled first, Disabled first) — visual or persisted
+- Search by mod name or workshop ID
+- Bulk Enable All / Disable All
+- Footer status: "N enabled / M total" (and "K shown" when filtered)
 - Workshop and local mod support
 - Real-time file monitoring for external changes
+- Right-click menu: Enable/Disable, Move to position, Delete, Open Workshop
+  page, Copy Workshop ID, Copy Workshop URL, Copy Mod Name
 
 ### Preset System
 - Create, rename, and delete mod presets
@@ -32,10 +38,12 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Manual and automatic backups of Noita save data (save00, save01) and presets
 - Save monitoring with per-preset snapshots for crash recovery
 - Save Monitor blocks mod/preset mutations while running (independent of UI layout)
-- Configurable auto-backup interval
-- Auto-deletion of old backups (configurable retention period)
+- Configurable auto-backup interval (silent quick backups: save00 + presets)
+- Auto-deletion of old backups (configurable retention period; runs every 6h)
+- One-click "Restore Latest" from the sidebar
 - Selective restore with per-component options
 - Upgrade backups created automatically on version change (keeps last 5)
+- Zip Slip protection: malicious archives can't write outside the target directory
 
 ### Entangled Worlds
 - Optional support for [Noita Entangled Worlds](https://github.com/IntQuant/noita_entangled_worlds) multiplayer mod directories
@@ -55,11 +63,21 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ### User Interface
 - Native desktop GUI powered by egui/eframe
-- Dark and light mode
+- Dark and light mode (quick toggle in header)
 - Compact Mode: independent toggle that shrinks the window and hides the mod list for a monitoring-focused layout
-- Context menus for mod operations (toggle, delete, reorder, workshop links)
-- Search and filter functionality
+- Resizable sidebar with hover tooltips on every action
+- Quick reload button (`⟳`) and theme toggle in the header
+- Context menus for mod operations (toggle, delete, reorder, workshop links, copy ID/URL/name)
+- Search and filter functionality (filter + sort persist across sessions)
 - Responsive layout
+
+### Keyboard Shortcuts
+- `Ctrl+F` — focus the search box
+- `F5` — reload `mod_config.xml` from disk
+- `Ctrl+B` — open the backup dialog
+- `Ctrl+E` / `Ctrl+D` — enable / disable all mods
+- `Ctrl+,` — toggle Settings view
+- `Esc` — close active modal, exit Settings, or cancel an in-flight drag
 
 ### Settings & Configuration
 - Persistent settings stored in system data directories
@@ -95,7 +113,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 ## Technical Details
 
 - **Language**: Rust
-- **GUI Framework**: eframe/egui 0.30
+- **GUI Framework**: eframe/egui 0.33
 - **Data Storage**: JSON files in platform data directories
 - **File Monitoring**: Real-time mod_config.xml watching
 - **Logging**: Structured session logging with file rotation

@@ -32,7 +32,11 @@ fn main() {
     let _guard = match lock.try_lock() {
         Ok(g) => g,
         Err(_) => {
-            let _ = core::logging::log("WARN", "Another instance of Hallinta is already running.", "Main");
+            let _ = core::logging::log(
+                "WARN",
+                "Another instance of Hallinta is already running.",
+                "Main",
+            );
             process::exit(1);
         }
     };

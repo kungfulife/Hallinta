@@ -144,8 +144,8 @@ fn copy_dir_recursive(src_dir: &Path, dst_dir: &Path) -> Result<u64, String> {
     let entries = fs::read_dir(src_dir)
         .map_err(|e| format!("Failed to read dir {}: {}", src_dir.display(), e))?;
     for entry in entries {
-        let entry = entry
-            .map_err(|e| format!("Failed to read entry in {}: {}", src_dir.display(), e))?;
+        let entry =
+            entry.map_err(|e| format!("Failed to read entry in {}: {}", src_dir.display(), e))?;
         let src_path = entry.path();
         let dst_path = dst_dir.join(entry.file_name());
         if src_path.is_dir() {
@@ -163,8 +163,7 @@ fn copy_dir_recursive(src_dir: &Path, dst_dir: &Path) -> Result<u64, String> {
 /// taken at startup, used to restore on exit.
 fn get_originals_dir() -> Result<PathBuf, String> {
     let dir = get_data_dir()?.join(".originals");
-    fs::create_dir_all(&dir)
-        .map_err(|e| format!("Failed to create .originals dir: {}", e))?;
+    fs::create_dir_all(&dir).map_err(|e| format!("Failed to create .originals dir: {}", e))?;
     Ok(dir)
 }
 
@@ -238,7 +237,10 @@ pub fn seed_dev_sandbox() -> Result<String, String> {
                 ));
             }
             Ok(real_save) => {
-                messages.push(format!("Real Noita save dir does not exist: {}", real_save.display()));
+                messages.push(format!(
+                    "Real Noita save dir does not exist: {}",
+                    real_save.display()
+                ));
                 ensure_mod_config_exists(&dev_save_dir)?;
             }
             Err(e) => {
@@ -250,10 +252,7 @@ pub fn seed_dev_sandbox() -> Result<String, String> {
         match get_entangled_worlds_save_path() {
             Ok(real_ew) if real_ew.exists() => {
                 let count = copy_dir_recursive(&real_ew, &dev_ew_dir)?;
-                messages.push(format!(
-                    "Initial seed: copied {} entangled file(s)",
-                    count
-                ));
+                messages.push(format!("Initial seed: copied {} entangled file(s)", count));
             }
             _ => {}
         }
@@ -263,7 +262,9 @@ pub fn seed_dev_sandbox() -> Result<String, String> {
 
         // But re-seed entangled if its dev dir is empty (may have been deleted independently)
         let ew_empty = !dev_ew_dir.join("mod_config.xml").exists()
-            && fs::read_dir(&dev_ew_dir).map(|mut d| d.next().is_none()).unwrap_or(true);
+            && fs::read_dir(&dev_ew_dir)
+                .map(|mut d| d.next().is_none())
+                .unwrap_or(true);
         if ew_empty {
             if let Ok(real_ew) = get_entangled_worlds_save_path() {
                 if real_ew.exists() {
@@ -293,7 +294,10 @@ pub fn restore_real_dirs_from_dev() -> Result<String, String> {
             let real_config = real_save.join("mod_config.xml");
             fs::copy(&orig_config, &real_config)
                 .map_err(|e| format!("Failed to restore real mod_config.xml: {}", e))?;
-            messages.push(format!("Restored real mod_config.xml at {}", real_save.display()));
+            messages.push(format!(
+                "Restored real mod_config.xml at {}",
+                real_save.display()
+            ));
         }
     }
 
@@ -304,7 +308,10 @@ pub fn restore_real_dirs_from_dev() -> Result<String, String> {
             let real_ew_config = real_ew.join("mod_config.xml");
             fs::copy(&orig_ew_config, &real_ew_config)
                 .map_err(|e| format!("Failed to restore real entangled mod_config.xml: {}", e))?;
-            messages.push(format!("Restored real entangled mod_config.xml at {}", real_ew.display()));
+            messages.push(format!(
+                "Restored real entangled mod_config.xml at {}",
+                real_ew.display()
+            ));
         }
     }
 
@@ -415,7 +422,6 @@ pub fn log_system_info_on_startup() {
             ),
             "SystemInfo",
         );
-
     }
 }
 
@@ -439,12 +445,14 @@ pub fn get_window_title() -> String {
 pub fn get_cursor_monitor_center(window_w: f32, window_h: f32) -> Option<(f32, f32)> {
     use std::mem;
 
+    #[allow(clippy::upper_case_acronyms)]
     #[repr(C)]
     struct POINT {
         x: i32,
         y: i32,
     }
 
+    #[allow(clippy::upper_case_acronyms)]
     #[repr(C)]
     struct RECT {
         left: i32,
@@ -453,6 +461,7 @@ pub fn get_cursor_monitor_center(window_w: f32, window_h: f32) -> Option<(f32, f
         bottom: i32,
     }
 
+    #[allow(clippy::upper_case_acronyms)]
     #[repr(C)]
     struct MONITORINFO {
         cb_size: u32,
@@ -515,9 +524,15 @@ mod tests {
         let title = get_window_title();
         assert!(!title.is_empty());
         if cfg!(debug_assertions) {
-            assert!(title.contains("[DEV]"), "dev build title should contain [DEV]");
+            assert!(
+                title.contains("[DEV]"),
+                "dev build title should contain [DEV]"
+            );
         } else {
-            assert!(!title.contains("[DEV]"), "release build title must not contain [DEV]");
+            assert!(
+                !title.contains("[DEV]"),
+                "release build title must not contain [DEV]"
+            );
         }
     }
 
@@ -563,7 +578,10 @@ mod tests {
         ensure_mod_config_exists(&dir).expect("should succeed");
         let content = std::fs::read_to_string(dir.join("mod_config.xml")).unwrap();
         assert!(content.contains("<Mods>"), "must contain <Mods>");
-        assert!(!content.contains("<Mod "), "empty placeholder must have no entries");
+        assert!(
+            !content.contains("<Mod "),
+            "empty placeholder must have no entries"
+        );
 
         std::fs::remove_dir_all(&dir).ok();
     }
@@ -622,8 +640,15 @@ mod tests {
     #[cfg(debug_assertions)]
     fn test_get_dev_save_dir_returns_valid_path() {
         let result = get_dev_save_dir();
-        assert!(result.is_ok(), "get_dev_save_dir should succeed in debug: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "get_dev_save_dir should succeed in debug: {:?}",
+            result
+        );
         let path = result.unwrap();
-        assert!(path.ends_with("save00"), "dev save dir should end with save00");
+        assert!(
+            path.ends_with("save00"),
+            "dev save dir should end with save00"
+        );
     }
 }

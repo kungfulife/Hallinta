@@ -1,5 +1,5 @@
 use crate::app::HallintaApp;
-use crate::models::{DragState, FilterMode};
+use crate::models::{DragState, FilterMode, SortMode};
 use eframe::egui;
 
 pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
@@ -8,11 +8,9 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     if app.current_mods.is_empty() {
         ui.centered_and_justified(|ui| {
             ui.label(
-                egui::RichText::new(
-                    "No mods loaded. Check your Noita save directory in Settings.",
-                )
-                .size(d.font_heading)
-                .italics(),
+                egui::RichText::new("No mods loaded. Check your Noita save directory in Settings.")
+                    .size(d.font_heading)
+                    .italics(),
             );
         });
         return;
@@ -21,12 +19,16 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let is_locked = app.save_monitor.is_running();
     let search_lower = app.search_query.to_lowercase();
     let filter = app.filter_mode;
+    let sort = app.sort_mode;
 
-    // Drag-to-reorder only works on the unfiltered list to avoid index confusion.
-    let can_drag = !is_locked && search_lower.is_empty() && filter == FilterMode::All;
+    // Drag-to-reorder only works on the unfiltered, unsorted list to avoid index confusion.
+    let can_drag = !is_locked
+        && search_lower.is_empty()
+        && filter == FilterMode::All
+        && sort == SortMode::Default;
 
-    // Build the visible subset.
-    let filtered_indices: Vec<usize> = app
+    // Build the visible subset (filtered).
+    let mut filtered_indices: Vec<usize> = app
         .current_mods
         .iter()
         .enumerate()
@@ -36,10 +38,41 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
             FilterMode::Disabled => !m.enabled,
         })
         .filter(|(_, m)| {
-            search_lower.is_empty() || m.name.to_lowercase().contains(&search_lower)
+            if search_lower.is_empty() {
+                return true;
+            }
+            m.name.to_lowercase().contains(&search_lower)
+                || m.workshop_id.to_lowercase().contains(&search_lower)
         })
         .map(|(i, _)| i)
         .collect();
+
+    // Apply visual sort over the filtered subset (does not mutate underlying data).
+    match sort {
+        SortMode::Default => {}
+        SortMode::NameAsc => filtered_indices.sort_by(|&a, &b| {
+            app.current_mods[a]
+                .name
+                .to_lowercase()
+                .cmp(&app.current_mods[b].name.to_lowercase())
+        }),
+        SortMode::NameDesc => filtered_indices.sort_by(|&a, &b| {
+            app.current_mods[b]
+                .name
+                .to_lowercase()
+                .cmp(&app.current_mods[a].name.to_lowercase())
+        }),
+        SortMode::EnabledFirst => filtered_indices.sort_by(|&a, &b| {
+            app.current_mods[b]
+                .enabled
+                .cmp(&app.current_mods[a].enabled)
+        }),
+        SortMode::DisabledFirst => filtered_indices.sort_by(|&a, &b| {
+            app.current_mods[a]
+                .enabled
+                .cmp(&app.current_mods[b].enabled)
+        }),
+    }
 
     // Snapshot into plain structs to avoid borrow-checker fights inside closures.
     struct RowData {
@@ -74,6 +107,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let mut drag_move_to: Option<usize> = None;
     let mut enable_all = false;
     let mut disable_all = false;
+    let mut apply_sort = false;
 
     // Subtle tinted panel background to frame the mod list
     egui::Frame::NONE
@@ -267,11 +301,15 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
             ui.separator();
             ui.horizontal(|ui| {
                 let total = app.current_mods.len();
+                let enabled_count = app.current_mods.iter().filter(|m| m.enabled).count();
                 let shown = rows.len();
                 let count_text = if shown == total {
-                    format!("{} mod{}", total, if total == 1 { "" } else { "s" })
+                    format!("{} enabled / {} total", enabled_count, total)
                 } else {
-                    format!("{} of {} mods", shown, total)
+                    format!(
+                        "{} shown · {} enabled / {} total",
+                        shown, enabled_count, total
+                    )
                 };
                 ui.label(
                     egui::RichText::new(count_text)
@@ -281,11 +319,28 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
                 if !is_locked && total > 0 {
                     ui.separator();
-                    if ui.small_button("Enable All").clicked() {
+                    if ui.small_button("Enable All")
+                        .on_hover_text("Enable every mod (Ctrl+E)")
+                        .clicked()
+                    {
                         enable_all = true;
                     }
-                    if ui.small_button("Disable All").clicked() {
+                    if ui.small_button("Disable All")
+                        .on_hover_text("Disable every mod (Ctrl+D)")
+                        .clicked()
+                    {
                         disable_all = true;
+                    }
+                    if app.sort_mode != SortMode::Default {
+                        ui.separator();
+                        if ui.small_button("Apply Sort to Order")
+                            .on_hover_text(
+                                "Persist the current visual sort as the actual mod_config.xml order",
+                            )
+                            .clicked()
+                        {
+                            apply_sort = true;
+                        }
                     }
                 }
             });
@@ -295,22 +350,56 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     // ── Apply pending state changes ──────────────────────────────────────────
 
     if let Some(idx) = toggle_idx {
-        app.current_mods[idx].enabled = !app.current_mods[idx].enabled;
+        let new_state = !app.current_mods[idx].enabled;
+        app.current_mods[idx].enabled = new_state;
+        let _ = crate::core::logging::log(
+            "INFO",
+            &format!(
+                "{} mod: {}",
+                if new_state { "Enabled" } else { "Disabled" },
+                app.current_mods[idx].name
+            ),
+            "ModManager",
+        );
         app.save_mod_config_and_preset();
     }
 
     if enable_all {
+        let total = app.current_mods.len();
+        let was_enabled = app.current_mods.iter().filter(|m| m.enabled).count();
         for m in &mut app.current_mods {
             m.enabled = true;
         }
+        let _ = crate::core::logging::log(
+            "INFO",
+            &format!(
+                "Enabled all mods ({} were already enabled, {} total)",
+                was_enabled, total
+            ),
+            "ModManager",
+        );
         app.save_mod_config_and_preset();
     }
 
     if disable_all {
+        let total = app.current_mods.len();
+        let was_enabled = app.current_mods.iter().filter(|m| m.enabled).count();
         for m in &mut app.current_mods {
             m.enabled = false;
         }
+        let _ = crate::core::logging::log(
+            "INFO",
+            &format!(
+                "Disabled all mods ({} were enabled, {} total)",
+                was_enabled, total
+            ),
+            "ModManager",
+        );
         app.save_mod_config_and_preset();
+    }
+
+    if apply_sort {
+        app.apply_sort_to_order();
     }
 
     if let Some(idx) = drag_started {
@@ -340,17 +429,43 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     if ui.input(|i| i.pointer.any_released())
         && let Some(drag) = app.drag_state.take()
     {
-        let snapshot_idx = drag.pre_drag_snapshot
-            .iter()
-            .position(|m| m.name == app.current_mods[drag.current_index].name);
-        let changed = snapshot_idx.map_or(true, |orig| orig != drag.current_index);
-        if changed {
+        if drag.current_index >= app.current_mods.len() {
+            // List shrank during drag (shouldn't happen, but defensive). Restore snapshot.
             let _ = crate::core::logging::log(
-                "INFO",
-                &format!("Moved mod to position {}", drag.current_index + 1),
+                "WARN",
+                "Drag commit aborted: index out of range, restoring snapshot",
                 "ModList",
             );
-            app.save_mod_config_and_preset();
+            app.current_mods = drag.pre_drag_snapshot;
+        } else {
+            let moved_name = app.current_mods[drag.current_index].name.clone();
+            let snapshot_idx = drag
+                .pre_drag_snapshot
+                .iter()
+                .position(|m| m.name == moved_name);
+            let changed = snapshot_idx.is_none_or(|orig| orig != drag.current_index);
+            if changed {
+                let from = snapshot_idx
+                    .map(|i| (i + 1).to_string())
+                    .unwrap_or_else(|| "?".to_string());
+                let _ = crate::core::logging::log(
+                    "INFO",
+                    &format!(
+                        "Drag committed: \"{}\" moved {} -> {}",
+                        moved_name,
+                        from,
+                        drag.current_index + 1
+                    ),
+                    "ModList",
+                );
+                app.save_mod_config_and_preset();
+            } else {
+                let _ = crate::core::logging::log(
+                    "DEBUG",
+                    &format!("Drag released without movement: {}", moved_name),
+                    "ModList",
+                );
+            }
         }
     }
 

@@ -25,7 +25,15 @@ pub fn render_modals(app: &mut HallintaApp, ctx: &egui::Context) {
             action,
             cancel_action,
         } => {
-            render_confirm(app, ctx, &message, &confirm_text, &cancel_text, action, cancel_action);
+            render_confirm(
+                app,
+                ctx,
+                &message,
+                &confirm_text,
+                &cancel_text,
+                action,
+                cancel_action,
+            );
         }
         Modal::Input {
             title,
@@ -61,7 +69,11 @@ pub fn render_modals(app: &mut HallintaApp, ctx: &egui::Context) {
         Modal::BackupManager => {
             render_backup_manager(app, ctx);
         }
-        Modal::RestoreManager { sessions, snapshots, selected_session } => {
+        Modal::RestoreManager {
+            sessions,
+            snapshots,
+            selected_session,
+        } => {
             render_restore_manager(app, ctx, sessions, snapshots, selected_session);
         }
     }
@@ -243,7 +255,11 @@ fn render_info(app: &mut HallintaApp, ctx: &egui::Context, title: &str, message:
 
 fn render_progress(app: &mut HallintaApp, ctx: &egui::Context) {
     let d = crate::ui::design::Design::new(ctx, &app.settings);
-    if let Some(Modal::Progress { ref message, progress }) = app.active_modal {
+    if let Some(Modal::Progress {
+        ref message,
+        progress,
+    }) = app.active_modal
+    {
         egui::Window::new("Working...")
             .collapsible(false)
             .resizable(false)
@@ -274,10 +290,7 @@ fn render_missing_mods(
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
-            ui.label(
-                egui::RichText::new("The following mods are not installed:")
-                    .strong(),
-            );
+            ui.label(egui::RichText::new("The following mods are not installed:").strong());
             ui.add_space(8.0);
             egui::ScrollArea::vertical()
                 .max_height(250.0)
@@ -285,11 +298,12 @@ fn render_missing_mods(
                     for (name, workshop_id) in mods {
                         ui.horizontal(|ui| {
                             ui.label(name);
-                            if workshop_id != "0" && !workshop_id.is_empty()
-                                && ui.small_button("Subscribe").clicked() {
-                                    let _ =
-                                        crate::core::workshop::open_steam_subscribe(workshop_id);
-                                }
+                            if workshop_id != "0"
+                                && !workshop_id.is_empty()
+                                && ui.small_button("Subscribe").clicked()
+                            {
+                                let _ = crate::core::workshop::open_steam_subscribe(workshop_id);
+                            }
                         });
                     }
                 });
@@ -340,7 +354,11 @@ fn render_system_info(app: &mut HallintaApp, ctx: &egui::Context) {
                         sysinfo_row(ui, "Version", &info.app_version);
                         sysinfo_row(ui, "Git Hash", &info.git_hash);
                         sysinfo_row(ui, "Build Profile", &info.build_profile);
-                        sysinfo_row(ui, "Dev Build", &format!("{}", crate::core::platform::is_dev_build()));
+                        sysinfo_row(
+                            ui,
+                            "Dev Build",
+                            &format!("{}", crate::core::platform::is_dev_build()),
+                        );
                         sysinfo_row(ui, "Rust Version", &info.rust_version);
                         sysinfo_row(ui, "Cargo Version", &info.cargo_version);
                         sysinfo_row(ui, "Build Target", &info.build_target);
@@ -353,7 +371,6 @@ fn render_system_info(app: &mut HallintaApp, ctx: &egui::Context) {
                         sysinfo_row(ui, "Executable Dir", &info.executable_dir);
                         sysinfo_row(ui, "App Data Dir", &info.app_data_dir);
                     });
-
             }
         });
 
@@ -416,10 +433,13 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
             if app.backup_state.backup_list.is_empty() {
                 ui.label("No backups found.");
             } else {
-                ui.label(egui::RichText::new(format!(
-                    "{} backup(s)",
-                    app.backup_state.backup_list.len()
-                )).strong());
+                ui.label(
+                    egui::RichText::new(format!(
+                        "{} backup(s)",
+                        app.backup_state.backup_list.len()
+                    ))
+                    .strong(),
+                );
                 ui.add_space(d.sm);
 
                 egui::ScrollArea::vertical()
@@ -442,14 +462,23 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
                                                 &backup.timestamp[..19.min(backup.timestamp.len())]
                                             ));
                                             let mut contents = Vec::new();
-                                            if backup.contains_save00 { contents.push("save00"); }
-                                            if backup.contains_save01 { contents.push("save01"); }
-                                            if backup.contains_presets { contents.push("presets"); }
-                                            if backup.contains_entangled { contents.push("entangled"); }
+                                            if backup.contains_save00 {
+                                                contents.push("save00");
+                                            }
+                                            if backup.contains_save01 {
+                                                contents.push("save01");
+                                            }
+                                            if backup.contains_presets {
+                                                contents.push("presets");
+                                            }
+                                            if backup.contains_entangled {
+                                                contents.push("entangled");
+                                            }
                                             ui.label(
-                                                egui::RichText::new(
-                                                    format!("Contains: {}", contents.join(", "))
-                                                )
+                                                egui::RichText::new(format!(
+                                                    "Contains: {}",
+                                                    contents.join(", ")
+                                                ))
                                                 .small()
                                                 .color(ui.visuals().weak_text_color()),
                                             );
@@ -458,10 +487,9 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
                                             egui::Layout::right_to_left(egui::Align::Center),
                                             |ui| {
                                                 if ui
-                                                    .button(
-                                                        egui::RichText::new("Delete")
-                                                            .color(egui::Color32::from_rgb(220, 60, 60)),
-                                                    )
+                                                    .button(egui::RichText::new("Delete").color(
+                                                        egui::Color32::from_rgb(220, 60, 60),
+                                                    ))
                                                     .clicked()
                                                 {
                                                     delete_filename = Some(backup.filename.clone());
@@ -527,84 +555,123 @@ fn render_restore_manager(
                 if snapshots.is_empty() {
                     ui.label("No snapshots in this session.");
                 } else {
-                    ui.label(egui::RichText::new(format!("{} snapshot(s)", snapshots.len())).strong());
+                    ui.label(
+                        egui::RichText::new(format!("{} snapshot(s)", snapshots.len())).strong(),
+                    );
                     ui.add_space(d.sm);
 
-                    egui::ScrollArea::vertical().max_height(350.0).show(ui, |ui| {
-                        let snaps = snapshots.clone();
-                        for snap in &snaps {
-                            egui::Frame::group(ui.style())
-                                .inner_margin(egui::Margin::same(d.sm as i8))
-                                .show(ui, |ui| {
-                                    ui.horizontal(|ui| {
-                                        ui.vertical(|ui| {
-                                            ui.label(egui::RichText::new(&snap.filename).strong());
-                                            ui.label(format!(
-                                                "{:.1} MB | {}",
-                                                snap.size_bytes as f64 / 1_048_576.0,
-                                                &snap.timestamp[..19.min(snap.timestamp.len())]
-                                            ));
-                                        });
-                                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                            if ui.button("Restore").clicked() {
-                                                restore_snap = Some(snap.clone());
-                                            }
+                    egui::ScrollArea::vertical()
+                        .max_height(350.0)
+                        .show(ui, |ui| {
+                            let snaps = snapshots.clone();
+                            for snap in &snaps {
+                                egui::Frame::group(ui.style())
+                                    .inner_margin(egui::Margin::same(d.sm as i8))
+                                    .show(ui, |ui| {
+                                        ui.horizontal(|ui| {
+                                            ui.vertical(|ui| {
+                                                ui.label(
+                                                    egui::RichText::new(&snap.filename).strong(),
+                                                );
+                                                ui.label(format!(
+                                                    "{:.1} MB | {}",
+                                                    snap.size_bytes as f64 / 1_048_576.0,
+                                                    &snap.timestamp[..19.min(snap.timestamp.len())]
+                                                ));
+                                            });
+                                            ui.with_layout(
+                                                egui::Layout::right_to_left(egui::Align::Center),
+                                                |ui| {
+                                                    if ui.button("Restore").clicked() {
+                                                        restore_snap = Some(snap.clone());
+                                                    }
+                                                },
+                                            );
                                         });
                                     });
-                                });
-                            ui.add_space(2.0);
-                        }
-                    });
+                                ui.add_space(2.0);
+                            }
+                        });
                 }
             } else {
                 // ── Session list view ──
                 if sessions.is_empty() {
                     ui.label("No monitor sessions found for this preset.");
                 } else {
-                    ui.label(egui::RichText::new(format!("{} session(s)", sessions.len())).strong());
+                    ui.label(
+                        egui::RichText::new(format!("{} session(s)", sessions.len())).strong(),
+                    );
                     ui.add_space(d.sm);
 
-                    egui::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
-                        let sess = sessions.clone();
-                        for session in &sess {
-                            egui::Frame::group(ui.style())
-                                .inner_margin(egui::Margin::same(d.sm as i8))
-                                .show(ui, |ui| {
-                                    ui.horizontal(|ui| {
-                                        ui.vertical(|ui| {
-                                            ui.label(egui::RichText::new(&session.name).strong());
-                                            let status_text = match session.status {
-                                                SessionStatus::Active => "Active",
-                                                SessionStatus::Paused => "Paused",
-                                                SessionStatus::Ended => "Ended",
-                                            };
-                                            let status_color = match session.status {
-                                                SessionStatus::Active => d.status_ok,
-                                                SessionStatus::Paused => egui::Color32::from_rgb(230, 180, 50),
-                                                SessionStatus::Ended => ui.visuals().weak_text_color(),
-                                            };
-                                            ui.colored_label(status_color, status_text);
-                                            ui.label(format!(
-                                                "{} snapshots | Started: {}",
-                                                session.snapshot_count,
-                                                &session.started_at[..19.min(session.started_at.len())]
-                                            ));
-                                        });
-                                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                            if ui.button("View").clicked() {
-                                                view_session = Some((session.id.clone(), session.name.clone()));
-                                            }
-                                            if session.status != SessionStatus::Active {
-                                                if ui.button(egui::RichText::new("Delete").color(egui::Color32::from_rgb(220, 60, 60))).clicked() {
-                                                    delete_session_id = Some((session.id.clone(), session.preset_name.clone()));
-                                                }
-                                            }
+                    egui::ScrollArea::vertical()
+                        .max_height(400.0)
+                        .show(ui, |ui| {
+                            let sess = sessions.clone();
+                            for session in &sess {
+                                egui::Frame::group(ui.style())
+                                    .inner_margin(egui::Margin::same(d.sm as i8))
+                                    .show(ui, |ui| {
+                                        ui.horizontal(|ui| {
+                                            ui.vertical(|ui| {
+                                                ui.label(
+                                                    egui::RichText::new(&session.name).strong(),
+                                                );
+                                                let status_text = match session.status {
+                                                    SessionStatus::Active => "Active",
+                                                    SessionStatus::Paused => "Paused",
+                                                    SessionStatus::Ended => "Ended",
+                                                };
+                                                let status_color = match session.status {
+                                                    SessionStatus::Active => d.status_ok,
+                                                    SessionStatus::Paused => {
+                                                        egui::Color32::from_rgb(230, 180, 50)
+                                                    }
+                                                    SessionStatus::Ended => {
+                                                        ui.visuals().weak_text_color()
+                                                    }
+                                                };
+                                                ui.colored_label(status_color, status_text);
+                                                ui.label(format!(
+                                                    "{} snapshots | Started: {}",
+                                                    session.snapshot_count,
+                                                    &session.started_at
+                                                        [..19.min(session.started_at.len())]
+                                                ));
+                                            });
+                                            ui.with_layout(
+                                                egui::Layout::right_to_left(egui::Align::Center),
+                                                |ui| {
+                                                    if ui.button("View").clicked() {
+                                                        view_session = Some((
+                                                            session.id.clone(),
+                                                            session.name.clone(),
+                                                        ));
+                                                    }
+                                                    if session.status != SessionStatus::Active {
+                                                        if ui
+                                                            .button(
+                                                                egui::RichText::new("Delete")
+                                                                    .color(
+                                                                        egui::Color32::from_rgb(
+                                                                            220, 60, 60,
+                                                                        ),
+                                                                    ),
+                                                            )
+                                                            .clicked()
+                                                        {
+                                                            delete_session_id = Some((
+                                                                session.id.clone(),
+                                                                session.preset_name.clone(),
+                                                            ));
+                                                        }
+                                                    }
+                                                },
+                                            );
                                         });
                                     });
-                                });
-                            ui.add_space(2.0);
-                        }
-                    });
+                                ui.add_space(2.0);
+                            }
+                        });
                 }
             }
         });
@@ -635,13 +702,11 @@ fn render_restore_manager(
             &snap.session_id,
             &snap.filename,
         ) {
-            let mut restore_items = vec![
-                crate::models::ChecklistItem {
-                    id: "save00".to_string(),
-                    label: "save00".to_string(),
-                    checked: true,
-                },
-            ];
+            let mut restore_items = vec![crate::models::ChecklistItem {
+                id: "save00".to_string(),
+                label: "save00".to_string(),
+                checked: true,
+            }];
             if app.settings.save_monitor_settings.include_save01 {
                 restore_items.push(crate::models::ChecklistItem {
                     id: "save01".to_string(),

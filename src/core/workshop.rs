@@ -48,8 +48,8 @@ pub fn detect_steam_path() -> Result<PathBuf, String> {
 
 #[cfg(target_os = "windows")]
 fn detect_steam_from_registry_wow64() -> Result<String, String> {
-    use winreg::enums::HKEY_LOCAL_MACHINE;
     use winreg::RegKey;
+    use winreg::enums::HKEY_LOCAL_MACHINE;
 
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     let key = hklm
@@ -67,8 +67,8 @@ fn detect_steam_from_registry_wow64() -> Result<String, String> {
 
 #[cfg(target_os = "windows")]
 fn detect_steam_from_registry_hkcu() -> Result<String, String> {
-    use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
+    use winreg::enums::HKEY_CURRENT_USER;
 
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let key = hkcu
@@ -219,7 +219,10 @@ mod tests {
         assert!(result.is_ok());
         let statuses = result.unwrap();
         assert_eq!(statuses.len(), 1);
-        assert!(!statuses[0].1, "non-existent mod should not be reported installed");
+        assert!(
+            !statuses[0].1,
+            "non-existent mod should not be reported installed"
+        );
     }
 
     #[test]

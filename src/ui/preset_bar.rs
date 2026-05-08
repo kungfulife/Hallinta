@@ -29,12 +29,8 @@ pub fn render_preset_bar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 .width(200.0)
                 .show_ui(ui, |ui| {
                     // "Create New Preset" option
-                    if ui
-                        .selectable_label(false, "Create New Preset")
-                        .clicked()
-                    {
-                        let default_name =
-                            format!("Preset {}", app.presets.len() + 1);
+                    if ui.selectable_label(false, "Create New Preset").clicked() {
+                        let default_name = format!("Preset {}", app.presets.len() + 1);
                         app.active_modal = Some(Modal::Input {
                             title: "Enter name for new preset:".to_string(),
                             value: default_name,

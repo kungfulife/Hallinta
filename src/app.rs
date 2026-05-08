@@ -1,4 +1,7 @@
-use crate::core::{backup, file_watcher, gallery, logging, mods, platform, presets, save_monitor, settings, workshop};
+use crate::core::{
+    backup, file_watcher, gallery, logging, mods, platform, presets, save_monitor, settings,
+    workshop,
+};
 use crate::models::*;
 use crate::tasks::TaskResult;
 use eframe::egui;
@@ -18,6 +21,7 @@ pub struct HallintaApp {
     pub active_view: View,
     pub search_query: String,
     pub filter_mode: FilterMode,
+    pub sort_mode: SortMode,
     pub compact_mode: bool,
     pub dark_mode: bool,
 
@@ -39,6 +43,8 @@ pub struct HallintaApp {
 
     // Timers
     last_log_flush: Instant,
+    last_auto_backup: Option<Instant>,
+    last_backup_cleanup: Option<Instant>,
 
     // Normal mode window size (for restoring after compact)
     normal_window_size: Option<egui::Vec2>,
@@ -50,6 +56,9 @@ pub struct HallintaApp {
 
     // Track whether close was requested while monitor is running
     close_requested: bool,
+
+    // Keyboard / focus signals
+    pub focus_search_requested: bool,
 }
 
 impl HallintaApp {
@@ -71,6 +80,8 @@ impl HallintaApp {
                 steam_path: String::new(),
                 compact_mode: false,
                 ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
+                last_filter_mode: String::new(),
+                last_sort_mode: String::new(),
             }
         });
 
@@ -90,7 +101,11 @@ impl HallintaApp {
                     let _ = logging::log("INFO", &format!("[DEV] {}", msg), "DevData");
                 }
                 Err(e) => {
-                    let _ = logging::log("WARN", &format!("[DEV] Dev sandbox error: {}", e), "DevData");
+                    let _ = logging::log(
+                        "WARN",
+                        &format!("[DEV] Dev sandbox error: {}", e),
+                        "DevData",
+                    );
                 }
             }
             platform::get_dev_save_dir().ok()
@@ -193,18 +208,21 @@ impl HallintaApp {
 
         // Apply scale-aware window sizing — must happen after apply_zoom
         if compact_mode {
-            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
-                crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_COMPACT, scale),
-            ));
-            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
-                crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_COMPACT, scale),
-            ));
+            cc.egui_ctx
+                .send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
+                    crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_COMPACT, scale),
+                ));
+            cc.egui_ctx
+                .send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                    crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_COMPACT, scale),
+                ));
         } else {
             // Reinforce the scaled min size (main.rs sets it too, but this ensures
             // consistency if the viewport builder values were clamped by the OS)
-            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
-                crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_NORMAL, scale),
-            ));
+            cc.egui_ctx
+                .send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
+                    crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_NORMAL, scale),
+                ));
         }
 
         // Log system info if configured (now with full detail)
@@ -226,6 +244,8 @@ impl HallintaApp {
 
         let save_monitor_state = SaveMonitorState::new();
 
+        let initial_filter = FilterMode::from_str(&app_settings.last_filter_mode);
+        let initial_sort = SortMode::from_str(&app_settings.last_sort_mode);
         let mut app = Self {
             settings: app_settings,
             presets: app_presets,
@@ -233,7 +253,8 @@ impl HallintaApp {
             selected_preset,
             active_view: View::ModList,
             search_query: String::new(),
-            filter_mode: FilterMode::All,
+            filter_mode: initial_filter,
+            sort_mode: initial_sort,
             compact_mode,
             dark_mode,
             active_modal: None,
@@ -245,9 +266,12 @@ impl HallintaApp {
             task_rx,
             drag_state: None,
             last_log_flush: now,
+            last_auto_backup: None,
+            last_backup_cleanup: None,
             normal_window_size: None,
             deferred_min_size: None,
             close_requested: false,
+            focus_search_requested: false,
         };
 
         // Start monitor if configured
@@ -262,6 +286,50 @@ impl HallintaApp {
         app.load_backup_list_async();
 
         let _ = logging::log("INFO", "Application started", "App");
+        let _ = logging::log(
+            "INFO",
+            &format!(
+                "Initial state: preset=\"{}\" mods={} (enabled={}) compact={} dark={} scale={:.2} filter={} sort={}",
+                app.selected_preset,
+                app.current_mods.len(),
+                app.current_mods.iter().filter(|m| m.enabled).count(),
+                app.compact_mode,
+                app.dark_mode,
+                app.settings.ui_scale,
+                app.filter_mode.label(),
+                app.sort_mode.label(),
+            ),
+            "App",
+        );
+        let _ = logging::log(
+            "INFO",
+            &format!(
+                "Backup config: auto_delete_days={} auto_backup_interval_min={}",
+                app.settings.backup_settings.auto_delete_days,
+                app.settings.backup_settings.backup_interval_minutes
+            ),
+            "Backup",
+        );
+        if app.settings.backup_settings.backup_interval_minutes > 0 {
+            let _ = logging::log(
+                "INFO",
+                &format!(
+                    "Auto-backup enabled: every {} minute(s)",
+                    app.settings.backup_settings.backup_interval_minutes
+                ),
+                "Backup",
+            );
+        }
+        if app.settings.backup_settings.auto_delete_days > 0 {
+            let _ = logging::log(
+                "INFO",
+                &format!(
+                    "Auto-delete enabled: backups older than {} day(s) will be removed",
+                    app.settings.backup_settings.auto_delete_days
+                ),
+                "Backup",
+            );
+        }
         logging::write_session_marker(&format!("APP_INITIALIZED:v{}", platform::get_version()));
         app
     }
@@ -285,6 +353,35 @@ impl HallintaApp {
         if should_check && self.active_modal.is_none() {
             self.file_watcher.last_check = Some(now);
             self.check_external_changes();
+        }
+
+        // Backup cleanup (every 6 hours, plus once on first frame)
+        let cleanup_interval = Duration::from_secs(6 * 60 * 60);
+        let should_cleanup = self
+            .last_backup_cleanup
+            .is_none_or(|t| now.duration_since(t) > cleanup_interval);
+        if should_cleanup {
+            self.last_backup_cleanup = Some(now);
+            let days = self.settings.backup_settings.auto_delete_days;
+            if days > 0 {
+                self.async_runtime.spawn(async move {
+                    let _ = tokio::task::spawn_blocking(move || backup::cleanup_old_backups(days))
+                        .await;
+                });
+            }
+        }
+
+        // Auto-backup scheduler
+        let interval_min = self.settings.backup_settings.backup_interval_minutes;
+        if interval_min > 0 && !self.backup_state.in_progress && !self.backup_state.restoring {
+            let interval = Duration::from_secs(interval_min as u64 * 60);
+            let should_backup = self
+                .last_auto_backup
+                .is_none_or(|t| now.duration_since(t) > interval);
+            if should_backup {
+                self.last_auto_backup = Some(now);
+                self.start_auto_backup();
+            }
         }
 
         // Save monitor (change-detection based)
@@ -323,18 +420,28 @@ impl HallintaApp {
 
             if let Ok(xml) = mods::read_mod_config(&dir)
                 && let Ok(file_mods) = mods::parse_mods_from_xml(&xml)
-                    && !mods_equal(&self.current_mods, &file_mods) {
-                        self.active_modal = Some(Modal::Confirm {
-                            message: format!(
-                                "mod_config.xml was modified externally and no longer matches your \"{}\" preset.",
-                                self.selected_preset
-                            ),
-                            confirm_text: "Accept External Changes".to_string(),
-                            cancel_text: "Keep Current Preset".to_string(),
-                            action: ConfirmAction::AcceptExternalChanges(file_mods),
-                            cancel_action: Some(ConfirmAction::KeepCurrentPreset),
-                        });
-                    }
+                && !mods_equal(&self.current_mods, &file_mods)
+            {
+                let _ = logging::log(
+                    "INFO",
+                    &format!(
+                        "External mod_config.xml change detected ({} mods on disk vs {} in memory)",
+                        file_mods.len(),
+                        self.current_mods.len()
+                    ),
+                    "FileWatcher",
+                );
+                self.active_modal = Some(Modal::Confirm {
+                    message: format!(
+                        "mod_config.xml was modified externally and no longer matches your \"{}\" preset.",
+                        self.selected_preset
+                    ),
+                    confirm_text: "Accept External Changes".to_string(),
+                    cancel_text: "Keep Current Preset".to_string(),
+                    action: ConfirmAction::AcceptExternalChanges(file_mods),
+                    cancel_action: Some(ConfirmAction::KeepCurrentPreset),
+                });
+            }
         }
     }
 
@@ -345,29 +452,53 @@ impl HallintaApp {
             match result {
                 TaskResult::BackupComplete(res) => {
                     self.backup_state.in_progress = false;
-                    self.active_modal = None;
+                    let was_modal_progress =
+                        matches!(self.active_modal, Some(Modal::Progress { .. }));
+                    if was_modal_progress {
+                        self.active_modal = None;
+                    }
                     match res {
                         Ok(filename) => {
+                            let size = settings::get_data_dir()
+                                .ok()
+                                .and_then(|d| {
+                                    std::fs::metadata(d.join("backups").join(&filename)).ok()
+                                })
+                                .map(|m| m.len())
+                                .unwrap_or(0);
                             let _ = logging::log(
                                 "INFO",
-                                &format!("Backup created: {}", filename),
+                                &format!("Backup created: {} ({} MB)", filename, size / 1_048_576),
                                 "Backup",
                             );
+                            logging::write_session_marker(&format!("BACKUP_OK:{}", filename));
                             self.load_backup_list_async();
                             let backup_path = settings::get_data_dir()
-                                .map(|d| d.join("backups").join(&filename).to_string_lossy().to_string())
+                                .map(|d| {
+                                    d.join("backups")
+                                        .join(&filename)
+                                        .to_string_lossy()
+                                        .to_string()
+                                })
                                 .unwrap_or(filename.clone());
-                            self.active_modal = Some(Modal::Info {
-                                title: "Backup Created".to_string(),
-                                message: format!("Saved to:\n{}", backup_path),
-                            });
+                            // Don't override with success modal if a modal is already open (e.g. another action)
+                            if was_modal_progress {
+                                self.active_modal = Some(Modal::Info {
+                                    title: "Backup Created".to_string(),
+                                    message: format!("Saved to:\n{}", backup_path),
+                                });
+                            }
                         }
                         Err(e) => {
-                            let _ = logging::log("ERROR", &format!("Backup failed: {}", e), "Backup");
-                            self.active_modal = Some(Modal::Info {
-                                title: "Backup Failed".to_string(),
-                                message: e,
-                            });
+                            let _ =
+                                logging::log("ERROR", &format!("Backup failed: {}", e), "Backup");
+                            logging::write_session_marker("BACKUP_FAILED");
+                            if was_modal_progress {
+                                self.active_modal = Some(Modal::Info {
+                                    title: "Backup Failed".to_string(),
+                                    message: e,
+                                });
+                            }
                         }
                     }
                 }
@@ -376,12 +507,26 @@ impl HallintaApp {
                     self.active_modal = None;
                     match res {
                         Ok(()) => {
-                            let _ = logging::log("INFO", "Restore complete", "Backup");
+                            let _ = logging::log(
+                                "INFO",
+                                &format!(
+                                    "Restore complete — reloading mod list (preset=\"{}\")",
+                                    self.selected_preset
+                                ),
+                                "Backup",
+                            );
+                            logging::write_session_marker("RESTORE_COMPLETE");
                             self.reload_mods();
+                            self.check_workshop_mods_async();
+                            self.active_modal = Some(Modal::Info {
+                                title: "Restore Complete".to_string(),
+                                message: "Save data was restored from backup.".to_string(),
+                            });
                         }
                         Err(e) => {
                             let _ =
                                 logging::log("ERROR", &format!("Restore failed: {}", e), "Backup");
+                            logging::write_session_marker("RESTORE_FAILED");
                             self.active_modal = Some(Modal::Info {
                                 title: "Restore Failed".to_string(),
                                 message: e,
@@ -407,7 +552,10 @@ impl HallintaApp {
                             if let Some(ref session) = self.save_monitor.current_session {
                                 let preset = session.preset_name.clone();
                                 let sid = session.id.clone();
-                                let keep = self.settings.save_monitor_settings.max_snapshots_per_session;
+                                let keep = self
+                                    .settings
+                                    .save_monitor_settings
+                                    .max_snapshots_per_session;
                                 let cleanup_tx = self.task_tx.clone();
                                 self.async_runtime.spawn(async move {
                                     let result = tokio::task::spawn_blocking(move || {
@@ -415,7 +563,8 @@ impl HallintaApp {
                                     })
                                     .await
                                     .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
-                                    let _ = cleanup_tx.send(TaskResult::SnapshotCleanupComplete(result));
+                                    let _ = cleanup_tx
+                                        .send(TaskResult::SnapshotCleanupComplete(result));
                                 });
                             }
                         }
@@ -442,25 +591,23 @@ impl HallintaApp {
                         self.backup_state.backup_list = list;
                     }
                 }
-                TaskResult::SessionCheckComplete(res) => {
-                    match res {
-                        Ok(paused) if !paused.is_empty() => {
-                            self.active_modal = Some(Modal::Confirm {
-                                message: format!(
-                                    "Found {} paused session(s). Resume the most recent one?",
-                                    paused.len()
-                                ),
-                                confirm_text: "Resume".to_string(),
-                                cancel_text: "New Session".to_string(),
-                                action: ConfirmAction::ContinueMonitorSession(paused[0].id.clone()),
-                                cancel_action: Some(ConfirmAction::StartNewMonitorSession),
-                            });
-                        }
-                        _ => {
-                            self.start_new_monitor_session();
-                        }
+                TaskResult::SessionCheckComplete(res) => match res {
+                    Ok(paused) if !paused.is_empty() => {
+                        self.active_modal = Some(Modal::Confirm {
+                            message: format!(
+                                "Found {} paused session(s). Resume the most recent one?",
+                                paused.len()
+                            ),
+                            confirm_text: "Resume".to_string(),
+                            cancel_text: "New Session".to_string(),
+                            action: ConfirmAction::ContinueMonitorSession(paused[0].id.clone()),
+                            cancel_action: Some(ConfirmAction::StartNewMonitorSession),
+                        });
                     }
-                }
+                    _ => {
+                        self.start_new_monitor_session();
+                    }
+                },
                 TaskResult::SessionListLoaded(res) => {
                     if let Ok(sessions) = res {
                         self.active_modal = Some(Modal::RestoreManager {
@@ -473,7 +620,12 @@ impl HallintaApp {
                 TaskResult::SessionSnapshotsLoaded(res) => {
                     if let Ok(list) = res {
                         // Update the RestoreManager modal if it's open
-                        if let Some(Modal::RestoreManager { sessions, selected_session, .. }) = self.active_modal.take() {
+                        if let Some(Modal::RestoreManager {
+                            sessions,
+                            selected_session,
+                            ..
+                        }) = self.active_modal.take()
+                        {
                             self.active_modal = Some(Modal::RestoreManager {
                                 sessions,
                                 snapshots: list,
@@ -484,53 +636,74 @@ impl HallintaApp {
                         }
                     }
                 }
-                TaskResult::WorkshopModsChecked(res) => {
-                    if let Ok(status) = res {
+                TaskResult::WorkshopModsChecked(res) => match res {
+                    Ok(status) => {
+                        let total = status.len();
+                        let installed = status.iter().filter(|(_, ok)| *ok).count();
+                        let missing = total - installed;
                         self.backup_state.workshop_status = status;
+                        let _ = logging::log(
+                            "INFO",
+                            &format!(
+                                "Workshop check: {}/{} installed{}",
+                                installed,
+                                total,
+                                if missing > 0 {
+                                    format!(", {} missing", missing)
+                                } else {
+                                    String::new()
+                                }
+                            ),
+                            "Workshop",
+                        );
                     }
-                }
+                    Err(e) => {
+                        let _ = logging::log(
+                            "WARN",
+                            &format!("Workshop check failed: {}", e),
+                            "Workshop",
+                        );
+                    }
+                },
                 TaskResult::SnapshotCleanupComplete(res) => {
                     if let Ok(count) = res
-                        && count > 0 {
-                            let _ = logging::log(
-                                "INFO",
-                                &format!("Cleaned up {} old snapshot(s)", count),
-                                "SaveMonitor",
-                            );
-                        }
-                }
-                TaskResult::BackupDeleted(res) => {
-                    match res {
-                        Ok(filename) => {
-                            let _ = logging::log(
-                                "INFO",
-                                &format!("Deleted backup: {}", filename),
-                                "Backup",
-                            );
-                            self.load_backup_list_async();
-                        }
-                        Err(e) => {
-                            self.active_modal = Some(Modal::Info {
-                                title: "Delete Failed".to_string(),
-                                message: e,
-                            });
-                        }
+                        && count > 0
+                    {
+                        let _ = logging::log(
+                            "INFO",
+                            &format!("Cleaned up {} old snapshot(s)", count),
+                            "SaveMonitor",
+                        );
                     }
                 }
-                TaskResult::MonitorDataCleared(res) => {
-                    match res {
-                        Ok(()) => {
-                            let _ = logging::log("INFO", "Monitor data cleared", "SaveMonitor");
-                        }
-                        Err(e) => {
-                            let _ = logging::log(
-                                "ERROR",
-                                &format!("Failed to clear monitor data: {}", e),
-                                "SaveMonitor",
-                            );
-                        }
+                TaskResult::BackupDeleted(res) => match res {
+                    Ok(filename) => {
+                        let _ = logging::log(
+                            "INFO",
+                            &format!("Deleted backup: {}", filename),
+                            "Backup",
+                        );
+                        self.load_backup_list_async();
                     }
-                }
+                    Err(e) => {
+                        self.active_modal = Some(Modal::Info {
+                            title: "Delete Failed".to_string(),
+                            message: e,
+                        });
+                    }
+                },
+                TaskResult::MonitorDataCleared(res) => match res {
+                    Ok(()) => {
+                        let _ = logging::log("INFO", "Monitor data cleared", "SaveMonitor");
+                    }
+                    Err(e) => {
+                        let _ = logging::log(
+                            "ERROR",
+                            &format!("Failed to clear monitor data: {}", e),
+                            "SaveMonitor",
+                        );
+                    }
+                },
             }
         }
     }
@@ -551,11 +724,9 @@ impl HallintaApp {
         let preset = self.selected_preset.clone();
         let tx = self.task_tx.clone();
         self.async_runtime.spawn(async move {
-            let result = tokio::task::spawn_blocking(move || {
-                save_monitor::list_sessions(&preset)
-            })
-            .await
-            .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
+            let result = tokio::task::spawn_blocking(move || save_monitor::list_sessions(&preset))
+                .await
+                .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
             let _ = tx.send(TaskResult::SessionListLoaded(result));
         });
     }
@@ -601,11 +772,10 @@ impl HallintaApp {
         let tx = self.task_tx.clone();
         let fname = filename.clone();
         self.async_runtime.spawn(async move {
-            let result = tokio::task::spawn_blocking(move || {
-                backup::delete_backup(&fname).map(|()| fname)
-            })
-            .await
-            .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
+            let result =
+                tokio::task::spawn_blocking(move || backup::delete_backup(&fname).map(|()| fname))
+                    .await
+                    .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
             let _ = tx.send(TaskResult::BackupDeleted(result));
         });
     }
@@ -620,18 +790,88 @@ impl HallintaApp {
         });
     }
 
-
     // ── Keyboard Handling ──────────────────────────────────────────────
 
     fn handle_keyboard(&mut self, ctx: &egui::Context) {
+        let modal_open = self.active_modal.is_some();
+        let monitor_running = self.save_monitor.is_running();
+        let backup_busy = self.backup_state.in_progress || self.backup_state.restoring;
+
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            if self.active_modal.is_some() {
+            if modal_open {
                 if !matches!(self.active_modal, Some(Modal::Progress { .. })) {
                     self.active_modal = None;
                 }
             } else if self.active_view == View::Settings {
                 self.active_view = View::ModList;
             }
+        }
+
+        // Skip remaining shortcuts if a modal/text input is consuming keys
+        if modal_open {
+            return;
+        }
+        let typing = ctx.memory(|m| m.focused().is_some());
+        let ctrl = ctx.input(|i| i.modifiers.command_only());
+
+        if ctrl && ctx.input(|i| i.key_pressed(egui::Key::F)) {
+            self.focus_search_requested = true;
+            self.active_view = View::ModList;
+            let _ = logging::log("DEBUG", "Shortcut: focus search (Ctrl+F)", "UI");
+        }
+        if ctx.input(|i| i.key_pressed(egui::Key::F5)) && !typing {
+            self.reload_mods_explicit();
+        }
+        if ctrl
+            && ctx.input(|i| i.key_pressed(egui::Key::B))
+            && !backup_busy
+            && !monitor_running
+            && self.active_view == View::ModList
+        {
+            let _ = logging::log("INFO", "Shortcut: open backup (Ctrl+B)", "UI");
+            self.start_backup_modal();
+        }
+        if ctrl
+            && ctx.input(|i| i.key_pressed(egui::Key::E))
+            && !monitor_running
+            && !typing
+            && self.active_view == View::ModList
+        {
+            let total = self.current_mods.len();
+            for m in &mut self.current_mods {
+                m.enabled = true;
+            }
+            let _ = logging::log(
+                "INFO",
+                &format!("Shortcut: Enable All (Ctrl+E, {} mods)", total),
+                "ModManager",
+            );
+            self.save_mod_config_and_preset();
+        }
+        if ctrl
+            && ctx.input(|i| i.key_pressed(egui::Key::D))
+            && !monitor_running
+            && !typing
+            && self.active_view == View::ModList
+        {
+            let total = self.current_mods.len();
+            for m in &mut self.current_mods {
+                m.enabled = false;
+            }
+            let _ = logging::log(
+                "INFO",
+                &format!("Shortcut: Disable All (Ctrl+D, {} mods)", total),
+                "ModManager",
+            );
+            self.save_mod_config_and_preset();
+        }
+        if ctrl && ctx.input(|i| i.key_pressed(egui::Key::Comma)) {
+            self.active_view = if self.active_view == View::Settings {
+                View::ModList
+            } else {
+                View::Settings
+            };
+            let _ = logging::log("DEBUG", "Shortcut: toggle Settings (Ctrl+,)", "UI");
         }
     }
 
@@ -645,6 +885,11 @@ impl HallintaApp {
         if self.save_monitor.is_running() && !self.close_requested {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.close_requested = true;
+            let _ = logging::log(
+                "INFO",
+                "Close requested while monitor running — prompting for final snapshot",
+                "App",
+            );
             self.active_modal = Some(Modal::Confirm {
                 message: "Save Monitor is running. Take a final snapshot before closing?"
                     .to_string(),
@@ -659,17 +904,32 @@ impl HallintaApp {
     // ── Public Actions ─────────────────────────────────────────────────
 
     pub fn switch_preset(&mut self) {
+        self.cancel_drag_if_active();
         if let Some(preset_mods) = self.presets.get(&self.selected_preset) {
+            let prev_count = self.current_mods.len();
+            let new_count = preset_mods.len();
+            let new_enabled = preset_mods.iter().filter(|m| m.enabled).count();
             self.current_mods = preset_mods.clone();
             self.save_mod_config_and_preset();
             let _ = logging::log(
                 "INFO",
-                &format!("Switched to preset: {}", self.selected_preset),
+                &format!(
+                    "Switched to preset: {} ({} -> {} mods, {} enabled)",
+                    self.selected_preset, prev_count, new_count, new_enabled
+                ),
                 "PresetManager",
             );
             logging::write_session_marker(&format!("PRESET_SWITCH:{}", self.selected_preset));
-            // Re-check workshop mods for new preset
             self.check_workshop_mods_async();
+        } else {
+            let _ = logging::log(
+                "WARN",
+                &format!(
+                    "Preset switch requested but \"{}\" not found",
+                    self.selected_preset
+                ),
+                "PresetManager",
+            );
         }
     }
 
@@ -680,28 +940,66 @@ impl HallintaApp {
         let noita_dir = self.get_active_noita_dir();
         if !noita_dir.is_empty() {
             let xml = mods::mods_to_xml(&self.current_mods);
-            let _ = mods::write_mod_config(&PathBuf::from(&noita_dir), &xml);
+            if let Err(e) = mods::write_mod_config(&PathBuf::from(&noita_dir), &xml) {
+                let _ = logging::log(
+                    "ERROR",
+                    &format!("Failed to write mod_config.xml at {}: {}", noita_dir, e),
+                    "ModManager",
+                );
+            }
 
             let config_path = PathBuf::from(&noita_dir).join("mod_config.xml");
             if let Ok(mtime) = mods::get_file_modified_time(&config_path) {
                 self.file_watcher.last_modified_time = mtime;
             }
+        } else {
+            let _ = logging::log(
+                "WARN",
+                "save_mod_config_and_preset called with empty noita_dir — preset still saved",
+                "ModManager",
+            );
         }
 
-        let _ = presets::save_presets(&self.presets);
+        if let Err(e) = presets::save_presets(&self.presets) {
+            let _ = logging::log(
+                "ERROR",
+                &format!("Failed to save presets.json: {}", e),
+                "PresetManager",
+            );
+        }
         self.settings.selected_preset = self.selected_preset.clone();
-        let _ = settings::save_settings(&self.settings);
+        if let Err(e) = settings::save_settings(&self.settings) {
+            let _ = logging::log(
+                "ERROR",
+                &format!("Failed to save settings.json: {}", e),
+                "Settings",
+            );
+        }
     }
 
     /// Persist current settings to disk.
     pub fn save_current_settings(&mut self) {
-        let _ = settings::save_settings(&self.settings);
+        if let Err(e) = settings::save_settings(&self.settings) {
+            let _ = logging::log(
+                "ERROR",
+                &format!("Failed to save settings.json: {}", e),
+                "Settings",
+            );
+        }
     }
 
     /// Called when dark_mode checkbox toggles reactively.
     pub fn on_dark_mode_changed(&mut self, ctx: &egui::Context) {
         self.dark_mode = self.settings.dark_mode;
         crate::ui::theme::apply_theme(ctx, self.settings.dark_mode);
+        let _ = logging::log(
+            "INFO",
+            &format!(
+                "Theme changed: {}",
+                if self.dark_mode { "dark" } else { "light" }
+            ),
+            "Settings",
+        );
         self.save_current_settings();
     }
 
@@ -710,6 +1008,19 @@ impl HallintaApp {
         let was_compact = self.compact_mode;
         self.compact_mode = self.settings.compact_mode;
         if was_compact != self.compact_mode {
+            let _ = logging::log(
+                "INFO",
+                &format!(
+                    "Window mode: {} -> {}",
+                    if was_compact { "compact" } else { "normal" },
+                    if self.compact_mode {
+                        "compact"
+                    } else {
+                        "normal"
+                    }
+                ),
+                "Settings",
+            );
             let scale = self.settings.ui_scale;
             if self.compact_mode {
                 let current_size = ctx.input(|i| i.content_rect().size());
@@ -744,6 +1055,11 @@ impl HallintaApp {
     /// via `deferred_min_size`.
     pub fn on_ui_scale_changed(&mut self, ctx: &egui::Context, prev_scale: f32) {
         let scale = self.settings.ui_scale;
+        let _ = logging::log(
+            "INFO",
+            &format!("UI scale changed: {:.2} -> {:.2}", prev_scale, scale),
+            "Settings",
+        );
         let base_min = if self.compact_mode {
             crate::ui::design::BASE_MIN_COMPACT
         } else {
@@ -777,12 +1093,16 @@ impl HallintaApp {
 
     /// Called when noita_dir text field loses focus with a new value.
     pub fn on_noita_dir_changed(&mut self) {
+        let _ = logging::log(
+            "INFO",
+            &format!("Noita save dir changed: {}", self.settings.noita_dir),
+            "Settings",
+        );
+        self.cancel_drag_if_active();
         self.reload_mods();
         self.check_workshop_mods_async();
         self.save_current_settings();
     }
-
-    /// Called when backup settings change.
 
     pub fn toggle_compact_mode(&mut self, ctx: &egui::Context) {
         self.compact_mode = !self.compact_mode;
@@ -821,23 +1141,94 @@ impl HallintaApp {
         }
         let dir = PathBuf::from(&noita_dir);
         if let Ok(xml) = mods::read_mod_config(&dir)
-            && let Ok(file_mods) = mods::parse_mods_from_xml(&xml) {
-                self.current_mods = file_mods;
-                self.presets
-                    .insert(self.selected_preset.clone(), self.current_mods.clone());
-                let _ = presets::save_presets(&self.presets);
-            }
+            && let Ok(file_mods) = mods::parse_mods_from_xml(&xml)
+        {
+            self.current_mods = file_mods;
+            self.presets
+                .insert(self.selected_preset.clone(), self.current_mods.clone());
+            let _ = presets::save_presets(&self.presets);
+        }
         let config_path = dir.join("mod_config.xml");
         if let Ok(mtime) = mods::get_file_modified_time(&config_path) {
             self.file_watcher.last_modified_time = mtime;
         }
     }
 
+    /// User-initiated reload (logged + workshop check).
+    pub fn reload_mods_explicit(&mut self) {
+        self.cancel_drag_if_active();
+        let before = self.current_mods.len();
+        self.reload_mods();
+        let after = self.current_mods.len();
+        let _ = logging::log(
+            "INFO",
+            &format!("Manual reload: {} -> {} mod(s)", before, after),
+            "ModManager",
+        );
+        self.check_workshop_mods_async();
+    }
+
+    /// Abort an in-flight drag and restore the pre-drag mod order.
+    /// Used whenever a disruptive op (filter/sort/reload/external accept) would otherwise
+    /// leave drag indices stale and cause panics or silent data corruption.
+    pub fn cancel_drag_if_active(&mut self) {
+        if let Some(drag) = self.drag_state.take() {
+            self.current_mods = drag.pre_drag_snapshot;
+            let _ = logging::log("INFO", "Drag cancelled (disruptive op)", "ModList");
+        }
+    }
+
+    pub fn set_filter_mode(&mut self, mode: FilterMode) {
+        if self.filter_mode == mode {
+            return;
+        }
+        self.cancel_drag_if_active();
+        self.filter_mode = mode;
+        self.settings.last_filter_mode = mode.as_str().to_string();
+        let _ = logging::log("DEBUG", &format!("Filter changed: {}", mode.label()), "UI");
+        self.save_current_settings();
+    }
+
+    pub fn set_sort_mode(&mut self, mode: SortMode) {
+        if self.sort_mode == mode {
+            return;
+        }
+        self.cancel_drag_if_active();
+        self.sort_mode = mode;
+        self.settings.last_sort_mode = mode.as_str().to_string();
+        let _ = logging::log("DEBUG", &format!("Sort changed: {}", mode.label()), "UI");
+        self.save_current_settings();
+    }
+
+    /// Persist the current visual sort order back into the actual mod list / preset.
+    /// Used when user explicitly clicks "Apply Sort to Order" — destructive op.
+    pub fn apply_sort_to_order(&mut self) {
+        if self.sort_mode == SortMode::Default {
+            return;
+        }
+        if self.save_monitor.is_running() {
+            return;
+        }
+        let mut sorted = self.current_mods.clone();
+        sort_mods(&mut sorted, self.sort_mode);
+        let mode = self.sort_mode;
+        self.current_mods = sorted;
+        self.sort_mode = SortMode::Default;
+        self.settings.last_sort_mode = SortMode::Default.as_str().to_string();
+        self.save_mod_config_and_preset();
+        let _ = logging::log(
+            "INFO",
+            &format!("Applied sort to file order: {}", mode.label()),
+            "ModManager",
+        );
+    }
+
     pub fn get_active_noita_dir(&self) -> String {
         if cfg!(debug_assertions)
-            && let Ok(dev_dir) = platform::get_dev_save_dir() {
-                return dev_dir.to_string_lossy().to_string();
-            }
+            && let Ok(dev_dir) = platform::get_dev_save_dir()
+        {
+            return dev_dir.to_string_lossy().to_string();
+        }
         self.settings.noita_dir.clone()
     }
 
@@ -933,7 +1324,8 @@ impl HallintaApp {
                 m.enabled = true;
                 new_mods.push(m);
             }
-            let found_set: std::collections::HashSet<usize> = found_in_order.iter().copied().collect();
+            let found_set: std::collections::HashSet<usize> =
+                found_in_order.iter().copied().collect();
             for (i, m) in self.current_mods.iter().enumerate() {
                 if !found_set.contains(&i) {
                     let mut m = m.clone();
@@ -1004,7 +1396,8 @@ impl HallintaApp {
             match serde_json::to_string_pretty(&enabled) {
                 Ok(content) => {
                     if let Err(e) = mods::write_file(&path, &content) {
-                        let _ = logging::log("ERROR", &format!("Export failed: {}", e), "ModManager");
+                        let _ =
+                            logging::log("ERROR", &format!("Export failed: {}", e), "ModManager");
                     } else {
                         let _ = logging::log(
                             "INFO",
@@ -1014,7 +1407,11 @@ impl HallintaApp {
                     }
                 }
                 Err(e) => {
-                    let _ = logging::log("ERROR", &format!("Serialization failed: {}", e), "ModManager");
+                    let _ = logging::log(
+                        "ERROR",
+                        &format!("Serialization failed: {}", e),
+                        "ModManager",
+                    );
                 }
             }
         }
@@ -1098,24 +1495,25 @@ impl HallintaApp {
         // Checksum verification
         if let Some(ref checksum) = import_data.checksum
             && let Ok(canonical) = serde_json::to_string(&import_data.presets)
-                && !gallery::verify_checksum(&canonical, checksum) {
-                    let raw_presets_str =
-                        serde_json::to_string(&import_data.presets).unwrap_or_default();
-                    if !gallery::verify_checksum(&raw_presets_str, checksum) {
-                        let import = PresetImportData {
-                            presets: import_data.presets.clone(),
-                            selected_names: import_data.presets.keys().cloned().collect(),
-                        };
-                        self.active_modal = Some(Modal::Confirm {
-                            message: "Checksum mismatch: the preset file may have been modified. Continue?".to_string(),
-                            confirm_text: "Continue".to_string(),
-                            cancel_text: "Cancel".to_string(),
-                            action: ConfirmAction::ChecksumMismatchContinue(import),
-                            cancel_action: None,
-                        });
-                        return;
-                    }
-                }
+            && !gallery::verify_checksum(&canonical, checksum)
+        {
+            let raw_presets_str = serde_json::to_string(&import_data.presets).unwrap_or_default();
+            if !gallery::verify_checksum(&raw_presets_str, checksum) {
+                let import = PresetImportData {
+                    presets: import_data.presets.clone(),
+                    selected_names: import_data.presets.keys().cloned().collect(),
+                };
+                self.active_modal = Some(Modal::Confirm {
+                    message: "Checksum mismatch: the preset file may have been modified. Continue?"
+                        .to_string(),
+                    confirm_text: "Continue".to_string(),
+                    cancel_text: "Cancel".to_string(),
+                    action: ConfirmAction::ChecksumMismatchContinue(import),
+                    cancel_action: None,
+                });
+                return;
+            }
+        }
 
         // Check for missing workshop mods across all presets
         let steam_path = &self.settings.steam_path;
@@ -1129,31 +1527,33 @@ impl HallintaApp {
                 .collect();
 
             if !all_workshop_ids.is_empty()
-                && let Ok(statuses) = workshop::check_workshop_mods_installed(&all_workshop_ids, steam_path) {
-                    let missing: Vec<(String, String)> = import_data
-                        .presets
-                        .values()
-                        .flatten()
-                        .filter(|m| {
-                            statuses
-                                .iter()
-                                .any(|(id, installed)| id == &m.workshop_id && !installed)
-                        })
-                        .map(|m| (m.name.clone(), m.workshop_id.clone()))
-                        .collect();
+                && let Ok(statuses) =
+                    workshop::check_workshop_mods_installed(&all_workshop_ids, steam_path)
+            {
+                let missing: Vec<(String, String)> = import_data
+                    .presets
+                    .values()
+                    .flatten()
+                    .filter(|m| {
+                        statuses
+                            .iter()
+                            .any(|(id, installed)| id == &m.workshop_id && !installed)
+                    })
+                    .map(|m| (m.name.clone(), m.workshop_id.clone()))
+                    .collect();
 
-                    if !missing.is_empty() {
-                        let import = PresetImportData {
-                            presets: import_data.presets,
-                            selected_names: Vec::new(),
-                        };
-                        self.active_modal = Some(Modal::MissingMods {
-                            mods: missing,
-                            action: MissingModsAction::PresetImport(import),
-                        });
-                        return;
-                    }
+                if !missing.is_empty() {
+                    let import = PresetImportData {
+                        presets: import_data.presets,
+                        selected_names: Vec::new(),
+                    };
+                    self.active_modal = Some(Modal::MissingMods {
+                        mods: missing,
+                        action: MissingModsAction::PresetImport(import),
+                    });
+                    return;
                 }
+            }
         }
 
         // Show checklist for which presets to import
@@ -1207,6 +1607,105 @@ impl HallintaApp {
         });
     }
 
+    /// Auto-backup: silent quick backup (save00 + presets, no entangled, no save01).
+    pub fn start_auto_backup(&mut self) {
+        let noita_dir = PathBuf::from(self.get_active_noita_dir());
+        if noita_dir.as_os_str().is_empty() {
+            return;
+        }
+        let tx = self.task_tx.clone();
+        self.backup_state.in_progress = true;
+        let _ = logging::log("INFO", "Auto-backup triggered", "Backup");
+        logging::write_session_marker(&format!(
+            "AUTO_BACKUP_START:interval={}min",
+            self.settings.backup_settings.backup_interval_minutes
+        ));
+        self.async_runtime.spawn(async move {
+            let result = tokio::task::spawn_blocking(move || {
+                backup::create_backup(&noita_dir, false, true, false, None)
+            })
+            .await
+            .unwrap_or_else(|e| Err(format!("Auto-backup task failed: {}", e)));
+            let _ = tx.send(TaskResult::BackupComplete(result));
+        });
+    }
+
+    /// Restore the most recent backup with default options (one-click).
+    pub fn restore_last_backup(&mut self) {
+        match backup::list_backups() {
+            Ok(list) if !list.is_empty() => {
+                let latest = &list[0];
+                let _ = logging::log(
+                    "INFO",
+                    &format!("Restore-last triggered: {}", latest.filename),
+                    "Backup",
+                );
+                self.active_modal = Some(Modal::Confirm {
+                    message: format!(
+                        "Restore latest backup:\n{}\n({} MB)",
+                        latest.filename,
+                        latest.size_bytes / 1_048_576,
+                    ),
+                    confirm_text: "Restore".to_string(),
+                    cancel_text: "Cancel".to_string(),
+                    action: ConfirmAction::RestoreLatest(latest.filename.clone()),
+                    cancel_action: None,
+                });
+            }
+            Ok(_) => {
+                self.active_modal = Some(Modal::Info {
+                    title: "Restore".to_string(),
+                    message: "No backups found.".to_string(),
+                });
+            }
+            Err(e) => {
+                let _ = logging::log(
+                    "ERROR",
+                    &format!("Restore-last list failed: {}", e),
+                    "Backup",
+                );
+            }
+        }
+    }
+
+    /// Apply a restore using default options (used by restore-last).
+    pub fn apply_default_restore(&mut self, filename: String) {
+        let info = match backup::get_backup_contents(&filename) {
+            Ok(i) => i,
+            Err(e) => {
+                let _ = logging::log("ERROR", &format!("Restore peek failed: {}", e), "Backup");
+                return;
+            }
+        };
+        let options = RestoreOptions {
+            restore_save00: info.contains_save00,
+            restore_save01: info.contains_save01,
+            restore_presets: info.contains_presets,
+            restore_entangled: info.contains_entangled,
+        };
+        let noita_dir = PathBuf::from(self.get_active_noita_dir());
+        let entangled_dir = if options.restore_entangled {
+            self.get_active_entangled_dir().map(PathBuf::from)
+        } else {
+            None
+        };
+        let tx = self.task_tx.clone();
+        self.backup_state.restoring = true;
+        self.active_modal = Some(Modal::Progress {
+            message: "Restoring backup...".to_string(),
+            progress: 0.5,
+        });
+        logging::write_session_marker(&format!("RESTORE_START:auto={}", filename));
+        self.async_runtime.spawn(async move {
+            let result = tokio::task::spawn_blocking(move || {
+                backup::restore_backup(&filename, &noita_dir, &options, entangled_dir.as_deref())
+            })
+            .await
+            .unwrap_or_else(|e| Err(format!("Restore task failed: {}", e)));
+            let _ = tx.send(TaskResult::RestoreComplete(result));
+        });
+    }
+
     pub fn start_restore_modal(&mut self) {
         let backups = match backup::list_backups() {
             Ok(b) => b,
@@ -1231,7 +1730,11 @@ impl HallintaApp {
             .iter()
             .map(|b| ChecklistItem {
                 id: b.filename.clone(),
-                label: format!("{} ({:.1} MB)", b.filename, b.size_bytes as f64 / 1_048_576.0),
+                label: format!(
+                    "{} ({:.1} MB)",
+                    b.filename,
+                    b.size_bytes as f64 / 1_048_576.0
+                ),
                 checked: false,
             })
             .collect();
@@ -1244,18 +1747,16 @@ impl HallintaApp {
         });
     }
 
-
     // ── Save Monitor ───────────────────────────────────────────────────
 
     pub fn start_save_monitor(&mut self) {
         let preset = self.selected_preset.clone();
         let tx = self.task_tx.clone();
         self.async_runtime.spawn(async move {
-            let result = tokio::task::spawn_blocking(move || {
-                save_monitor::list_paused_sessions(&preset)
-            })
-            .await
-            .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
+            let result =
+                tokio::task::spawn_blocking(move || save_monitor::list_paused_sessions(&preset))
+                    .await
+                    .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
             let _ = tx.send(TaskResult::SessionCheckComplete(result));
         });
     }
@@ -1448,34 +1949,99 @@ impl HallintaApp {
         match action {
             ConfirmAction::DeletePreset => {
                 if self.selected_preset != "Default" {
+                    self.cancel_drag_if_active();
                     let deleted = self.selected_preset.clone();
+                    let mod_count = self.presets.get(&deleted).map(|m| m.len()).unwrap_or(0);
                     self.presets.remove(&deleted);
                     self.selected_preset = "Default".to_string();
                     self.current_mods = self.presets.get("Default").cloned().unwrap_or_default();
                     self.save_mod_config_and_preset();
                     let _ = logging::log(
                         "INFO",
-                        &format!("Deleted preset: {}", deleted),
+                        &format!(
+                            "Deleted preset: {} ({} mods) — switched to Default",
+                            deleted, mod_count
+                        ),
                         "PresetManager",
                     );
+                } else {
+                    let _ =
+                        logging::log("WARN", "Refused to delete Default preset", "PresetManager");
                 }
             }
-            ConfirmAction::DeleteMod(idx) => {
-                if idx < self.current_mods.len() {
-                    let name = self.current_mods[idx].name.clone();
-                    self.current_mods.remove(idx);
-                    self.save_mod_config_and_preset();
-                    let _ = logging::log("INFO", &format!("Deleted mod: {}", name), "ModManager");
+            ConfirmAction::DeleteMod(hint_idx, expected_name, expected_workshop) => {
+                // Re-resolve by name + workshop_id so list mutations between menu open and
+                // confirm do not delete the wrong mod.
+                let resolved = if hint_idx < self.current_mods.len()
+                    && self.current_mods[hint_idx].name == expected_name
+                    && self.current_mods[hint_idx].workshop_id == expected_workshop
+                {
+                    Some(hint_idx)
+                } else {
+                    self.current_mods
+                        .iter()
+                        .position(|m| m.name == expected_name && m.workshop_id == expected_workshop)
+                };
+                match resolved {
+                    Some(idx) => {
+                        let removed = self.current_mods.remove(idx);
+                        self.save_mod_config_and_preset();
+                        let _ = logging::log(
+                            "INFO",
+                            &format!(
+                                "Deleted mod: {} (workshop_id={}, was at position {})",
+                                removed.name,
+                                if removed.workshop_id.is_empty() {
+                                    "none"
+                                } else {
+                                    &removed.workshop_id
+                                },
+                                idx + 1
+                            ),
+                            "ModManager",
+                        );
+                    }
+                    None => {
+                        let _ = logging::log(
+                            "WARN",
+                            &format!(
+                                "Delete mod cancelled: \"{}\" no longer in list (workshop_id={})",
+                                expected_name,
+                                if expected_workshop.is_empty() {
+                                    "none"
+                                } else {
+                                    &expected_workshop
+                                }
+                            ),
+                            "ModManager",
+                        );
+                    }
                 }
             }
             ConfirmAction::AcceptExternalChanges(file_mods) => {
+                self.cancel_drag_if_active();
+                let prev_count = self.current_mods.len();
+                let new_count = file_mods.len();
                 self.current_mods = file_mods;
                 self.presets
                     .insert(self.selected_preset.clone(), self.current_mods.clone());
                 let _ = presets::save_presets(&self.presets);
+                let _ = logging::log(
+                    "INFO",
+                    &format!(
+                        "Accepted external mod_config.xml change ({} -> {} mods)",
+                        prev_count, new_count
+                    ),
+                    "ModManager",
+                );
             }
             ConfirmAction::KeepCurrentPreset => {
                 self.save_mod_config_and_preset();
+                let _ = logging::log(
+                    "INFO",
+                    "Kept current preset, re-wrote mod_config.xml",
+                    "ModManager",
+                );
             }
             ConfirmAction::OverwritePresetImport(import) => {
                 self.do_import_presets(&import, true);
@@ -1504,16 +2070,21 @@ impl HallintaApp {
                 });
             }
             ConfirmAction::ExitWithSnapshot => {
+                let _ = logging::log("INFO", "Exit chosen: take final snapshot", "App");
                 self.take_monitor_snapshot();
                 self.end_monitor_session();
                 self.close_requested = false;
             }
             ConfirmAction::ExitWithoutSnapshot => {
+                let _ = logging::log("INFO", "Exit chosen: no final snapshot", "App");
                 self.end_monitor_session();
                 self.close_requested = false;
             }
             ConfirmAction::DeleteBackup(filename) => {
                 self.delete_backup_async(filename);
+            }
+            ConfirmAction::RestoreLatest(filename) => {
+                self.apply_default_restore(filename);
             }
             ConfirmAction::ClearMonitorData => {
                 self.clear_monitor_data_async();
@@ -1539,7 +2110,8 @@ impl HallintaApp {
         match action {
             InputAction::CreatePreset => {
                 if !self.presets.contains_key(&value) {
-                    self.presets.insert(value.clone(), self.current_mods.clone());
+                    self.presets
+                        .insert(value.clone(), self.current_mods.clone());
                     self.selected_preset = value.clone();
                     self.save_mod_config_and_preset();
                     let _ = logging::log(
@@ -1574,9 +2146,31 @@ impl HallintaApp {
                         && target_idx < self.current_mods.len()
                         && from_idx != target_idx
                     {
+                        let mod_name = self.current_mods[from_idx].name.clone();
                         let item = self.current_mods.remove(from_idx);
                         self.current_mods.insert(target_idx, item);
                         self.save_mod_config_and_preset();
+                        let _ = logging::log(
+                            "INFO",
+                            &format!(
+                                "Moved \"{}\" from position {} to {}",
+                                mod_name,
+                                from_idx + 1,
+                                target_idx + 1
+                            ),
+                            "ModManager",
+                        );
+                    } else {
+                        let _ = logging::log(
+                            "WARN",
+                            &format!(
+                                "Move-to-position rejected (from={}, target={}, len={})",
+                                from_idx + 1,
+                                target_idx + 1,
+                                self.current_mods.len()
+                            ),
+                            "ModManager",
+                        );
                     }
                 }
             }
@@ -1615,14 +2209,15 @@ impl HallintaApp {
                     .save_file();
 
                 if let Some(path) = path
-                    && let Ok(content) = serde_json::to_string_pretty(&export) {
-                        let _ = mods::write_file(&path, &content);
-                        let _ = logging::log(
-                            "INFO",
-                            &format!("Exported {} preset(s)", selected.len()),
-                            "PresetManager",
-                        );
-                    }
+                    && let Ok(content) = serde_json::to_string_pretty(&export)
+                {
+                    let _ = mods::write_file(&path, &content);
+                    let _ = logging::log(
+                        "INFO",
+                        &format!("Exported {} preset(s)", selected.len()),
+                        "PresetManager",
+                    );
+                }
             }
             ChecklistAction::ImportPresets(mut import) => {
                 import.selected_names = selected;
@@ -1790,7 +2385,12 @@ impl HallintaApp {
                 logging::write_session_marker("SNAPSHOT_RESTORE_START");
                 self.async_runtime.spawn(async move {
                     let result = tokio::task::spawn_blocking(move || {
-                        backup::restore_from_path(&zip_path, &noita_dir, &options, entangled_dir.as_deref())
+                        backup::restore_from_path(
+                            &zip_path,
+                            &noita_dir,
+                            &options,
+                            entangled_dir.as_deref(),
+                        )
                     })
                     .await
                     .unwrap_or_else(|e| Err(format!("Restore failed: {}", e)));
@@ -1856,20 +2456,27 @@ impl HallintaApp {
         target
     }
 
-    fn build_preset_import_checklist(&self, presets: &BTreeMap<String, Vec<ModEntry>>) -> Vec<ChecklistItem> {
-        presets.keys().map(|name| {
-            let count = presets.get(name).map_or(0, |m| m.len());
-            let exists = self.presets.contains_key(name);
-            ChecklistItem {
-                id: name.clone(),
-                label: format!(
-                    "{} ({} mods){}",
-                    name, count,
-                    if exists { " - EXISTS" } else { "" }
-                ),
-                checked: true,
-            }
-        }).collect()
+    fn build_preset_import_checklist(
+        &self,
+        presets: &BTreeMap<String, Vec<ModEntry>>,
+    ) -> Vec<ChecklistItem> {
+        presets
+            .keys()
+            .map(|name| {
+                let count = presets.get(name).map_or(0, |m| m.len());
+                let exists = self.presets.contains_key(name);
+                ChecklistItem {
+                    id: name.clone(),
+                    label: format!(
+                        "{} ({} mods){}",
+                        name,
+                        count,
+                        if exists { " - EXISTS" } else { "" }
+                    ),
+                    checked: true,
+                }
+            })
+            .collect()
     }
 
     // ── Cleanup ────────────────────────────────────────────────────────
@@ -1884,7 +2491,11 @@ impl HallintaApp {
                     let _ = logging::log("INFO", &format!("[DEV] Exit: {}", msg), "DevData");
                 }
                 Err(e) => {
-                    let _ = logging::log("WARN", &format!("[DEV] Exit restore error: {}", e), "DevData");
+                    let _ = logging::log(
+                        "WARN",
+                        &format!("[DEV] Exit restore error: {}", e),
+                        "DevData",
+                    );
                 }
             }
         }
@@ -1950,6 +2561,18 @@ impl eframe::App for HallintaApp {
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         self.cleanup_on_exit();
+    }
+}
+
+pub fn sort_mods(mods: &mut [ModEntry], mode: SortMode) {
+    match mode {
+        SortMode::Default => {}
+        SortMode::NameAsc => mods.sort_by_key(|m| m.name.to_lowercase()),
+        SortMode::NameDesc => {
+            mods.sort_by_key(|m| std::cmp::Reverse(m.name.to_lowercase()));
+        }
+        SortMode::EnabledFirst => mods.sort_by_key(|m| !m.enabled),
+        SortMode::DisabledFirst => mods.sort_by_key(|m| m.enabled),
     }
 }
 

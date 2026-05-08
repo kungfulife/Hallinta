@@ -5,11 +5,19 @@ use chrono::Utc;
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::{Read as IoRead, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 use walkdir::WalkDir;
-use zip::write::FileOptions;
 use zip::ZipWriter;
+use zip::write::FileOptions;
+
+/// Reject zip entry names containing path traversal or absolute components.
+/// Prevents Zip Slip where a crafted archive escapes the target directory.
+fn is_safe_relative(rel: &str) -> bool {
+    let p = Path::new(rel);
+    p.components()
+        .all(|c| matches!(c, Component::Normal(_) | Component::CurDir))
+}
 
 pub fn add_directory_to_zip(
     zip: &mut ZipWriter<fs::File>,
@@ -23,7 +31,11 @@ pub fn add_directory_to_zip(
         let entry = match entry {
             Ok(e) => e,
             Err(e) => {
-                let _ = logging::log("WARN", &format!("Backup: could not read entry: {}", e), "Backup");
+                let _ = logging::log(
+                    "WARN",
+                    &format!("Backup: could not read entry: {}", e),
+                    "Backup",
+                );
                 continue;
             }
         };
@@ -60,7 +72,11 @@ pub fn add_directory_to_zip(
                         .map_err(|e| format!("Failed to write file to zip: {}", e))?;
                 }
                 Err(e) => {
-                    let _ = logging::log("WARN", &format!("Backup: could not read file {}: {}", path.display(), e), "Backup");
+                    let _ = logging::log(
+                        "WARN",
+                        &format!("Backup: could not read file {}: {}", path.display(), e),
+                        "Backup",
+                    );
                 }
             }
         }
@@ -83,6 +99,15 @@ pub fn create_backup(
             .map_err(|e| format!("Failed to create backups directory: {}", e))?;
     }
 
+    let _ = logging::log(
+        "INFO",
+        &format!(
+            "Creating backup: save01={} presets={} entangled={}",
+            include_save01, include_presets, include_entangled
+        ),
+        "Backup",
+    );
+
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
     let filename = format!("hallinta_backup_{}.zip", timestamp);
     let zip_path = backups_dir.join(&filename);
@@ -97,13 +122,12 @@ pub fn create_backup(
     }
 
     // Optionally include save01
-    if include_save01
-        && let Some(parent) = noita_dir.parent() {
-            let save01_path = parent.join("save01");
-            if save01_path.exists() {
-                add_directory_to_zip(&mut zip, &save01_path, "save01")?;
-            }
+    if include_save01 && let Some(parent) = noita_dir.parent() {
+        let save01_path = parent.join("save01");
+        if save01_path.exists() {
+            add_directory_to_zip(&mut zip, &save01_path, "save01")?;
         }
+    }
 
     // Optionally include presets
     if include_presets {
@@ -123,9 +147,10 @@ pub fn create_backup(
     // Optionally include Entangled Worlds
     if include_entangled
         && let Some(ew_path) = entangled_dir
-            && ew_path.exists() {
-                add_directory_to_zip(&mut zip, ew_path, "entangled_worlds")?;
-            }
+        && ew_path.exists()
+    {
+        add_directory_to_zip(&mut zip, ew_path, "entangled_worlds")?;
+    }
 
     zip.finish()
         .map_err(|e| format!("Failed to finish backup zip: {}", e))?;
@@ -152,8 +177,8 @@ pub fn list_backups() -> Result<Vec<BackupInfo>, String> {
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
-            let metadata =
-                fs::metadata(&path).map_err(|e| format!("Failed to read backup metadata: {}", e))?;
+            let metadata = fs::metadata(&path)
+                .map_err(|e| format!("Failed to read backup metadata: {}", e))?;
             let size_bytes = metadata.len();
             let modified = metadata
                 .modified()
@@ -274,8 +299,20 @@ pub fn restore_backup(
         return Err("Backup file not found".to_string());
     }
 
-    let file =
-        fs::File::open(&backup_path).map_err(|e| format!("Failed to open backup: {}", e))?;
+    let _ = logging::log(
+        "INFO",
+        &format!(
+            "Restoring backup {}: save00={} save01={} presets={} entangled={}",
+            filename,
+            options.restore_save00,
+            options.restore_save01,
+            options.restore_presets,
+            options.restore_entangled
+        ),
+        "Backup",
+    );
+
+    let file = fs::File::open(&backup_path).map_err(|e| format!("Failed to open backup: {}", e))?;
     let mut archive =
         zip::ZipArchive::new(file).map_err(|e| format!("Failed to read backup zip: {}", e))?;
 
@@ -295,10 +332,26 @@ pub fn restore_backup(
             if relative.is_empty() {
                 continue;
             }
+            if !is_safe_relative(relative) {
+                let _ = logging::log(
+                    "WARN",
+                    &format!("Refused unsafe zip entry: {}", entry_name),
+                    "Backup",
+                );
+                continue;
+            }
             Some(noita_dir.join(relative))
         } else if entry_name.starts_with("save01/") && options.restore_save01 {
             let relative = entry_name.strip_prefix("save01/").unwrap_or(&entry_name);
             if relative.is_empty() {
+                continue;
+            }
+            if !is_safe_relative(relative) {
+                let _ = logging::log(
+                    "WARN",
+                    &format!("Refused unsafe zip entry: {}", entry_name),
+                    "Backup",
+                );
                 continue;
             }
             Some(save01_target.join(relative))
@@ -312,6 +365,14 @@ pub fn restore_backup(
                 .strip_prefix("entangled_worlds/")
                 .unwrap_or(&entry_name);
             if relative.is_empty() {
+                continue;
+            }
+            if !is_safe_relative(relative) {
+                let _ = logging::log(
+                    "WARN",
+                    &format!("Refused unsafe zip entry: {}", entry_name),
+                    "Backup",
+                );
                 continue;
             }
             entangled_dir.map(|d| d.join(relative))
@@ -414,14 +475,11 @@ pub fn restore_from_path(
     options: &RestoreOptions,
     entangled_dir: Option<&Path>,
 ) -> Result<(), String> {
-    let file = fs::File::open(zip_path)
-        .map_err(|e| format!("Failed to open snapshot: {}", e))?;
+    let file = fs::File::open(zip_path).map_err(|e| format!("Failed to open snapshot: {}", e))?;
     let mut archive =
         zip::ZipArchive::new(file).map_err(|e| format!("Failed to read snapshot ZIP: {}", e))?;
 
-    let save01_target = noita_dir
-        .parent()
-        .map(|p| p.join("save01"));
+    let save01_target = noita_dir.parent().map(|p| p.join("save01"));
 
     for i in 0..archive.len() {
         let mut entry = archive
@@ -434,10 +492,26 @@ pub fn restore_from_path(
             if relative.is_empty() {
                 continue;
             }
+            if !is_safe_relative(relative) {
+                let _ = logging::log(
+                    "WARN",
+                    &format!("Refused unsafe zip entry: {}", entry_name),
+                    "Backup",
+                );
+                continue;
+            }
             Some(noita_dir.join(relative))
         } else if entry_name.starts_with("save01/") && options.restore_save01 {
             let relative = entry_name.strip_prefix("save01/").unwrap_or(&entry_name);
             if relative.is_empty() {
+                continue;
+            }
+            if !is_safe_relative(relative) {
+                let _ = logging::log(
+                    "WARN",
+                    &format!("Refused unsafe zip entry: {}", entry_name),
+                    "Backup",
+                );
                 continue;
             }
             save01_target.as_ref().map(|t| t.join(relative))
@@ -449,6 +523,14 @@ pub fn restore_from_path(
                 .strip_prefix("entangled_worlds/")
                 .unwrap_or(&entry_name);
             if relative.is_empty() {
+                continue;
+            }
+            if !is_safe_relative(relative) {
+                let _ = logging::log(
+                    "WARN",
+                    &format!("Refused unsafe zip entry: {}", entry_name),
+                    "Backup",
+                );
                 continue;
             }
             entangled_dir.map(|d| d.join(relative))
@@ -474,6 +556,61 @@ pub fn restore_from_path(
     }
 
     Ok(())
+}
+
+/// Delete backup zips older than `max_age_days`. `0` disables cleanup.
+/// Returns the number of files deleted.
+pub fn cleanup_old_backups(max_age_days: u32) -> Result<u32, String> {
+    if max_age_days == 0 {
+        return Ok(0);
+    }
+    let data_dir = get_data_dir()?;
+    let backups_dir = data_dir.join("backups");
+    if !backups_dir.exists() {
+        return Ok(0);
+    }
+    let now = SystemTime::now();
+    let max_age = std::time::Duration::from_secs(max_age_days as u64 * 86_400);
+    let mut deleted = 0u32;
+    for entry in fs::read_dir(&backups_dir)
+        .map_err(|e| format!("Failed to read backups dir: {}", e))?
+        .flatten()
+    {
+        let path = entry.path();
+        if path.extension().is_none_or(|ext| ext != "zip") {
+            continue;
+        }
+        let modified = match entry.metadata().and_then(|m| m.modified()) {
+            Ok(t) => t,
+            Err(_) => continue,
+        };
+        if let Ok(age) = now.duration_since(modified)
+            && age > max_age
+        {
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            match fs::remove_file(&path) {
+                Ok(_) => {
+                    deleted += 1;
+                    let _ = logging::log(
+                        "INFO",
+                        &format!("Auto-deleted old backup ({}d): {}", max_age_days, name),
+                        "Backup",
+                    );
+                }
+                Err(e) => {
+                    let _ = logging::log(
+                        "WARN",
+                        &format!("Failed to auto-delete {}: {}", name, e),
+                        "Backup",
+                    );
+                }
+            }
+        }
+    }
+    Ok(deleted)
 }
 
 fn cleanup_old_upgrade_backups(upgrade_backup_dir: &Path, keep_count: usize) -> Result<(), String> {
@@ -508,4 +645,31 @@ fn cleanup_old_upgrade_backups(upgrade_backup_dir: &Path, keep_count: usize) -> 
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_safe_relative;
+
+    #[test]
+    fn safe_relative_accepts_normal_paths() {
+        assert!(is_safe_relative("world.png"));
+        assert!(is_safe_relative("subdir/file.txt"));
+        assert!(is_safe_relative("a/b/c/d.dat"));
+        assert!(is_safe_relative("./file.txt"));
+    }
+
+    #[test]
+    fn safe_relative_rejects_traversal() {
+        assert!(!is_safe_relative("../escape.txt"));
+        assert!(!is_safe_relative("ok/../../escape.txt"));
+        assert!(!is_safe_relative("a/../../b"));
+    }
+
+    #[test]
+    fn safe_relative_rejects_absolute() {
+        assert!(!is_safe_relative("/etc/passwd"));
+        #[cfg(windows)]
+        assert!(!is_safe_relative("C:\\Windows\\System32\\evil.dll"));
+    }
 }

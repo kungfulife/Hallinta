@@ -1,5 +1,5 @@
-use eframe::egui;
 use crate::models::AppSettings;
+use eframe::egui;
 
 /// Centralized design tokens: all sizes, spacing, fonts, and colors.
 /// Instantiate with `Design::new(ctx, settings)` at the top of each render function.
@@ -9,54 +9,54 @@ use crate::models::AppSettings;
 /// automatically, so every widget (including those that don't use Design) scales.
 pub struct Design {
     // Spacing (base logical pixels — zoom handles scaling)
-    pub xs: f32,  // 2
-    pub sm: f32,  // 4
-    pub md: f32,  // 8
-    pub lg: f32,  // 16
+    pub xs: f32, // 2
+    pub sm: f32, // 4
+    pub md: f32, // 8
+    pub lg: f32, // 16
     // Font sizes
-    pub font_small:   f32,  // 11
-    pub font_body:    f32,  // 13
-    pub font_tab:     f32,  // 15
-    pub font_heading: f32,  // 18
-    pub font_display: f32,  // 22
+    pub font_small: f32,   // 11
+    pub font_body: f32,    // 13
+    pub font_tab: f32,     // 15
+    pub font_heading: f32, // 18
+    pub font_display: f32, // 22
     // Widget sizes
-    pub toggle_w:   f32,  // 30
-    pub toggle_h:   f32,  // 16
-    pub sidebar_w:  f32,  // 160
-    pub search_w:   f32,  // 150
-    pub row_pad_x:  f32,  // 8
-    pub row_pad_y:  f32,  // 5
+    pub toggle_w: f32,     // 30
+    pub toggle_h: f32,     // 16
+    pub sidebar_w: f32,    // 160
+    pub search_w: f32,     // 150
+    pub row_pad_x: f32,    // 8
+    pub row_pad_y: f32,    // 5
     pub row_number_w: f32, // 24 — fixed-width gutter for row numbers
     // Colors: mod list rows
-    pub enabled_even:    egui::Color32,
-    pub enabled_odd:     egui::Color32,
-    pub disabled_even:   egui::Color32,
-    pub disabled_odd:    egui::Color32,
-    pub row_hover:       egui::Color32,
-    pub disabled_text:   egui::Color32,
+    pub enabled_even: egui::Color32,
+    pub enabled_odd: egui::Color32,
+    pub disabled_even: egui::Color32,
+    pub disabled_odd: egui::Color32,
+    pub row_hover: egui::Color32,
+    pub disabled_text: egui::Color32,
     // Colors: accents and indicators
-    pub badge_workshop:  egui::Color32,
-    pub badge_missing:   egui::Color32,
-    pub toggle_on:       egui::Color32,
-    pub status_ok:       egui::Color32,
+    pub badge_workshop: egui::Color32,
+    pub badge_missing: egui::Color32,
+    pub toggle_on: egui::Color32,
+    pub status_ok: egui::Color32,
     pub row_number_color: egui::Color32,
     // Colors: mod list panel background
     pub mod_list_bg: egui::Color32,
     // Colors: drag ghost row
-    pub drag_ghost_fill:   egui::Color32,
+    pub drag_ghost_fill: egui::Color32,
     pub drag_ghost_border: egui::Color32,
     // Colors: header tabs & filters
-    pub tab_bg:             egui::Color32,
-    pub tab_bg_selected:    egui::Color32,
-    pub tab_text:           egui::Color32,
-    pub tab_text_selected:  egui::Color32,
-    pub filter_bg:          egui::Color32,
+    pub tab_bg: egui::Color32,
+    pub tab_bg_selected: egui::Color32,
+    pub tab_text: egui::Color32,
+    pub tab_text_selected: egui::Color32,
+    pub filter_bg: egui::Color32,
     pub filter_bg_selected: egui::Color32,
     // Colors: settings
-    pub settings_focus_bg:     egui::Color32,
+    pub settings_focus_bg: egui::Color32,
     pub settings_focus_border: egui::Color32,
-    pub helper_text_bg:        egui::Color32,
-    pub helper_text_color:     egui::Color32,
+    pub helper_text_bg: egui::Color32,
+    pub helper_text_color: egui::Color32,
 }
 
 impl Design {
@@ -100,17 +100,17 @@ impl Design {
             sm: 4.0,
             md: 8.0,
             lg: 16.0,
-            font_small:   11.0,
-            font_body:    13.0,
-            font_tab:     15.0,
+            font_small: 11.0,
+            font_body: 13.0,
+            font_tab: 15.0,
             font_heading: 18.0,
             font_display: 22.0,
-            toggle_w:   30.0,
-            toggle_h:   16.0,
-            sidebar_w:  160.0,
-            search_w:   150.0,
-            row_pad_x:  8.0,
-            row_pad_y:  5.0,
+            toggle_w: 30.0,
+            toggle_h: 16.0,
+            sidebar_w: 160.0,
+            search_w: 150.0,
+            row_pad_x: 8.0,
+            row_pad_y: 5.0,
             row_number_w: 24.0,
             enabled_even,
             enabled_odd,
@@ -118,10 +118,10 @@ impl Design {
             disabled_odd,
             row_hover,
             disabled_text,
-            badge_workshop:  egui::Color32::from_rgb(100, 80, 175),
-            badge_missing:   egui::Color32::from_rgb(200, 55, 55),
-            toggle_on:       egui::Color32::from_rgb(60, 160, 70),
-            status_ok:       egui::Color32::from_rgb(50, 200, 50),
+            badge_workshop: egui::Color32::from_rgb(100, 80, 175),
+            badge_missing: egui::Color32::from_rgb(200, 55, 55),
+            toggle_on: egui::Color32::from_rgb(60, 160, 70),
+            status_ok: egui::Color32::from_rgb(50, 200, 50),
             row_number_color,
             mod_list_bg: if dark {
                 egui::Color32::from_rgba_premultiplied(30, 22, 48, 80)
@@ -228,7 +228,9 @@ pub fn scaled_size(base: (f32, f32), ui_scale: f32) -> egui::Vec2 {
 }
 
 pub fn apply_zoom(ctx: &egui::Context, settings: &AppSettings) {
-    let scale = settings.ui_scale.clamp(SCALE_INTERNAL_MIN, SCALE_INTERNAL_MAX);
+    let scale = settings
+        .ui_scale
+        .clamp(SCALE_INTERNAL_MIN, SCALE_INTERNAL_MAX);
     if (ctx.zoom_factor() - scale).abs() > 0.001 {
         ctx.set_zoom_factor(scale);
     }

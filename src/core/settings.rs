@@ -1,7 +1,5 @@
 use crate::core::{logging, platform};
-use crate::models::{
-    AppSettings, BackupSettings, LogSettings, SaveMonitorSettings,
-};
+use crate::models::{AppSettings, BackupSettings, LogSettings, SaveMonitorSettings};
 use std::fs;
 use std::path::PathBuf;
 
@@ -53,6 +51,8 @@ pub fn load_settings() -> Result<AppSettings, String> {
             steam_path,
             compact_mode: false,
             ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
+            last_filter_mode: String::new(),
+            last_sort_mode: String::new(),
         };
         save_settings(&default_settings)?;
         return Ok(default_settings);
@@ -67,20 +67,23 @@ pub fn load_settings() -> Result<AppSettings, String> {
 
     // Auto-detect any missing paths on load (all build modes).
     if settings.noita_dir.trim().is_empty()
-        && let Ok(p) = platform::get_noita_save_path() {
-            settings.noita_dir = p.to_string_lossy().to_string();
-            dirty = true;
-        }
+        && let Ok(p) = platform::get_noita_save_path()
+    {
+        settings.noita_dir = p.to_string_lossy().to_string();
+        dirty = true;
+    }
     if settings.entangled_dir.trim().is_empty()
-        && let Ok(p) = platform::get_entangled_worlds_save_path() {
-            settings.entangled_dir = p.to_string_lossy().to_string();
-            dirty = true;
-        }
+        && let Ok(p) = platform::get_entangled_worlds_save_path()
+    {
+        settings.entangled_dir = p.to_string_lossy().to_string();
+        dirty = true;
+    }
     if settings.steam_path.trim().is_empty()
-        && let Ok(p) = crate::core::workshop::detect_steam_path() {
-            settings.steam_path = p.to_string_lossy().to_string();
-            dirty = true;
-        }
+        && let Ok(p) = crate::core::workshop::detect_steam_path()
+    {
+        settings.steam_path = p.to_string_lossy().to_string();
+        dirty = true;
+    }
 
     if dirty {
         save_settings(&settings)?;
@@ -145,9 +148,7 @@ mod tests {
 
     #[test]
     fn test_save_and_load_settings_roundtrip() {
-        use crate::models::{
-            BackupSettings, LogSettings, SaveMonitorSettings,
-        };
+        use crate::models::{BackupSettings, LogSettings, SaveMonitorSettings};
 
         let dir = std::env::temp_dir().join("hallinta_settings_test");
         std::fs::create_dir_all(&dir).unwrap();
@@ -166,6 +167,8 @@ mod tests {
             steam_path: "/test/steam".to_string(),
             compact_mode: true,
             ui_scale: 1.0,
+            last_filter_mode: "all".to_string(),
+            last_sort_mode: "default".to_string(),
         };
 
         // Serialize to file manually (bypass get_data_dir to use temp dir)
@@ -218,6 +221,9 @@ mod tests {
 
         let settings: AppSettings = serde_json::from_str(minimal_json)
             .expect("minimal settings JSON should deserialize without compact_mode field");
-        assert!(!settings.compact_mode, "missing compact_mode should default to false");
+        assert!(
+            !settings.compact_mode,
+            "missing compact_mode should default to false"
+        );
     }
 }

@@ -94,9 +94,7 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
             if ui
                 .add_sized(
                     [btn_w, btn_h],
-                    egui::Button::new(
-                        egui::RichText::new("Pause Monitor").size(d.font_body),
-                    ),
+                    egui::Button::new(egui::RichText::new("Pause Monitor").size(d.font_body)),
                 )
                 .clicked()
             {
@@ -106,9 +104,7 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
             if ui
                 .add_sized(
                     [btn_w, btn_h],
-                    egui::Button::new(
-                        egui::RichText::new("Start Monitor").size(d.font_body),
-                    ),
+                    egui::Button::new(egui::RichText::new("Start Monitor").size(d.font_body)),
                 )
                 .clicked()
             {
@@ -123,9 +119,7 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
             if ui
                 .add_sized(
                     [btn_w, btn_h],
-                    egui::Button::new(
-                        egui::RichText::new("Create Backup").size(d.font_body),
-                    ),
+                    egui::Button::new(egui::RichText::new("Create Backup").size(d.font_body)),
                 )
                 .clicked()
             {
@@ -138,9 +132,7 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
         if ui
             .add_sized(
                 [btn_w, btn_h],
-                egui::Button::new(
-                    egui::RichText::new("View Sessions").size(d.font_body),
-                ),
+                egui::Button::new(egui::RichText::new("View Sessions").size(d.font_body)),
             )
             .clicked()
         {

@@ -41,18 +41,12 @@ fn focused_text_edit(
             .fill(d.settings_focus_bg)
             .stroke(egui::Stroke::new(1.5, d.settings_focus_border))
     } else {
-        egui::Frame::NONE
-            .inner_margin(egui::Margin::symmetric(2, 1))
+        egui::Frame::NONE.inner_margin(egui::Margin::symmetric(2, 1))
     };
 
     let mut resp = None;
     frame.show(ui, |ui| {
-        resp = Some(
-            ui.add(
-                egui::TextEdit::singleline(value)
-                    .desired_width(desired_width),
-            ),
-        );
+        resp = Some(ui.add(egui::TextEdit::singleline(value).desired_width(desired_width)));
     });
     resp.unwrap()
 }
@@ -111,7 +105,9 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     noita_dir_lost_focus = true;
                 }
                 if !app.settings.noita_dir.is_empty() && ui.button("Open").clicked() {
-                    let _ = crate::core::platform::open_directory(std::path::Path::new(&app.settings.noita_dir));
+                    let _ = crate::core::platform::open_directory(std::path::Path::new(
+                        &app.settings.noita_dir,
+                    ));
                 }
             });
 
@@ -144,7 +140,9 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     entangled_dir_lost_focus = true;
                 }
                 if !app.settings.entangled_dir.is_empty() && ui.button("Open").clicked() {
-                    let _ = crate::core::platform::open_directory(std::path::Path::new(&app.settings.entangled_dir));
+                    let _ = crate::core::platform::open_directory(std::path::Path::new(
+                        &app.settings.entangled_dir,
+                    ));
                 }
             });
 
@@ -165,10 +163,16 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             ui.label(egui::RichText::new("Appearance").strong().size(d.font_tab));
             ui.add_space(d.sm);
 
-            if ui.checkbox(&mut app.settings.dark_mode, "Dark Mode").changed() {
+            if ui
+                .checkbox(&mut app.settings.dark_mode, "Dark Mode")
+                .changed()
+            {
                 // Side-effect handled after scroll area
             }
-            if ui.checkbox(&mut app.settings.compact_mode, "Compact Mode").changed() {
+            if ui
+                .checkbox(&mut app.settings.compact_mode, "Compact Mode")
+                .changed()
+            {
                 // Side-effect handled after scroll area
             }
 
@@ -180,8 +184,10 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
                 // Convert internal value to display value for the slider
                 let mut display_scale = app.settings.ui_scale - crate::ui::design::SCALE_OFFSET;
-                let display_min = crate::ui::design::SCALE_INTERNAL_MIN - crate::ui::design::SCALE_OFFSET;
-                let display_max = crate::ui::design::SCALE_INTERNAL_MAX - crate::ui::design::SCALE_OFFSET;
+                let display_min =
+                    crate::ui::design::SCALE_INTERNAL_MIN - crate::ui::design::SCALE_OFFSET;
+                let display_max =
+                    crate::ui::design::SCALE_INTERNAL_MAX - crate::ui::design::SCALE_OFFSET;
 
                 let scale_resp = ui.add(
                     egui::Slider::new(&mut display_scale, display_min..=display_max)
@@ -257,7 +263,11 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
         // ── Save Monitor Settings ──────────────────────────────────────
         ui.group(|ui| {
-            ui.label(egui::RichText::new("Save Monitor").strong().size(d.font_tab));
+            ui.label(
+                egui::RichText::new("Save Monitor")
+                    .strong()
+                    .size(d.font_tab),
+            );
             ui.add_space(d.sm);
 
             ui.horizontal(|ui| {
@@ -342,7 +352,9 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     needs_save = true;
                 }
                 if !app.settings.steam_path.is_empty() && ui.button("Open").clicked() {
-                    let _ = crate::core::platform::open_directory(std::path::Path::new(&app.settings.steam_path));
+                    let _ = crate::core::platform::open_directory(std::path::Path::new(
+                        &app.settings.steam_path,
+                    ));
                 }
             });
         });
@@ -456,5 +468,7 @@ fn default_settings() -> AppSettings {
         steam_path: String::new(),
         compact_mode: false,
         ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
+        last_filter_mode: String::new(),
+        last_sort_mode: String::new(),
     }
 }
