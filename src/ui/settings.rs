@@ -51,6 +51,48 @@ fn focused_text_edit(
     resp.unwrap()
 }
 
+fn render_appearance_settings(
+    ui: &mut egui::Ui,
+    d: &Design,
+    settings: &mut AppSettings,
+    scale_changed: &mut bool,
+) {
+    ui.group(|ui| {
+        ui.label(egui::RichText::new("Appearance").strong().size(d.font_tab));
+        ui.add_space(d.sm);
+
+        ui.horizontal(|ui| {
+            ui.label("UI Scale:");
+
+            // Internal 1.25 is displayed as 1.0x for user-facing scale.
+            let mut display_scale = settings.ui_scale - crate::ui::design::SCALE_OFFSET;
+            let display_min =
+                crate::ui::design::SCALE_INTERNAL_MIN - crate::ui::design::SCALE_OFFSET;
+            let display_max =
+                crate::ui::design::SCALE_INTERNAL_MAX - crate::ui::design::SCALE_OFFSET;
+
+            let scale_resp = ui.add(
+                egui::Slider::new(&mut display_scale, display_min..=display_max)
+                    .step_by(0.05)
+                    .text("×"),
+            );
+
+            let new_internal = display_scale + crate::ui::design::SCALE_OFFSET;
+
+            // Applying zoom while dragging shifts the slider under the pointer.
+            if scale_resp.drag_stopped() || (scale_resp.changed() && !scale_resp.dragged()) {
+                settings.ui_scale = new_internal;
+                *scale_changed = true;
+            }
+
+            if ui.small_button("Reset").clicked() {
+                settings.ui_scale = crate::ui::design::SCALE_INTERNAL_DEFAULT;
+                *scale_changed = true;
+            }
+        });
+    });
+}
+
 pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
 
@@ -159,57 +201,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
         ui.add_space(d.md);
 
         // ── Appearance ───────────��──────────────────────────────────────
-        ui.group(|ui| {
-            ui.label(egui::RichText::new("Appearance").strong().size(d.font_tab));
-            ui.add_space(d.sm);
-
-            if ui
-                .checkbox(&mut app.settings.dark_mode, "Dark Mode")
-                .changed()
-            {
-                // Side-effect handled after scroll area
-            }
-            if ui
-                .checkbox(&mut app.settings.compact_mode, "Compact Mode")
-                .changed()
-            {
-                // Side-effect handled after scroll area
-            }
-
-            ui.add_space(d.sm);
-
-            // UI Scale — display with offset: internal 1.25 = shown as "1.0×"
-            ui.horizontal(|ui| {
-                ui.label("UI Scale:");
-
-                // Convert internal value to display value for the slider
-                let mut display_scale = app.settings.ui_scale - crate::ui::design::SCALE_OFFSET;
-                let display_min =
-                    crate::ui::design::SCALE_INTERNAL_MIN - crate::ui::design::SCALE_OFFSET;
-                let display_max =
-                    crate::ui::design::SCALE_INTERNAL_MAX - crate::ui::design::SCALE_OFFSET;
-
-                let scale_resp = ui.add(
-                    egui::Slider::new(&mut display_scale, display_min..=display_max)
-                        .step_by(0.05)
-                        .text("×"),
-                );
-
-                // Convert back to internal
-                let new_internal = display_scale + crate::ui::design::SCALE_OFFSET;
-
-                // Apply zoom only when released (same feedback-loop prevention as before)
-                if scale_resp.drag_stopped() || (scale_resp.changed() && !scale_resp.dragged()) {
-                    app.settings.ui_scale = new_internal;
-                    scale_changed = true;
-                }
-
-                if ui.small_button("Reset").clicked() {
-                    app.settings.ui_scale = crate::ui::design::SCALE_INTERNAL_DEFAULT;
-                    scale_changed = true;
-                }
-            });
-        });
+        render_appearance_settings(ui, &d, &mut app.settings, &mut scale_changed);
 
         ui.add_space(d.md);
 
@@ -434,12 +426,12 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
         app.save_current_settings();
     }
 
-    // Dark mode toggled
+    // Dark mode changed indirectly (for example, Reset to Defaults)
     if app.settings.dark_mode != prev_dark_mode {
         app.on_dark_mode_changed(ui.ctx());
     }
 
-    // Compact mode toggled
+    // Compact mode changed indirectly (for example, Reset to Defaults)
     if app.settings.compact_mode != prev_compact_mode {
         app.on_compact_mode_changed(ui.ctx());
     }
@@ -470,5 +462,55 @@ fn default_settings() -> AppSettings {
         ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
         last_filter_mode: String::new(),
         last_sort_mode: String::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn rendered_appearance_labels(settings: &mut AppSettings) -> Vec<String> {
+        let ctx = egui::Context::default();
+        let output = ctx.run(Default::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let d = Design::new(ui.ctx(), settings);
+                let mut scale_changed = false;
+                render_appearance_settings(ui, &d, settings, &mut scale_changed);
+            });
+        });
+
+        output
+            .shapes
+            .iter()
+            .flat_map(|shape| text_from_shape(&shape.shape))
+            .collect()
+    }
+
+    fn text_from_shape(shape: &egui::epaint::Shape) -> Vec<String> {
+        match shape {
+            egui::epaint::Shape::Text(text) => vec![text.galley.text().to_string()],
+            egui::epaint::Shape::Vec(shapes) => shapes.iter().flat_map(text_from_shape).collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    #[test]
+    fn appearance_settings_do_not_duplicate_top_bar_toggles() {
+        let mut settings = default_settings();
+
+        let labels = rendered_appearance_labels(&mut settings);
+
+        assert!(
+            !labels.iter().any(|label| label == "Dark Mode"),
+            "dark mode is already available in the top bar"
+        );
+        assert!(
+            !labels.iter().any(|label| label == "Compact Mode"),
+            "compact mode is already available in the top bar"
+        );
+        assert!(
+            labels.iter().any(|label| label == "UI Scale:"),
+            "appearance settings should still expose UI scale"
+        );
     }
 }

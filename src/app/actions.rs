@@ -92,14 +92,14 @@ impl HallintaApp {
         }
     }
 
-    /// Called when dark_mode checkbox toggles reactively.
+    /// Called when the theme preference changes.
     pub fn on_dark_mode_changed(&mut self, ctx: &egui::Context) {
         self.dark_mode = self.settings.dark_mode;
         crate::ui::theme::apply_theme(ctx, self.settings.dark_mode);
         self.save_current_settings();
     }
 
-    /// Called when compact_mode checkbox toggles in settings.
+    /// Called when compact mode changes from settings restoration/reset flows.
     pub fn on_compact_mode_changed(&mut self, ctx: &egui::Context) {
         let was_compact = self.compact_mode;
         self.compact_mode = self.settings.compact_mode;
