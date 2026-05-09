@@ -210,7 +210,7 @@ pub const SCALE_INTERNAL_DEFAULT: f32 = 1.25;
 // These are multiplied by the actual zoom factor to get the final size.
 // At default zoom 1.25: min = 680*1.25 × 520*1.25 = 850×650
 pub const BASE_MIN_NORMAL: (f32, f32) = (680.0, 520.0);
-pub const BASE_MIN_COMPACT: (f32, f32) = (240.0, 160.0);
+pub const BASE_MIN_COMPACT: (f32, f32) = (240.0, 300.0);
 pub const BASE_SIZE_NORMAL: (f32, f32) = (880.0, 640.0);
 pub const BASE_SIZE_COMPACT: (f32, f32) = (384.0, 320.0);
 
@@ -268,5 +268,13 @@ mod tests {
         let pad_y = 5i8;
         assert!(pad_x < i8::MAX);
         assert!(pad_y < i8::MAX);
+    }
+
+    #[test]
+    fn compact_min_height_prevents_action_clipping() {
+        assert!(
+            super::BASE_MIN_COMPACT.1 >= 300.0,
+            "compact minimum height must fit preset controls plus all action buttons"
+        );
     }
 }

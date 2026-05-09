@@ -186,7 +186,7 @@ fn render_checklist(
 
     egui::Window::new(title)
         .collapsible(false)
-        .resizable(true)
+        .resizable(false)
         .default_width(420.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
@@ -285,7 +285,7 @@ fn render_missing_mods(
 
     egui::Window::new("Missing Workshop Mods")
         .collapsible(false)
-        .resizable(true)
+        .resizable(false)
         .default_width(380.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
@@ -340,7 +340,7 @@ fn render_system_info(app: &mut HallintaApp, ctx: &egui::Context) {
     let mut open = true;
     egui::Window::new("System Information")
         .collapsible(false)
-        .resizable(true)
+        .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
         .open(&mut open)
@@ -391,7 +391,7 @@ fn render_open_source(app: &mut HallintaApp, ctx: &egui::Context) {
     let mut open = true;
     egui::Window::new("Open Source Libraries")
         .collapsible(false)
-        .resizable(true)
+        .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
         .open(&mut open)
@@ -425,7 +425,7 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
 
     egui::Window::new("Manage Backups")
         .collapsible(false)
-        .resizable(true)
+        .resizable(false)
         .default_width(500.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
@@ -540,7 +540,7 @@ fn render_restore_manager(
 
     egui::Window::new(title)
         .collapsible(false)
-        .resizable(true)
+        .resizable(false)
         .default_width(500.0)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
@@ -734,5 +734,19 @@ fn render_restore_manager(
             snapshots,
             selected_session,
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    const RESIZABLE_TRUE: &str = concat!(".resizable", "(true)");
+
+    #[test]
+    fn modal_windows_are_not_user_resizable() {
+        let source = include_str!("modals.rs");
+        assert!(
+            !source.contains(RESIZABLE_TRUE),
+            "modal windows should not show user resize handles"
+        );
     }
 }
