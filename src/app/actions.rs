@@ -41,7 +41,7 @@ impl HallintaApp {
         self.presets
             .insert(self.selected_preset.clone(), self.current_mods.clone());
 
-        let noita_dir = self.get_active_noita_dir();
+        let noita_dir = self.settings.noita_dir.clone();
         if !noita_dir.is_empty() {
             let xml = mods::mods_to_xml(&self.current_mods);
             if let Err(e) = mods::write_mod_config(&PathBuf::from(&noita_dir), &xml) {
@@ -213,7 +213,7 @@ impl HallintaApp {
     }
 
     pub fn reload_mods(&mut self) {
-        let noita_dir = self.get_active_noita_dir();
+        let noita_dir = self.settings.noita_dir.clone();
         if noita_dir.is_empty() {
             return;
         }
@@ -299,28 +299,9 @@ impl HallintaApp {
         );
     }
 
-    pub fn get_active_noita_dir(&self) -> String {
-        if cfg!(debug_assertions)
-            && let Ok(dev_dir) = platform::get_dev_save_dir()
-        {
-            return dev_dir.to_string_lossy().to_string();
-        }
-        self.settings.noita_dir.clone()
-    }
-
-    pub(super) fn get_active_entangled_dir(&self) -> Option<String> {
-        if cfg!(debug_assertions) {
-            return platform::get_dev_entangled_dir()
-                .ok()
-                .map(|p| p.to_string_lossy().to_string());
-        }
-
+    pub(super) fn configured_entangled_dir(&self) -> Option<String> {
         let trimmed = self.settings.entangled_dir.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed.to_string())
-        }
+        (!trimmed.is_empty()).then(|| trimmed.to_string())
     }
 
     /// Check if a workshop mod is installed based on cached workshop status.
@@ -338,7 +319,7 @@ impl HallintaApp {
     // ── Open mod_config.xml ───────────────────────────────────────────
 
     pub fn open_mod_config_file(&self) {
-        let noita_dir = self.get_active_noita_dir();
+        let noita_dir = self.settings.noita_dir.clone();
         if noita_dir.is_empty() {
             return;
         }

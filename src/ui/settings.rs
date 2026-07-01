@@ -188,13 +188,18 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 }
             });
 
-            // Dev data directory (debug only)
+            // Debug app data directory (settings, logs, backups, presets)
             if cfg!(debug_assertions) {
                 ui.add_space(d.sm);
                 let dev_dir = crate::core::settings::get_data_dir()
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_default();
-                helper_text(ui, &d, &format!("Dev Data: {}", dev_dir));
+                helper_text(ui, &d, &format!("Debug App Data: {}", dev_dir));
+                helper_text(
+                    ui,
+                    &d,
+                    "Debug build: Noita and Entangled Worlds paths above are used directly.",
+                );
             }
         });
 

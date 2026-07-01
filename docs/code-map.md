@@ -5,7 +5,7 @@ Fast navigation notes for agents and maintainers.
 ## First Stops
 
 - `src/main.rs`: process bootstrap, panic hook, log session start, single-instance lock, eframe launch.
-- `src/app.rs`: `HallintaApp` state shape and constructor. It wires startup loading, dev sandbox seeding, initial UI scale/theme, and async channels.
+- `src/app.rs`: `HallintaApp` state shape and constructor. It wires startup loading, initial UI scale/theme, and async channels.
 - `src/tasks.rs`: async result enum sent back to the UI thread.
 - `src/models.rs`: shared data models, settings structs, UI enums, modal/action payloads.
 
@@ -13,7 +13,7 @@ Fast navigation notes for agents and maintainers.
 
 `src/app/` contains split `impl HallintaApp` blocks. Start here when tracing user workflows:
 
-- `actions.rs`: preset switching, mod config writes, settings reactions, filter/sort state, active save paths, open `mod_config.xml`.
+- `actions.rs`: preset switching, mod config writes, settings reactions, filter/sort state, open `mod_config.xml`.
 - `async_tasks.rs`: fire-and-forget task dispatchers for backups, monitor session lists, snapshots, workshop checks, and data clearing.
 - `backup_actions.rs`: backup and restore entry points shown from UI controls.
 - `import_export.rs`: mod list import/export and preset import/export preparation.
@@ -31,8 +31,8 @@ Fast navigation notes for agents and maintainers.
 - `src/core/presets.rs`: preset JSON load/save/validation.
 - `src/core/backup.rs`: backup archive creation, restore, delete, content inspection.
 - `src/core/save_monitor.rs`: monitor sessions and snapshot file management.
-- `src/core/platform.rs`: OS paths, Noita/Steam/Entangled detection, dev sandbox paths.
-- `src/core/settings.rs`: settings load/save, app data directory, version upgrade checks.
+- `src/core/platform.rs`: OS paths, Noita/Steam/Entangled detection, build metadata, and system info.
+- `src/core/settings.rs`: app data directory choice, settings load/save, and version upgrade checks.
 - `src/core/logging.rs`: session logs, markers, panic-flush support.
 - `src/core/workshop.rs`: Steam Workshop install checks.
 - `src/core/file_watcher.rs`: `mod_config.xml` mtime checks.
@@ -53,11 +53,11 @@ Fast navigation notes for agents and maintainers.
 - UI event -> `src/ui/*` renderer -> `HallintaApp` method in `src/app/*`.
 - Long-running work -> `src/app/async_tasks.rs` or inline spawn -> `TaskResult` -> `src/app/task_results.rs`.
 - File-system behavior -> prefer `src/core/*`; app modules should mainly orchestrate and update UI state.
-- Debug data paths -> `HallintaApp::get_active_noita_dir()` / `get_active_entangled_dir()` in `src/app/actions.rs`; do not bypass them from app-level workflows.
+- Noita data paths come from `AppSettings.noita_dir` / `entangled_dir`; debug builds do not redirect them.
 
 ## Docs Nearby
 
-- `docs/dev-mode.md`: debug sandbox behavior and safety rails.
+- `docs/dev-mode.md`: debug app-data location and legacy `dev_data` folder cleanup.
 - `docs/logging.md`: log files, session markers, flush lifecycle.
 - `docs/design-system.md`: visual spacing/color conventions.
 - `docs/egui.md`: egui implementation notes and UI pitfalls.

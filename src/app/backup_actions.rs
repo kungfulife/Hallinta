@@ -26,7 +26,7 @@ impl HallintaApp {
             },
         ];
 
-        if self.get_active_entangled_dir().is_some() {
+        if self.configured_entangled_dir().is_some() {
             items.push(ChecklistItem {
                 id: "entangled".to_string(),
                 label: "Entangled Worlds".to_string(),
@@ -44,7 +44,7 @@ impl HallintaApp {
 
     /// Auto-backup: silent quick backup (save00 + presets, no entangled, no save01).
     pub fn start_auto_backup(&mut self) {
-        let noita_dir = PathBuf::from(self.get_active_noita_dir());
+        let noita_dir = PathBuf::from(self.settings.noita_dir.clone());
         if noita_dir.as_os_str().is_empty() {
             return;
         }
@@ -118,9 +118,9 @@ impl HallintaApp {
             restore_presets: info.contains_presets,
             restore_entangled: info.contains_entangled,
         };
-        let noita_dir = PathBuf::from(self.get_active_noita_dir());
+        let noita_dir = PathBuf::from(self.settings.noita_dir.clone());
         let entangled_dir = if options.restore_entangled {
-            self.get_active_entangled_dir().map(PathBuf::from)
+            self.configured_entangled_dir().map(PathBuf::from)
         } else {
             None
         };

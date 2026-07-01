@@ -121,7 +121,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 ## Developer Docs
 
 - `docs/code-map.md` - quick map from features to source files
-- `docs/dev-mode.md` - debug sandbox behavior
+- `docs/dev-mode.md` - debug app data behavior
 - `docs/logging.md` - log lifecycle and session markers
 - `docs/design-system.md` / `docs/egui.md` - UI conventions and egui notes
 

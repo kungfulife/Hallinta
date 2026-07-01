@@ -18,7 +18,7 @@
   - If you want to put anything planning related, just put it within "temp".
 - Build outputs: `target/`.
 - Runtime data directory:
-  - Debug builds: `<repo>/dev_data` (sandboxed — see `docs/dev-mode.md`)
+  - Debug builds: `<repo>/dev_data` for Hallinta app data (see `docs/dev-mode.md`)
   - Release builds: local app data `Hallinta` directory via `dirs::data_local_dir()`.
 
 ## Build, Test, and Development Commands
@@ -46,7 +46,7 @@
 - Debug/dev channel:
   - Window title includes `[DEV]`.
   - Log filenames include `_dev` suffix.
-  - Data is stored in `dev_data/` under repo root.
+  - Hallinta app data is stored in `dev_data/` under repo root.
 - Release channel:
   - No `[DEV]` title marker.
   - Data is stored in OS local app data (`Hallinta`).

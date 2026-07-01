@@ -1,5 +1,5 @@
 use super::HallintaApp;
-use crate::core::{logging, platform};
+use crate::core::logging;
 use crate::models::View;
 use eframe::egui;
 
@@ -8,22 +8,6 @@ impl HallintaApp {
 
     pub fn cleanup_on_exit(&mut self) {
         let _ = logging::log("INFO", "Application shutting down", "App");
-
-        // Dev mode: verify real directories are untouched
-        if cfg!(debug_assertions) {
-            match platform::restore_real_dirs_from_dev() {
-                Ok(msg) => {
-                    let _ = logging::log("INFO", &format!("[DEV] Exit: {}", msg), "DevData");
-                }
-                Err(e) => {
-                    let _ = logging::log(
-                        "WARN",
-                        &format!("[DEV] Exit restore error: {}", e),
-                        "DevData",
-                    );
-                }
-            }
-        }
 
         logging::write_session_marker("APP_SHUTDOWN");
 

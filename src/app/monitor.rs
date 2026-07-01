@@ -28,10 +28,10 @@ impl HallintaApp {
                 self.save_monitor.running = true;
                 self.save_monitor.snapshot_count = 0;
                 self.save_monitor.current_session = Some(session);
-                let noita_dir = self.get_active_noita_dir();
+                let noita_dir = self.settings.noita_dir.clone();
                 let include_save01 = self.settings.save_monitor_settings.include_save01;
                 let entangled = if self.settings.save_monitor_settings.include_entangled {
-                    self.get_active_entangled_dir()
+                    self.configured_entangled_dir()
                 } else {
                     None
                 };
@@ -70,10 +70,10 @@ impl HallintaApp {
                 self.save_monitor.running = true;
                 self.save_monitor.snapshot_count = session.snapshot_count;
                 self.save_monitor.current_session = Some(session);
-                let noita_dir = self.get_active_noita_dir();
+                let noita_dir = self.settings.noita_dir.clone();
                 let include_save01 = self.settings.save_monitor_settings.include_save01;
                 let entangled = if self.settings.save_monitor_settings.include_entangled {
-                    self.get_active_entangled_dir()
+                    self.configured_entangled_dir()
                 } else {
                     None
                 };
@@ -123,13 +123,13 @@ impl HallintaApp {
     }
 
     pub(super) fn check_save_monitor_changes(&mut self) {
-        let noita_dir = self.get_active_noita_dir();
+        let noita_dir = self.settings.noita_dir.clone();
         if noita_dir.is_empty() {
             return;
         }
         let include_save01 = self.settings.save_monitor_settings.include_save01;
         let entangled_dir = if self.settings.save_monitor_settings.include_entangled {
-            self.get_active_entangled_dir()
+            self.configured_entangled_dir()
         } else {
             None
         };
@@ -152,7 +152,7 @@ impl HallintaApp {
     }
 
     pub(super) fn take_monitor_snapshot(&mut self) {
-        let noita_dir = self.get_active_noita_dir();
+        let noita_dir = self.settings.noita_dir.clone();
         if noita_dir.is_empty() {
             return;
         }
@@ -164,7 +164,7 @@ impl HallintaApp {
         let include_save01 = self.settings.save_monitor_settings.include_save01;
         let include_entangled = self.settings.save_monitor_settings.include_entangled;
         let entangled_dir = if include_entangled {
-            self.get_active_entangled_dir()
+            self.configured_entangled_dir()
         } else {
             None
         };

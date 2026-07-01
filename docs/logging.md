@@ -96,7 +96,6 @@ The `module` field categorizes events. Key modules:
 - `Workshop` — install check results (installed / missing counts)
 - `CrashHandler` — panic payload, location, thread, backtrace
 - `SystemInfo` — startup hardware/runtime snapshot (when enabled)
-- `DevData` — dev sandbox seed/restore (debug builds only)
 
 ## Settings Integration (Current State)
 

@@ -109,42 +109,11 @@ impl HallintaApp {
             m
         });
 
-        // Dev build sandbox: full copy of real save dirs into dev_data on first run,
-        // mod_config.xml sync on subsequent runs. Never touch real files during session.
-        let dev_noita_dir = if cfg!(debug_assertions) {
-            match platform::seed_dev_sandbox() {
-                Ok(msg) => {
-                    let _ = logging::log("INFO", &format!("[DEV] {}", msg), "DevData");
-                }
-                Err(e) => {
-                    let _ = logging::log(
-                        "WARN",
-                        &format!("[DEV] Dev sandbox error: {}", e),
-                        "DevData",
-                    );
-                }
-            }
-            platform::get_dev_save_dir().ok()
-        } else {
-            None
-        };
-        let dev_entangled_dir = if cfg!(debug_assertions) {
-            platform::get_dev_entangled_dir().ok()
-        } else {
-            None
-        };
-
         // Version upgrade check
         let old_version = app_settings.version.clone();
         if settings::check_and_upgrade_version(&mut app_settings).unwrap_or(false) {
             let tx = task_tx.clone();
-            let mut s = app_settings.clone();
-            if let Some(dev_dir) = &dev_noita_dir {
-                s.noita_dir = dev_dir.to_string_lossy().to_string();
-            }
-            if let Some(dev_dir) = &dev_entangled_dir {
-                s.entangled_dir = dev_dir.to_string_lossy().to_string();
-            }
+            let s = app_settings.clone();
             let p = app_presets.clone();
             let new_version = platform::get_version();
             let old_v = old_version.clone();
@@ -158,21 +127,17 @@ impl HallintaApp {
             });
         }
 
-        // Dev mode setup
-        let active_noita_dir = dev_noita_dir
-            .as_ref()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| app_settings.noita_dir.clone());
+        let noita_dir = app_settings.noita_dir.clone();
 
-        // Load mods from active directory
+        // Load mods from the configured Noita directory.
         let selected_preset = app_settings.selected_preset.clone();
         let mut current_mods = app_presets
             .get(&selected_preset)
             .cloned()
             .unwrap_or_default();
 
-        if !active_noita_dir.is_empty() {
-            let noita_path = PathBuf::from(&active_noita_dir);
+        if !noita_dir.is_empty() {
+            let noita_path = PathBuf::from(&noita_dir);
             match mods::read_mod_config(&noita_path) {
                 Ok(xml) => match mods::parse_mods_from_xml(&xml) {
                     Ok(file_mods) => {
@@ -248,8 +213,8 @@ impl HallintaApp {
 
         // File watcher: get initial mtime
         let mut file_watcher_state = FileWatcherState::new();
-        if !active_noita_dir.is_empty() {
-            let config_path = PathBuf::from(&active_noita_dir).join("mod_config.xml");
+        if !noita_dir.is_empty() {
+            let config_path = PathBuf::from(&noita_dir).join("mod_config.xml");
             if let Ok(mtime) = mods::get_file_modified_time(&config_path) {
                 file_watcher_state.last_modified_time = mtime;
             }

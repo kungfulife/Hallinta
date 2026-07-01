@@ -86,7 +86,7 @@ impl HallintaApp {
     }
 
     fn check_external_changes(&mut self) {
-        let noita_dir = self.get_active_noita_dir();
+        let noita_dir = self.settings.noita_dir.clone();
         if noita_dir.is_empty() {
             return;
         }

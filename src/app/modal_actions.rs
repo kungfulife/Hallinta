@@ -337,9 +337,9 @@ impl HallintaApp {
                 let include_presets = selected.contains(&"presets".to_string());
                 let include_entangled = selected.contains(&"entangled".to_string());
 
-                let noita_dir = PathBuf::from(self.get_active_noita_dir());
+                let noita_dir = PathBuf::from(self.settings.noita_dir.clone());
                 let entangled_dir = if include_entangled {
-                    self.get_active_entangled_dir().map(PathBuf::from)
+                    self.configured_entangled_dir().map(PathBuf::from)
                 } else {
                     None
                 };
@@ -410,9 +410,9 @@ impl HallintaApp {
                         }
                     }
                     Some(RestoreChecklistStep::RestoreBackup(filename)) => {
-                        let noita_dir = PathBuf::from(self.get_active_noita_dir());
+                        let noita_dir = PathBuf::from(self.settings.noita_dir.clone());
                         let entangled_dir = if selected_has(&selected, "entangled") {
-                            self.get_active_entangled_dir().map(PathBuf::from)
+                            self.configured_entangled_dir().map(PathBuf::from)
                         } else {
                             None
                         };
@@ -449,9 +449,9 @@ impl HallintaApp {
                 }
             }
             ChecklistAction::RestoreSnapshot(zip_path) => {
-                let noita_dir = PathBuf::from(self.get_active_noita_dir());
+                let noita_dir = PathBuf::from(self.settings.noita_dir.clone());
                 let entangled_dir = if selected_has(&selected, "entangled") {
-                    self.get_active_entangled_dir().map(PathBuf::from)
+                    self.configured_entangled_dir().map(PathBuf::from)
                 } else {
                     None
                 };
