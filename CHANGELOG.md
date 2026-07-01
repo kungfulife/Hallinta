@@ -25,6 +25,9 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 - **Backups**: Wired the previously dead `backup_settings.auto_delete_days` and
   `backup_interval_minutes` settings; auto-cleanup runs every 6h, auto-backup runs
   on the configured interval. Both log their activity
+- **Backups**: Backup creation now fails with a clear error when the configured
+  Noita save directory is missing or invalid, instead of producing a zip without
+  `save00` data
 - **Quick Restore**: Added "Restore Latest" sidebar button — one-click restore of
   the most recent backup with default options
 - **Search/Filter/Sort**:

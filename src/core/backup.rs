@@ -85,6 +85,28 @@ pub fn add_directory_to_zip(
     Ok(())
 }
 
+fn validate_save00_source(noita_dir: &Path) -> Result<(), String> {
+    if noita_dir.as_os_str().is_empty() {
+        return Err(
+            "No Noita save directory configured; set it in Settings before creating backups"
+                .to_string(),
+        );
+    }
+    if !noita_dir.exists() {
+        return Err(format!(
+            "Noita save directory does not exist: {}",
+            noita_dir.display()
+        ));
+    }
+    if !noita_dir.is_dir() {
+        return Err(format!(
+            "Noita save directory is not a directory: {}",
+            noita_dir.display()
+        ));
+    }
+    Ok(())
+}
+
 pub fn create_backup(
     noita_dir: &Path,
     include_save01: bool,
@@ -92,6 +114,8 @@ pub fn create_backup(
     include_entangled: bool,
     entangled_dir: Option<&Path>,
 ) -> Result<String, String> {
+    validate_save00_source(noita_dir)?;
+
     let data_dir = get_data_dir()?;
     let backups_dir = data_dir.join("backups");
     if !backups_dir.exists() {
@@ -671,5 +695,23 @@ mod tests {
         assert!(!is_safe_relative("/etc/passwd"));
         #[cfg(windows)]
         assert!(!is_safe_relative("C:\\Windows\\System32\\evil.dll"));
+    }
+
+    #[test]
+    fn save00_source_must_exist_before_backup() {
+        let missing = std::env::temp_dir().join(format!(
+            "hallinta_missing_save00_{}_{}",
+            std::process::id(),
+            "backup"
+        ));
+        std::fs::remove_dir_all(&missing).ok();
+
+        let err = super::create_backup(&missing, false, false, false, None)
+            .expect_err("missing save00 source should fail backup creation");
+
+        assert!(
+            err.contains("Noita save directory does not exist"),
+            "unexpected error: {err}"
+        );
     }
 }
