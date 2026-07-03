@@ -1,11 +1,10 @@
 use super::HallintaApp;
 use crate::models::{
-    AppSettings, BackupSettings, BackupState, FileWatcherState, FilterMode, LogSettings, ModEntry,
+    AppSettings, BackupState, FileWatcherState, FilterMode, LogSettings, ModEntry,
     SaveMonitorSettings, SaveMonitorState, SortMode, View,
 };
 use std::collections::BTreeMap;
 use std::sync::mpsc;
-use std::time::Instant;
 
 pub(crate) fn mod_entry(name: &str, enabled: bool, workshop_id: &str) -> ModEntry {
     ModEntry {
@@ -24,7 +23,6 @@ fn default_settings() -> AppSettings {
         selected_preset: "Default".to_string(),
         version: "test".to_string(),
         log_settings: LogSettings::default(),
-        backup_settings: BackupSettings::default(),
         save_monitor_settings: SaveMonitorSettings::default(),
         steam_path: String::new(),
         compact_mode: false,
@@ -37,7 +35,6 @@ fn default_settings() -> AppSettings {
 pub(crate) fn test_app(current_mods: Vec<ModEntry>) -> (tokio::runtime::Runtime, HallintaApp) {
     let runtime = tokio::runtime::Runtime::new().expect("test runtime should start");
     let (task_tx, task_rx) = mpsc::channel();
-    let now = Instant::now();
     let app = HallintaApp {
         settings: default_settings(),
         presets: BTreeMap::new(),
@@ -57,10 +54,9 @@ pub(crate) fn test_app(current_mods: Vec<ModEntry>) -> (tokio::runtime::Runtime,
         task_tx,
         task_rx,
         drag_state: None,
-        last_log_flush: now,
-        last_auto_backup: None,
         normal_window_size: None,
         deferred_viewport_action: None,
+        pending_viewport_center: None,
         close_requested: false,
         close_after_snapshot: false,
         focus_search_requested: false,

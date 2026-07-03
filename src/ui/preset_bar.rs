@@ -34,6 +34,7 @@ pub fn render_preset_bar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                         app.active_modal = Some(Modal::Input {
                             title: "Enter name for new preset:".to_string(),
                             value: default_name,
+                            hint: String::new(),
                             action: InputAction::CreatePreset,
                         });
                     }
@@ -61,6 +62,7 @@ pub fn render_preset_bar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 app.active_modal = Some(Modal::Input {
                     title: format!("Enter new name for \"{}\":", app.selected_preset),
                     value: app.selected_preset.clone(),
+                    hint: String::new(),
                     action: InputAction::RenamePreset,
                 });
             }
@@ -78,6 +80,7 @@ pub fn render_preset_bar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     cancel_text: "Cancel".to_string(),
                     action: ConfirmAction::DeletePreset,
                     cancel_action: None,
+                    dismissable: false,
                 });
             }
         });

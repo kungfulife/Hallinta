@@ -110,25 +110,7 @@ impl HallintaApp {
         let was_compact = self.compact_mode;
         self.compact_mode = self.settings.compact_mode;
         if was_compact != self.compact_mode {
-            let scale = self.settings.ui_scale;
-            if self.compact_mode {
-                let current_size = ctx.input(|i| i.content_rect().size());
-                if current_size.x > 500.0 {
-                    self.normal_window_size = Some(current_size);
-                }
-                self.queue_viewport_resize(
-                    ctx,
-                    crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_COMPACT, scale),
-                    crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_COMPACT, scale),
-                );
-            } else {
-                let min =
-                    crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_NORMAL, scale);
-                let size = self.normal_window_size.unwrap_or_else(|| {
-                    crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_NORMAL, scale)
-                });
-                self.queue_viewport_resize(ctx, size, min);
-            }
+            self.apply_compact_mode_viewport(ctx);
         }
         self.save_current_settings();
     }
@@ -141,6 +123,10 @@ impl HallintaApp {
     /// window in the same batch, then queue the correct minimum for the next frame
     /// via `deferred_min_size`.
     pub fn on_ui_scale_changed(&mut self, ctx: &egui::Context, prev_scale: f32) {
+        if (self.settings.ui_scale - prev_scale).abs() < 0.001 {
+            return;
+        }
+
         let scale = self.settings.ui_scale;
         let base_min = if self.compact_mode {
             crate::ui::design::BASE_MIN_COMPACT
@@ -149,18 +135,17 @@ impl HallintaApp {
         };
 
         let new_min = crate::ui::design::scaled_min_size(base_min, scale);
-
-        // Scale the current window size proportionally to the scale change
         let current_size = ctx.input(|i| i.content_rect().size());
         let ratio = scale / prev_scale;
         let new_w = (current_size.x * ratio).max(new_min.x);
         let new_h = (current_size.y * ratio).max(new_min.y);
+        let new_size = egui::vec2(new_w, new_h);
 
-        self.queue_viewport_resize(ctx, egui::vec2(new_w, new_h), new_min);
+        self.capture_viewport_center(ctx);
+        self.queue_viewport_resize(ctx, new_size, new_min);
 
-        // Update stored normal size so compact→normal restores correctly
         if !self.compact_mode {
-            self.normal_window_size = Some(egui::vec2(new_w, new_h));
+            self.normal_window_size = Some(new_size);
         }
 
         self.save_current_settings();
@@ -183,10 +168,14 @@ impl HallintaApp {
         self.compact_mode = !self.compact_mode;
         self.settings.compact_mode = self.compact_mode;
         let _ = settings::save_settings(&self.settings);
+        self.apply_compact_mode_viewport(ctx);
+    }
 
+    fn apply_compact_mode_viewport(&mut self, ctx: &egui::Context) {
         let scale = self.settings.ui_scale;
+        self.capture_viewport_center(ctx);
+
         if self.compact_mode {
-            // Save current size before shrinking
             let current_size = ctx.input(|i| i.content_rect().size());
             if current_size.x > 500.0 {
                 self.normal_window_size = Some(current_size);
@@ -205,17 +194,69 @@ impl HallintaApp {
         }
     }
 
+    fn capture_viewport_center(&mut self, ctx: &egui::Context) {
+        self.pending_viewport_center = ctx.input(|i| {
+            let viewport = i.viewport();
+            let outer = viewport.outer_rect?;
+            let monitor = viewport.monitor_size?;
+            if monitor.x <= 0.0 || monitor.y <= 0.0 {
+                return None;
+            }
+            let center = outer.center();
+            Some((center.x / monitor.x, center.y / monitor.y))
+        });
+    }
+
     fn queue_viewport_resize(
         &mut self,
         ctx: &egui::Context,
         inner_size: egui::Vec2,
         min_size: egui::Vec2,
     ) {
+        let current = ctx.input(|i| i.content_rect().size());
+        if (current - inner_size).length_sq() < 4.0 && self.deferred_viewport_action.is_none() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(min_size));
+            self.queue_viewport_reposition(ctx, inner_size);
+            return;
+        }
+
         ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(1.0, 1.0)));
         self.deferred_viewport_action = Some(DeferredViewportAction::ResizeThenMin {
             inner_size,
             min_size,
         });
+    }
+
+    pub(super) fn queue_viewport_reposition(
+        &mut self,
+        ctx: &egui::Context,
+        inner_size: egui::Vec2,
+    ) {
+        let Some((frac_x, frac_y)) = self.pending_viewport_center.take() else {
+            return;
+        };
+        let Some(outer_pos) = ctx.input(|i| {
+            let viewport = i.viewport();
+            let monitor = viewport.monitor_size?;
+            let outer = viewport.outer_rect?;
+            let inner = viewport.inner_rect.unwrap_or(i.content_rect());
+            let decoration = egui::vec2(
+                (outer.width() - inner.width()).max(0.0),
+                (outer.height() - inner.height()).max(0.0),
+            );
+            let target_outer_w = inner_size.x + decoration.x;
+            let target_outer_h = inner_size.y + decoration.y;
+            let center_x = frac_x * monitor.x;
+            let center_y = frac_y * monitor.y;
+            let x =
+                (center_x - target_outer_w * 0.5).clamp(0.0, (monitor.x - target_outer_w).max(0.0));
+            let y =
+                (center_y - target_outer_h * 0.5).clamp(0.0, (monitor.y - target_outer_h).max(0.0));
+            Some(egui::pos2(x, y))
+        }) else {
+            return;
+        };
+        self.deferred_viewport_action = Some(DeferredViewportAction::Reposition { outer_pos });
     }
 
     pub fn reload_mods(&mut self) {

@@ -185,6 +185,8 @@ pub fn log(level: &str, message: &str, module: &str) -> Result<(), String> {
     if let Ok(mut file_buffer) = LOG_FILE_BUFFER.lock() {
         file_buffer.push_back(entry);
     }
+    // Write through: logs hit disk when emitted, not on a timer.
+    let _ = flush_log_buffer();
     Ok(())
 }
 

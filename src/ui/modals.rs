@@ -24,6 +24,7 @@ pub fn render_modals(app: &mut HallintaApp, ctx: &egui::Context) {
             cancel_text,
             action,
             cancel_action,
+            dismissable,
         } => {
             render_confirm(
                 app,
@@ -33,14 +34,16 @@ pub fn render_modals(app: &mut HallintaApp, ctx: &egui::Context) {
                 &cancel_text,
                 action,
                 cancel_action,
+                dismissable,
             );
         }
         Modal::Input {
             title,
             mut value,
+            hint,
             action,
         } => {
-            render_input(app, ctx, &title, &mut value, action);
+            render_input(app, ctx, &title, &mut value, &hint, action);
         }
         Modal::Checklist {
             title,
@@ -82,6 +85,7 @@ pub fn render_modals(app: &mut HallintaApp, ctx: &egui::Context) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render_confirm(
     app: &mut HallintaApp,
     ctx: &egui::Context,
@@ -90,28 +94,49 @@ fn render_confirm(
     cancel_text: &str,
     action: ConfirmAction,
     cancel_action: Option<ConfirmAction>,
+    dismissable: bool,
 ) {
     let d = crate::ui::design::Design::new(ctx, &app.settings);
     let mut confirmed = false;
     let mut cancelled = false;
+    let mut open = true;
+    let mut dismissed = false;
 
-    egui::Window::new("Confirm")
-        .collapsible(false)
-        .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-        .order(egui::Order::Foreground)
-        .show(ctx, |ui| {
-            ui.label(message);
-            ui.add_space(d.md);
+    let paint_confirm = |ui: &mut egui::Ui| {
+        if dismissable {
             ui.horizontal(|ui| {
-                if ui.button(confirm_text).clicked() {
-                    confirmed = true;
-                }
-                if ui.button(cancel_text).clicked() {
-                    cancelled = true;
-                }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.button("✕").on_hover_text("Cancel").clicked() {
+                        dismissed = true;
+                    }
+                });
             });
+        }
+        ui.label(message);
+        ui.add_space(d.md);
+        ui.horizontal(|ui| {
+            if ui.button(confirm_text).clicked() {
+                confirmed = true;
+            }
+            if ui.button(cancel_text).clicked() {
+                cancelled = true;
+            }
         });
+    };
+
+    let base_window = || {
+        egui::Window::new("Confirm")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .order(egui::Order::Foreground)
+    };
+
+    if dismissable {
+        base_window().open(&mut open).show(ctx, paint_confirm);
+    } else {
+        base_window().show(ctx, paint_confirm);
+    }
 
     if confirmed {
         app.handle_confirm_action(action);
@@ -119,15 +144,16 @@ fn render_confirm(
         if let Some(cancel_act) = cancel_action {
             app.handle_confirm_action(cancel_act);
         }
-        // Otherwise just close
+    } else if dismissed || (!open && dismissable) {
+        app.handle_confirm_action(ConfirmAction::DismissConfirm);
     } else {
-        // Still open
         app.active_modal = Some(Modal::Confirm {
             message: message.to_string(),
             confirm_text: confirm_text.to_string(),
             cancel_text: cancel_text.to_string(),
             action,
             cancel_action,
+            dismissable,
         });
     }
 }
@@ -137,6 +163,7 @@ fn render_input(
     ctx: &egui::Context,
     title: &str,
     value: &mut String,
+    hint: &str,
     action: InputAction,
 ) {
     let d = crate::ui::design::Design::new(ctx, &app.settings);
@@ -149,7 +176,20 @@ fn render_input(
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
         .show(ctx, |ui| {
-            let response = ui.text_edit_singleline(value);
+            if !hint.is_empty() {
+                let hint_color = ui.visuals().weak_text_color();
+                ui.label(
+                    egui::RichText::new(format!("Default: {}", hint))
+                        .italics()
+                        .color(hint_color),
+                );
+                ui.add_space(d.xs);
+            }
+            let response = ui.add(
+                egui::TextEdit::singleline(value)
+                    .hint_text(hint)
+                    .desired_width(280.0),
+            );
             if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 confirmed = true;
             }
@@ -170,6 +210,7 @@ fn render_input(
         app.active_modal = Some(Modal::Input {
             title: title.to_string(),
             value: value.clone(),
+            hint: hint.to_string(),
             action,
         });
     }
@@ -576,6 +617,7 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
             cancel_text: "Cancel".to_string(),
             action: ConfirmAction::DeleteBackup(filename),
             cancel_action: None,
+            dismissable: false,
         });
     } else if open {
         app.active_modal = Some(Modal::BackupManager);
@@ -603,14 +645,21 @@ fn render_restore_manager(
         "Monitor Sessions".to_string()
     };
 
+    let viewport = ctx.content_rect();
+    let scale = app.settings.ui_scale;
+    let modal_width = (360.0 * scale).min((viewport.width() * 0.92).max(240.0));
+    let scroll_height = (viewport.height() * 0.55).clamp(180.0, 420.0);
+
     egui::Window::new(title)
         .collapsible(false)
         .resizable(false)
-        .default_width(500.0)
+        .default_width(modal_width)
+        .max_width(modal_width)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .order(egui::Order::Foreground)
         .open(&mut open)
         .show(ctx, |ui| {
+            ui.set_width(modal_width - 24.0);
             if let Some((ref _session_id, ref _session_name)) = selected_session {
                 // ── Snapshot list view ──
                 ui.horizontal(|ui| {
@@ -637,7 +686,8 @@ fn render_restore_manager(
                     ui.add_space(d.sm);
 
                     egui::ScrollArea::vertical()
-                        .max_height(350.0)
+                        .max_height(scroll_height)
+                        .auto_shrink([false, false])
                         .show(ui, |ui| {
                             let snaps = snapshots.clone();
                             for snap in &snaps {
@@ -680,37 +730,42 @@ fn render_restore_manager(
                     ui.add_space(d.sm);
 
                     egui::ScrollArea::vertical()
-                        .max_height(400.0)
+                        .max_height(scroll_height)
+                        .auto_shrink([false, false])
                         .show(ui, |ui| {
+                            ui.set_width(ui.available_width());
                             let sess = sessions.clone();
                             for session in &sess {
+                                let is_live = app.save_monitor.is_running()
+                                    && app
+                                        .save_monitor
+                                        .current_session
+                                        .as_ref()
+                                        .is_some_and(|current| current.id == session.id);
+
                                 egui::Frame::group(ui.style())
                                     .inner_margin(egui::Margin::same(d.sm as i8))
                                     .show(ui, |ui| {
                                         ui.horizontal(|ui| {
                                             ui.vertical(|ui| {
+                                                ui.set_max_width(ui.available_width() * 0.55);
                                                 ui.label(
                                                     egui::RichText::new(&session.name).strong(),
                                                 );
-                                                let status_text = match session.status {
-                                                    SessionStatus::Active => "Active",
-                                                    SessionStatus::Paused => "Paused",
-                                                    SessionStatus::Ended => "Ended",
-                                                };
-                                                let status_color = match session.status {
-                                                    SessionStatus::Active => d.status_ok,
-                                                    SessionStatus::Paused => {
-                                                        egui::Color32::from_rgb(230, 180, 50)
-                                                    }
-                                                    SessionStatus::Ended => {
-                                                        ui.visuals().weak_text_color()
-                                                    }
-                                                };
-                                                ui.colored_label(status_color, status_text);
+                                                if is_live {
+                                                    ui.colored_label(
+                                                        d.status_ok,
+                                                        egui::RichText::new("Monitoring").strong(),
+                                                    );
+                                                }
                                                 ui.label(format!(
                                                     "Started: {}",
                                                     &session.started_at
                                                         [..19.min(session.started_at.len())]
+                                                ));
+                                                ui.label(format!(
+                                                    "{} snapshot(s)",
+                                                    session.snapshot_count
                                                 ));
                                             });
                                             ui.with_layout(
@@ -728,7 +783,21 @@ fn render_restore_manager(
                                                             session.id.clone(),
                                                         ));
                                                     }
-                                                    if session.status != SessionStatus::Active
+                                                    if !is_live && ui.button("Rename").clicked() {
+                                                        app.active_modal = Some(Modal::Input {
+                                                            title: "Rename session".to_string(),
+                                                            value: session.name.clone(),
+                                                            hint: String::new(),
+                                                            action:
+                                                                InputAction::RenameMonitorSession {
+                                                                    preset_name: session
+                                                                        .preset_name
+                                                                        .clone(),
+                                                                    session_id: session.id.clone(),
+                                                                },
+                                                        });
+                                                    }
+                                                    if !is_live
                                                         && ui
                                                             .button(
                                                                 egui::RichText::new("Delete")
@@ -776,7 +845,7 @@ fn render_restore_manager(
         let _ = crate::core::save_monitor::delete_session_snapshots(&preset, &sid);
         app.load_sessions_async();
     } else if let Some((preset, sid)) = open_session_dir {
-        if let Ok(dir) = crate::core::save_monitor::get_session_dir(&preset, &sid) {
+        if let Ok(dir) = crate::core::save_monitor::get_session_dir_by_id(&preset, &sid) {
             let _ = crate::core::platform::open_directory(&dir);
         }
         app.active_modal = Some(Modal::RestoreManager {

@@ -1,11 +1,10 @@
-use crate::core::{backup, logging, mods, platform, presets, settings};
+use crate::core::{backup, logging, mods, platform, presets, save_monitor, settings};
 use crate::models::*;
 use crate::tasks::TaskResult;
 use eframe::egui;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::time::Instant;
 
 mod actions;
 mod async_tasks;
@@ -54,10 +53,6 @@ pub struct HallintaApp {
     // Drag state
     pub drag_state: Option<DragState>,
 
-    // Timers
-    last_log_flush: Instant,
-    last_auto_backup: Option<Instant>,
-
     // Normal mode window size (for restoring after compact)
     normal_window_size: Option<egui::Vec2>,
 
@@ -65,6 +60,7 @@ pub struct HallintaApp {
     // previous min-size if both commands land in one frame, so size changes
     // are applied over two follow-up frames.
     deferred_viewport_action: Option<DeferredViewportAction>,
+    pending_viewport_center: Option<(f32, f32)>,
 
     // Track whether close was requested while monitor is running
     close_requested: bool,
@@ -93,7 +89,6 @@ impl HallintaApp {
                 selected_preset: "Default".to_string(),
                 version: platform::get_version(),
                 log_settings: LogSettings::default(),
-                backup_settings: BackupSettings::default(),
                 save_monitor_settings: SaveMonitorSettings::default(),
                 steam_path: String::new(),
                 compact_mode: false,
@@ -223,8 +218,20 @@ impl HallintaApp {
             }
         }
 
-        let now = Instant::now();
         let backup_state = BackupState::new();
+
+        if let Ok(fixed) = save_monitor::reconcile_interrupted_sessions()
+            && fixed > 0
+        {
+            let _ = logging::log(
+                "INFO",
+                &format!(
+                    "Reconciled {} interrupted monitor session(s) to Paused",
+                    fixed
+                ),
+                "SaveMonitor",
+            );
+        }
 
         let save_monitor_state = SaveMonitorState::new();
 
@@ -249,10 +256,9 @@ impl HallintaApp {
             task_tx,
             task_rx,
             drag_state: None,
-            last_log_flush: now,
-            last_auto_backup: None,
             normal_window_size: None,
             deferred_viewport_action: None,
+            pending_viewport_center: None,
             close_requested: false,
             close_after_snapshot: false,
             focus_search_requested: false,
@@ -281,19 +287,6 @@ impl HallintaApp {
             ),
             "App",
         );
-        let bs = &app.settings.backup_settings;
-        let _ = logging::log(
-            "INFO",
-            &format!(
-                "Backup config: auto-backup {}",
-                if bs.backup_interval_minutes > 0 {
-                    format!("every {}min", bs.backup_interval_minutes)
-                } else {
-                    "off".to_string()
-                },
-            ),
-            "Backup",
-        );
         logging::write_session_marker(&format!("APP_INITIALIZED:v{}", platform::get_version()));
         app
     }
@@ -307,5 +300,8 @@ enum DeferredViewportAction {
     },
     ApplyMin {
         min_size: egui::Vec2,
+    },
+    Reposition {
+        outer_pos: egui::Pos2,
     },
 }

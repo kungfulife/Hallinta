@@ -80,7 +80,7 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
         if is_locked {
             ui.colored_label(
                 d.status_ok,
-                egui::RichText::new("● MONITOR ACTIVE")
+                egui::RichText::new("● MONITORING")
                     .size(d.font_body)
                     .strong(),
             );

@@ -1,6 +1,6 @@
 use super::HallintaApp;
 use crate::core::{logging, save_monitor};
-use crate::models::SessionStatus;
+use crate::models::{InputAction, Modal, SessionStatus};
 use crate::tasks::TaskResult;
 use std::time::Instant;
 
@@ -19,8 +19,22 @@ impl HallintaApp {
         });
     }
 
-    pub fn start_new_monitor_session(&mut self) {
-        let name = save_monitor::generate_session_name();
+    pub fn prompt_new_monitor_session(&mut self) {
+        let default_name = save_monitor::generate_session_name();
+        self.active_modal = Some(Modal::Input {
+            title: "Name this monitor session".to_string(),
+            value: String::new(),
+            hint: default_name,
+            action: InputAction::StartMonitorSession,
+        });
+    }
+
+    pub fn start_new_monitor_session(&mut self, name: Option<&str>) {
+        let name = name
+            .map(str::trim)
+            .filter(|n| !n.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(save_monitor::generate_session_name);
         let preset = self.selected_preset.clone();
         let mods = self.current_mods.clone();
         match save_monitor::create_session(&preset, &name, &mods) {
@@ -65,7 +79,7 @@ impl HallintaApp {
         let preset = self.selected_preset.clone();
         match save_monitor::load_session(&preset, session_id) {
             Ok(mut session) => {
-                session.status = SessionStatus::Active;
+                session.status = SessionStatus::Monitoring;
                 let _ = save_monitor::save_session(&session);
                 self.save_monitor.running = true;
                 self.save_monitor.snapshot_count = session.snapshot_count;
@@ -92,21 +106,6 @@ impl HallintaApp {
                 );
             }
         }
-    }
-
-    pub fn end_monitor_session(&mut self) {
-        if let Some(ref mut session) = self.save_monitor.current_session {
-            session.status = SessionStatus::Ended;
-            session.ended_at = Some(chrono::Utc::now().to_rfc3339());
-            let _ = save_monitor::save_session(session);
-        }
-        let count = self.save_monitor.snapshot_count;
-        self.save_monitor.running = false;
-        self.save_monitor.current_session = None;
-        self.save_monitor.pending_change_since = None;
-        let _ = logging::log("INFO", "Monitor session ended", "SaveMonitor");
-        logging::write_session_marker(&format!("MONITOR_STOP:snapshots={}", count));
-        self.show_pending_external_mods_after_monitor();
     }
 
     pub fn stop_save_monitor(&mut self) {

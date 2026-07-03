@@ -146,20 +146,6 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     {
                         app.stop_save_monitor();
                     }
-                    if ui
-                        .add_sized([btn_width, 0.0], egui::Button::new("End Session"))
-                        .on_hover_text("Permanently end the current session (snapshots are kept)")
-                        .clicked()
-                    {
-                        app.active_modal = Some(Modal::Confirm {
-                            message: "End the current monitoring session? Snapshots will be kept."
-                                .to_string(),
-                            confirm_text: "End Session".to_string(),
-                            cancel_text: "Cancel".to_string(),
-                            action: ConfirmAction::StopAndEndSession,
-                            cancel_action: None,
-                        });
-                    }
                 } else {
                     ui.add_enabled_ui(!backup_busy, |ui| {
                         if ui
@@ -197,6 +183,7 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                             cancel_text: "Cancel".to_string(),
                             action: ConfirmAction::ClearMonitorData,
                             cancel_action: None,
+                            dismissable: false,
                         });
                     }
                 });

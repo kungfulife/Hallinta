@@ -1,6 +1,6 @@
 use super::HallintaApp;
 use crate::core::{file_watcher, logging, mods};
-use crate::models::{LogSettings, ModEntry, Modal};
+use crate::models::{ModEntry, Modal};
 use eframe::egui;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -11,15 +11,6 @@ impl HallintaApp {
 
     pub(super) fn check_timers(&mut self, ctx: &egui::Context) {
         let now = Instant::now();
-
-        // Log flush
-        if self.settings.log_settings.auto_save
-            && now.duration_since(self.last_log_flush)
-                > log_flush_interval(&self.settings.log_settings)
-        {
-            let _ = logging::flush_log_buffer();
-            self.last_log_flush = now;
-        }
 
         // File watcher (every 5 seconds — paused while unfocused, eagerly fires on regain)
         let focused = ctx.input(|i| i.viewport().focused.unwrap_or(true));
@@ -42,23 +33,6 @@ impl HallintaApp {
         if should_check && self.active_modal.is_none() {
             self.file_watcher.last_check = Some(now);
             self.check_external_changes();
-        }
-
-        // Auto-backup scheduler
-        let interval_min = self.settings.backup_settings.backup_interval_minutes;
-        if interval_min > 0
-            && !self.backup_state.in_progress
-            && !self.backup_state.restoring
-            && !self.save_monitor.is_running()
-        {
-            let interval = Duration::from_secs(interval_min as u64 * 60);
-            let should_backup = self
-                .last_auto_backup
-                .is_none_or(|t| now.duration_since(t) > interval);
-            if should_backup {
-                self.last_auto_backup = Some(now);
-                self.start_auto_backup();
-            }
         }
 
         // Save monitor (change-detection based)
@@ -215,10 +189,6 @@ fn mods_equal(a: &[ModEntry], b: &[ModEntry]) -> bool {
     })
 }
 
-fn log_flush_interval(settings: &LogSettings) -> Duration {
-    Duration::from_secs(u64::from(settings.flush_interval_minutes.max(1)) * 60)
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::test_support::{mod_entry, test_app};
@@ -319,29 +289,5 @@ mod tests {
         assert_eq!(summary.removed, 1);
         assert_eq!(summary.enabled_changed, 1);
         assert!(summary.order_changed);
-    }
-
-    #[test]
-    fn auto_backup_scheduler_is_monitor_locked() {
-        let (_runtime, mut app) = test_app(Vec::new());
-        app.save_monitor.running = true;
-        app.settings.backup_settings.backup_interval_minutes = 1;
-
-        app.check_timers(&egui::Context::default());
-
-        assert!(app.last_auto_backup.is_none());
-
-        app.save_monitor.running = false;
-        app.check_timers(&egui::Context::default());
-
-        assert!(app.last_auto_backup.is_some());
-    }
-
-    #[test]
-    fn log_flush_interval_defaults_to_three_minutes() {
-        assert_eq!(
-            log_flush_interval(&LogSettings::default()),
-            Duration::from_secs(180)
-        );
     }
 }

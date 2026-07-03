@@ -23,6 +23,11 @@ impl HallintaApp {
                 }
                 super::DeferredViewportAction::ApplyMin { min_size } => {
                     ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(min_size));
+                    let inner_size = ctx.input(|i| i.content_rect().size());
+                    self.queue_viewport_reposition(ctx, inner_size);
+                }
+                super::DeferredViewportAction::Reposition { outer_pos } => {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(outer_pos));
                 }
             }
         }

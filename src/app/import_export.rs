@@ -267,6 +267,7 @@ impl HallintaApp {
                     cancel_text: "Cancel".to_string(),
                     action: ConfirmAction::ChecksumMismatchContinue(import),
                     cancel_action: None,
+                    dismissable: false,
                 });
                 return;
             }

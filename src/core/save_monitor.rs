@@ -29,22 +29,58 @@ fn sanitize_dirname(name: &str) -> String {
         .collect()
 }
 
+fn session_storage_key(session: &SessionInfo) -> &str {
+    if session.folder_name.is_empty() {
+        &session.id
+    } else {
+        &session.folder_name
+    }
+}
+
 fn session_dir_from_monitor_dir(
     monitor_dir: &Path,
     preset_name: &str,
-    session_id: &str,
+    storage_key: &str,
 ) -> PathBuf {
     monitor_dir
         .join(sanitize_dirname(preset_name))
-        .join(session_id)
+        .join(storage_key)
 }
 
-pub fn get_session_dir(preset_name: &str, session_id: &str) -> Result<PathBuf, String> {
+pub fn get_session_dir(preset_name: &str, session: &SessionInfo) -> Result<PathBuf, String> {
     Ok(session_dir_from_monitor_dir(
         &get_monitor_dir()?,
         preset_name,
-        session_id,
+        session_storage_key(session),
     ))
+}
+
+pub fn get_session_dir_by_id(preset_name: &str, session_id: &str) -> Result<PathBuf, String> {
+    let session = load_session(preset_name, session_id)?;
+    get_session_dir(preset_name, &session)
+}
+
+fn unique_folder_name(
+    monitor_dir: &Path,
+    preset_name: &str,
+    desired: &str,
+    session_id: &str,
+) -> String {
+    let preset_dir = monitor_dir.join(sanitize_dirname(preset_name));
+    let base = sanitize_dirname(desired);
+    let candidate = if base.is_empty() {
+        session_id.to_string()
+    } else {
+        base
+    };
+    if !preset_dir.join(&candidate).exists() {
+        return candidate;
+    }
+    let with_id = format!("{}_{}", candidate, session_id);
+    if !preset_dir.join(&with_id).exists() {
+        return with_id;
+    }
+    session_id.to_string()
 }
 
 // --- Session CRUD ---
@@ -56,7 +92,8 @@ pub fn create_session(
 ) -> Result<SessionInfo, String> {
     let monitor_dir = get_monitor_dir()?;
     let session_id = Utc::now().format("%Y%m%d_%H%M%S").to_string();
-    let session_dir = session_dir_from_monitor_dir(&monitor_dir, preset_name, &session_id);
+    let folder_name = unique_folder_name(&monitor_dir, preset_name, session_name, &session_id);
+    let session_dir = session_dir_from_monitor_dir(&monitor_dir, preset_name, &folder_name);
     fs::create_dir_all(&session_dir)
         .map_err(|e| format!("Failed to create session directory: {}", e))?;
 
@@ -66,9 +103,10 @@ pub fn create_session(
         preset_name: preset_name.to_string(),
         started_at: Utc::now().to_rfc3339(),
         ended_at: None,
-        status: SessionStatus::Active,
+        status: SessionStatus::Monitoring,
         snapshot_count: 0,
         locked_mods: locked_mods.to_vec(),
+        folder_name,
     };
     save_session(&session)?;
     Ok(session)
@@ -76,7 +114,11 @@ pub fn create_session(
 
 pub fn save_session(session: &SessionInfo) -> Result<(), String> {
     let monitor_dir = get_monitor_dir()?;
-    let session_dir = session_dir_from_monitor_dir(&monitor_dir, &session.preset_name, &session.id);
+    let session_dir = session_dir_from_monitor_dir(
+        &monitor_dir,
+        &session.preset_name,
+        session_storage_key(session),
+    );
     fs::create_dir_all(&session_dir)
         .map_err(|e| format!("Failed to create session directory: {}", e))?;
     let meta_path = session_dir.join("session.json");
@@ -88,11 +130,31 @@ pub fn save_session(session: &SessionInfo) -> Result<(), String> {
 
 pub fn load_session(preset_name: &str, session_id: &str) -> Result<SessionInfo, String> {
     let monitor_dir = get_monitor_dir()?;
-    let meta_path =
-        session_dir_from_monitor_dir(&monitor_dir, preset_name, session_id).join("session.json");
-    let content =
-        fs::read_to_string(&meta_path).map_err(|e| format!("Failed to read session: {}", e))?;
-    serde_json::from_str(&content).map_err(|e| format!("Failed to parse session: {}", e))
+    let preset_dir = monitor_dir.join(sanitize_dirname(preset_name));
+    if !preset_dir.exists() {
+        return Err("Session preset directory not found".to_string());
+    }
+
+    // New layout: folder_name may differ from id; legacy layout used id as folder.
+    for entry in fs::read_dir(&preset_dir).map_err(|e| format!("Failed to read: {}", e))? {
+        let entry = entry.map_err(|e| format!("Entry error: {}", e))?;
+        if !entry.path().is_dir() {
+            continue;
+        }
+        let meta_path = entry.path().join("session.json");
+        if !meta_path.exists() {
+            continue;
+        }
+        let content =
+            fs::read_to_string(&meta_path).map_err(|e| format!("Failed to read session: {}", e))?;
+        let session: SessionInfo = serde_json::from_str(&content)
+            .map_err(|e| format!("Failed to parse session: {}", e))?;
+        if session.id == session_id {
+            return Ok(session);
+        }
+    }
+
+    Err(format!("Session {} not found", session_id))
 }
 
 pub fn list_sessions(preset_name: &str) -> Result<Vec<SessionInfo>, String> {
@@ -125,6 +187,81 @@ pub fn list_paused_sessions(preset_name: &str) -> Result<Vec<SessionInfo>, Strin
         .collect())
 }
 
+/// Sessions left as Monitoring on disk were interrupted (crash/force-quit). Mark them Paused.
+pub fn reconcile_interrupted_sessions() -> Result<u32, String> {
+    let monitor_dir = get_monitor_dir()?;
+    let mut fixed = 0u32;
+    if !monitor_dir.exists() {
+        return Ok(0);
+    }
+
+    for preset_entry in fs::read_dir(&monitor_dir).map_err(|e| format!("Failed to read: {}", e))? {
+        let preset_entry = preset_entry.map_err(|e| format!("Entry error: {}", e))?;
+        if !preset_entry.path().is_dir() {
+            continue;
+        }
+        for session_entry in
+            fs::read_dir(preset_entry.path()).map_err(|e| format!("Failed to read: {}", e))?
+        {
+            let session_entry = session_entry.map_err(|e| format!("Entry error: {}", e))?;
+            let meta_path = session_entry.path().join("session.json");
+            if !meta_path.exists() {
+                continue;
+            }
+            let content = fs::read_to_string(&meta_path)
+                .map_err(|e| format!("Failed to read session: {}", e))?;
+            let mut session: SessionInfo = serde_json::from_str(&content)
+                .map_err(|e| format!("Failed to parse session: {}", e))?;
+            if session.status == SessionStatus::Monitoring {
+                session.status = SessionStatus::Paused;
+                save_session(&session)?;
+                fixed += 1;
+            }
+        }
+    }
+
+    Ok(fixed)
+}
+
+pub fn rename_session(
+    preset_name: &str,
+    session_id: &str,
+    new_name: &str,
+) -> Result<SessionInfo, String> {
+    let trimmed = new_name.trim();
+    if trimmed.is_empty() {
+        return Err("Session name cannot be empty".to_string());
+    }
+
+    let mut session = load_session(preset_name, session_id)?;
+    if session.status == SessionStatus::Monitoring {
+        return Err("Cannot rename a session that is currently monitoring".to_string());
+    }
+
+    let monitor_dir = get_monitor_dir()?;
+    let old_dir =
+        session_dir_from_monitor_dir(&monitor_dir, preset_name, session_storage_key(&session));
+    let new_folder = unique_folder_name(&monitor_dir, preset_name, trimmed, &session.id);
+    let new_dir = session_dir_from_monitor_dir(&monitor_dir, preset_name, &new_folder);
+
+    if old_dir != new_dir {
+        if new_dir.exists() {
+            return Err("A session folder with that name already exists".to_string());
+        }
+        if let Some(parent) = new_dir.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to prepare session directory: {}", e))?;
+        }
+        fs::rename(&old_dir, &new_dir)
+            .map_err(|e| format!("Failed to rename session folder: {}", e))?;
+    }
+
+    session.name = trimmed.to_string();
+    session.folder_name = new_folder;
+    save_session(&session)?;
+    Ok(session)
+}
+
 pub fn generate_session_name() -> String {
     chrono::Local::now()
         .format("Session %Y-%m-%d %H:%M")
@@ -142,7 +279,9 @@ pub fn create_snapshot_in_session(
     entangled_dir: Option<&str>,
 ) -> Result<String, String> {
     let monitor_dir = get_monitor_dir()?;
-    let session_dir = session_dir_from_monitor_dir(&monitor_dir, preset_name, session_id);
+    let session = load_session(preset_name, session_id)?;
+    let session_dir =
+        session_dir_from_monitor_dir(&monitor_dir, preset_name, session_storage_key(&session));
     if !session_dir.exists() {
         fs::create_dir_all(&session_dir)
             .map_err(|e| format!("Failed to create session directory: {}", e))?;
@@ -188,7 +327,9 @@ pub fn list_session_snapshots(
     session_id: &str,
 ) -> Result<Vec<SnapshotEntry>, String> {
     let monitor_dir = get_monitor_dir()?;
-    let session_dir = session_dir_from_monitor_dir(&monitor_dir, preset_name, session_id);
+    let session = load_session(preset_name, session_id)?;
+    let session_dir =
+        session_dir_from_monitor_dir(&monitor_dir, preset_name, session_storage_key(&session));
     if !session_dir.exists() {
         return Ok(Vec::new());
     }
@@ -227,7 +368,9 @@ pub fn cleanup_session_snapshots(
     keep_count: usize,
 ) -> Result<u32, String> {
     let monitor_dir = get_monitor_dir()?;
-    let session_dir = session_dir_from_monitor_dir(&monitor_dir, preset_name, session_id);
+    let session = load_session(preset_name, session_id)?;
+    let session_dir =
+        session_dir_from_monitor_dir(&monitor_dir, preset_name, session_storage_key(&session));
     if !session_dir.exists() {
         return Ok(0);
     }
@@ -262,7 +405,9 @@ pub fn cleanup_session_snapshots(
 
 pub fn delete_session_snapshots(preset_name: &str, session_id: &str) -> Result<(), String> {
     let monitor_dir = get_monitor_dir()?;
-    let session_dir = session_dir_from_monitor_dir(&monitor_dir, preset_name, session_id);
+    let session = load_session(preset_name, session_id)?;
+    let session_dir =
+        session_dir_from_monitor_dir(&monitor_dir, preset_name, session_storage_key(&session));
     if session_dir.exists() {
         fs::remove_dir_all(&session_dir).map_err(|e| format!("Failed to delete session: {}", e))?;
     }
@@ -286,7 +431,11 @@ pub fn get_snapshot_path(
     filename: &str,
 ) -> Result<PathBuf, String> {
     let monitor_dir = get_monitor_dir()?;
-    Ok(session_dir_from_monitor_dir(&monitor_dir, preset_name, session_id).join(filename))
+    let session = load_session(preset_name, session_id)?;
+    Ok(
+        session_dir_from_monitor_dir(&monitor_dir, preset_name, session_storage_key(&session))
+            .join(filename),
+    )
 }
 
 // --- Change detection ---
@@ -348,5 +497,17 @@ mod tests {
         let path = super::session_dir_from_monitor_dir(&monitor_dir, "My/Preset", "session-1");
 
         assert_eq!(path, monitor_dir.join("My_Preset").join("session-1"));
+    }
+
+    #[test]
+    fn unique_folder_name_avoids_collisions() {
+        let monitor_dir = PathBuf::from("monitor");
+        let preset_dir = monitor_dir.join("Default");
+        std::fs::create_dir_all(preset_dir.join("Run A")).unwrap();
+
+        let name = super::unique_folder_name(&monitor_dir, "Default", "Run A", "20260101_120000");
+
+        assert_eq!(name, "Run A_20260101_120000");
+        std::fs::remove_dir_all(&monitor_dir).ok();
     }
 }

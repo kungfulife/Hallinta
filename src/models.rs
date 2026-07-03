@@ -26,8 +26,6 @@ pub struct AppSettings {
     #[serde(default)]
     pub log_settings: LogSettings,
     #[serde(default)]
-    pub backup_settings: BackupSettings,
-    #[serde(default)]
     pub save_monitor_settings: SaveMonitorSettings,
     #[serde(default)]
     pub steam_path: String,
@@ -46,15 +44,8 @@ pub struct LogSettings {
     pub max_log_files: usize,
     pub max_log_size_mb: usize,
     pub log_level: String,
-    pub auto_save: bool,
-    #[serde(default = "default_log_flush_interval_minutes")]
-    pub flush_interval_minutes: u32,
     #[serde(default)]
     pub collect_system_info: bool,
-}
-
-pub fn default_log_flush_interval_minutes() -> u32 {
-    3
 }
 
 impl Default for LogSettings {
@@ -63,25 +54,8 @@ impl Default for LogSettings {
             max_log_files: 50,
             max_log_size_mb: 10,
             log_level: "INFO".to_string(),
-            auto_save: true,
-            flush_interval_minutes: default_log_flush_interval_minutes(),
             collect_system_info: false,
         }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct BackupSettings {
-    pub backup_interval_minutes: u32,
-}
-
-#[cfg(test)]
-mod backup_settings_tests {
-    use super::BackupSettings;
-
-    #[test]
-    fn backup_settings_default_keeps_auto_backup_off() {
-        assert_eq!(BackupSettings::default().backup_interval_minutes, 0);
     }
 }
 
@@ -102,7 +76,7 @@ fn default_max_snapshots_per_session() -> usize {
 }
 
 fn default_include_save01() -> bool {
-    false
+    true
 }
 
 fn default_ui_scale() -> f32 {
@@ -114,7 +88,7 @@ impl Default for SaveMonitorSettings {
         Self {
             max_snapshots_per_session: 15,
             include_entangled: false,
-            include_save01: false,
+            include_save01: true,
             start_in_monitor_mode: false,
         }
     }
@@ -187,9 +161,10 @@ pub struct OpenSourceLibrary {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum SessionStatus {
-    Active,
+    #[serde(alias = "Active")]
+    Monitoring,
+    #[serde(alias = "Ended")]
     Paused,
-    Ended,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -202,6 +177,9 @@ pub struct SessionInfo {
     pub status: SessionStatus,
     pub snapshot_count: u32,
     pub locked_mods: Vec<ModEntry>,
+    /// On-disk folder name under the preset directory. Defaults to `id` when empty.
+    #[serde(default)]
+    pub folder_name: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -300,10 +278,12 @@ pub enum Modal {
         cancel_text: String,
         action: ConfirmAction,
         cancel_action: Option<ConfirmAction>,
+        dismissable: bool,
     },
     Input {
         title: String,
         value: String,
+        hint: String,
         action: InputAction,
     },
     Checklist {
@@ -356,7 +336,7 @@ pub enum ConfirmAction {
     ClearMonitorData,
     ContinueMonitorSession(String), // session_id
     StartNewMonitorSession,
-    StopAndEndSession,
+    DismissConfirm,
 }
 
 #[derive(Clone, Debug)]
@@ -364,6 +344,11 @@ pub enum InputAction {
     CreatePreset,
     RenamePreset,
     MoveModToPosition(usize),
+    StartMonitorSession,
+    RenameMonitorSession {
+        preset_name: String,
+        session_id: String,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -492,8 +477,8 @@ mod log_settings_tests {
     use super::LogSettings;
 
     #[test]
-    fn log_settings_default_flush_interval_is_three_minutes() {
-        assert_eq!(LogSettings::default().flush_interval_minutes, 3);
+    fn log_settings_default_has_info_level() {
+        assert_eq!(LogSettings::default().log_level, "INFO");
     }
 }
 

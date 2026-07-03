@@ -243,80 +243,11 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 {
                     needs_save = true;
                 }
-                ui.horizontal(|ui| {
-                    ui.label("Write logs every:");
-                    if ui
-                        .add(
-                            egui::Slider::new(
-                                &mut app.settings.log_settings.flush_interval_minutes,
-                                1..=60,
-                            )
-                            .suffix(" min"),
-                        )
-                        .changed()
-                    {
-                        needs_save = true;
-                    }
-                    if ui
-                        .add(
-                            egui::DragValue::new(
-                                &mut app.settings.log_settings.flush_interval_minutes,
-                            )
-                            .range(1..=60)
-                            .suffix(" min"),
-                        )
-                        .changed()
-                    {
-                        needs_save = true;
-                    }
-                });
                 helper_text(
                     ui,
                     &d,
-                    "Shutdown and crash logs are still written immediately.",
+                    "Log entries are written when events occur (startup, shutdown, crashes).",
                 );
-            });
-
-            ui.add_space(d.md);
-
-            // ── Backup Settings ───────────────────────────────────────────
-            ui.group(|ui| {
-                ui.label(egui::RichText::new("Backups").strong().size(d.font_tab));
-                ui.add_space(d.sm);
-
-                ui.horizontal(|ui| {
-                    ui.label("Automatic backups:");
-                    if ui
-                        .add(
-                            egui::Slider::new(
-                                &mut app.settings.backup_settings.backup_interval_minutes,
-                                0..=120,
-                            )
-                            .suffix(" min"),
-                        )
-                        .changed()
-                    {
-                        needs_save = true;
-                    }
-                    if ui
-                        .add(
-                            egui::DragValue::new(
-                                &mut app.settings.backup_settings.backup_interval_minutes,
-                            )
-                            .range(0..=120)
-                            .suffix(" min"),
-                        )
-                        .changed()
-                    {
-                        needs_save = true;
-                    }
-                });
-                let backup_help = if app.settings.backup_settings.backup_interval_minutes == 0 {
-                    "Off. Set a minute interval to create automatic backups while idle."
-                } else {
-                    "Automatic backups wait while monitoring, restoring, or another backup is running."
-                };
-                helper_text(ui, &d, backup_help);
             });
 
             ui.add_space(d.md);
@@ -349,23 +280,54 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     &d,
                     "Oldest snapshots are removed when the limit is reached.",
                 );
-                if ui
-                    .checkbox(
-                        &mut app.settings.save_monitor_settings.include_save01,
-                        "Include save01 in snapshots",
-                    )
-                    .changed()
-                {
-                    needs_save = true;
+                let save01_available =
+                    crate::core::platform::save01_usable(&app.settings.noita_dir);
+                ui.add_enabled_ui(save01_available, |ui| {
+                    if ui
+                        .checkbox(
+                            &mut app.settings.save_monitor_settings.include_save01,
+                            "Include save01 in snapshots",
+                        )
+                        .changed()
+                    {
+                        needs_save = true;
+                    }
+                });
+                if !save01_available {
+                    ui.label(
+                        egui::RichText::new("save01 not found or empty — option unavailable")
+                            .italics()
+                            .color(ui.visuals().weak_text_color()),
+                    );
                 }
-                if ui
-                    .checkbox(
-                        &mut app.settings.save_monitor_settings.include_entangled,
-                        "Include Entangled Worlds in snapshots",
-                    )
-                    .changed()
-                {
-                    needs_save = true;
+
+                let entangled_available =
+                    crate::core::platform::entangled_dir_usable(&app.settings.entangled_dir);
+                ui.add_enabled_ui(entangled_available, |ui| {
+                    if ui
+                        .checkbox(
+                            &mut app.settings.save_monitor_settings.include_entangled,
+                            "Include Entangled Worlds in snapshots",
+                        )
+                        .changed()
+                    {
+                        needs_save = true;
+                    }
+                });
+                if !entangled_available {
+                    ui.label(
+                        egui::RichText::new(
+                            "Entangled Worlds directory missing or empty — option unavailable",
+                        )
+                        .italics()
+                        .color(ui.visuals().weak_text_color()),
+                    );
+                } else if app.settings.entangled_dir.trim().is_empty() {
+                    ui.label(
+                        egui::RichText::new("Set the Entangled Worlds directory above to enable")
+                            .italics()
+                            .color(ui.visuals().weak_text_color()),
+                    );
                 }
                 if ui
                     .checkbox(
@@ -431,6 +393,8 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     }
                     if let Ok(path) = crate::core::platform::get_entangled_worlds_save_path() {
                         defaults.entangled_dir = path.to_string_lossy().to_string();
+                        defaults.save_monitor_settings.include_entangled =
+                            crate::core::platform::entangled_dir_usable(&defaults.entangled_dir);
                     }
                     if let Ok(path) = crate::core::workshop::detect_steam_path() {
                         defaults.steam_path = path.to_string_lossy().to_string();
@@ -491,6 +455,14 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
     // Entangled dir changed
     if entangled_dir_lost_focus {
+        if !crate::core::platform::entangled_dir_usable(&app.settings.entangled_dir) {
+            app.settings.save_monitor_settings.include_entangled = false;
+        }
+        app.save_current_settings();
+    }
+
+    if noita_dir_lost_focus && !crate::core::platform::save01_usable(&app.settings.noita_dir) {
+        app.settings.save_monitor_settings.include_save01 = false;
         app.save_current_settings();
     }
 
@@ -523,7 +495,6 @@ fn default_settings() -> AppSettings {
         selected_preset: "Default".to_string(),
         version: crate::core::platform::get_version(),
         log_settings: Default::default(),
-        backup_settings: Default::default(),
         save_monitor_settings: Default::default(),
         steam_path: String::new(),
         compact_mode: false,

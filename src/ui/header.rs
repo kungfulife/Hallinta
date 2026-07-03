@@ -135,7 +135,7 @@ pub fn render_header(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 if app.save_monitor.is_running() {
                     ui.colored_label(
                         d.status_ok,
-                        egui::RichText::new("MONITOR ACTIVE").strong(),
+                        egui::RichText::new("MONITORING").strong(),
                     );
                 }
             });

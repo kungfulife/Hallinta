@@ -1,5 +1,5 @@
 use crate::core::{logging, platform};
-use crate::models::{AppSettings, BackupSettings, LogSettings, SaveMonitorSettings};
+use crate::models::{AppSettings, LogSettings, SaveMonitorSettings};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -37,6 +37,11 @@ pub fn load_settings() -> Result<AppSettings, String> {
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default();
 
+        let save_monitor_settings = SaveMonitorSettings {
+            include_entangled: platform::entangled_dir_usable(&entangled_dir),
+            ..Default::default()
+        };
+
         let default_settings = AppSettings {
             noita_dir,
             entangled_dir,
@@ -44,8 +49,7 @@ pub fn load_settings() -> Result<AppSettings, String> {
             selected_preset: "Default".to_string(),
             version: platform::get_version(),
             log_settings: LogSettings::default(),
-            backup_settings: BackupSettings::default(),
-            save_monitor_settings: SaveMonitorSettings::default(),
+            save_monitor_settings,
             steam_path,
             compact_mode: false,
             ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
@@ -148,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_save_and_load_settings_roundtrip() {
-        use crate::models::{BackupSettings, LogSettings, SaveMonitorSettings};
+        use crate::models::{LogSettings, SaveMonitorSettings};
 
         let dir = std::env::temp_dir().join("hallinta_settings_test");
         std::fs::create_dir_all(&dir).unwrap();
@@ -162,7 +166,6 @@ mod tests {
             selected_preset: "MyPreset".to_string(),
             version: "1.2.3".to_string(),
             log_settings: LogSettings::default(),
-            backup_settings: BackupSettings::default(),
             save_monitor_settings: SaveMonitorSettings::default(),
             steam_path: "/test/steam".to_string(),
             compact_mode: true,
@@ -200,11 +203,7 @@ mod tests {
             "log_settings": {
                 "max_log_files": 50,
                 "max_log_size_mb": 10,
-                "log_level": "INFO",
-                "auto_save": true
-            },
-            "backup_settings": {
-                "backup_interval_minutes": 0
+                "log_level": "INFO"
             },
             "save_monitor_settings": {
                 "interval_minutes": 3,

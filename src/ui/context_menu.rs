@@ -41,6 +41,7 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
         app.active_modal = Some(Modal::Input {
             title: format!("Move \"{}\" to position:", mod_name),
             value: (mod_index + 1).to_string(),
+            hint: String::new(),
             action: InputAction::MoveModToPosition(mod_index),
         });
         ui.close();
@@ -53,6 +54,7 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
             cancel_text: "Cancel".to_string(),
             action: ConfirmAction::DeleteMod(mod_index, mod_name.clone(), workshop_id.clone()),
             cancel_action: None,
+            dismissable: false,
         });
         ui.close();
     }

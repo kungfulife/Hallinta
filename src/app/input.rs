@@ -125,6 +125,7 @@ impl HallintaApp {
                 cancel_text: "Close Without Snapshot".to_string(),
                 action: ConfirmAction::ExitWithSnapshot,
                 cancel_action: Some(ConfirmAction::ExitWithoutSnapshot),
+                dismissable: false,
             });
         }
     }

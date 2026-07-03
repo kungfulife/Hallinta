@@ -184,16 +184,46 @@ impl HallintaApp {
                 self.resume_monitor_session(&session_id);
             }
             ConfirmAction::StartNewMonitorSession => {
-                self.start_new_monitor_session();
+                self.prompt_new_monitor_session();
             }
-            ConfirmAction::StopAndEndSession => {
-                self.end_monitor_session();
-            }
+            ConfirmAction::DismissConfirm => {}
         }
     }
 
     pub fn handle_input_action(&mut self, action: InputAction, value: String) {
         let value = value.trim().to_string();
+
+        match action {
+            InputAction::StartMonitorSession => {
+                let name = if value.is_empty() {
+                    None
+                } else {
+                    Some(value.as_str())
+                };
+                self.start_new_monitor_session(name);
+                return;
+            }
+            InputAction::RenameMonitorSession {
+                preset_name,
+                session_id,
+            } => {
+                if value.is_empty() {
+                    return;
+                }
+                match crate::core::save_monitor::rename_session(&preset_name, &session_id, &value) {
+                    Ok(_) => self.load_sessions_async(),
+                    Err(e) => {
+                        self.active_modal = Some(Modal::Info {
+                            title: "Rename Failed".to_string(),
+                            message: e,
+                        });
+                    }
+                }
+                return;
+            }
+            _ => {}
+        }
+
         if value.is_empty() {
             return;
         }
@@ -230,6 +260,7 @@ impl HallintaApp {
                     }
                 }
             }
+            InputAction::StartMonitorSession | InputAction::RenameMonitorSession { .. } => {}
             InputAction::MoveModToPosition(from_idx) => {
                 if let Ok(target) = value.parse::<usize>() {
                     let target_idx = target.saturating_sub(1);
@@ -336,6 +367,7 @@ impl HallintaApp {
                         cancel_text: "Rename".to_string(),
                         action: ConfirmAction::OverwritePresetImport(import.clone()),
                         cancel_action: Some(ConfirmAction::RenamePresetImport(import)),
+                        dismissable: false,
                     });
                 }
             }

@@ -41,10 +41,9 @@ Markers are written directly to the session file.
 
 1. `main()` installs the panic hook via `install_panic_logging_hook()`.
 2. `main()` starts the session via `init_log_session()` (`SESSION BEGIN` marker).
-3. During runtime, `log()` appends entries to an in-memory queue.
-4. `HallintaApp::check_timers()` in `src/app/timers.rs` calls `flush_log_buffer()` on the configured interval (default: every 3 minutes).
-5. On normal exit, `cleanup_on_exit()` in `src/app/lifecycle.rs` writes `APP_SHUTDOWN`, flushes synchronously, writes `SESSION END`, and flushes again.
-6. On panic, the panic hook logs panic details, flushes synchronously, and writes `SESSION CRASH`.
+3. During runtime, `log()` appends entries to an in-memory queue and flushes them to disk immediately.
+4. On normal exit, `cleanup_on_exit()` in `src/app/lifecycle.rs` writes `APP_SHUTDOWN`, flushes synchronously, writes `SESSION END`, and flushes again.
+5. On panic, the panic hook logs panic details, flushes synchronously, and writes `SESSION CRASH`.
 
 ## In-Memory Buffers
 
@@ -65,7 +64,6 @@ App markers:
 - `BACKUP_START`
 - `BACKUP_OK:<filename>`
 - `BACKUP_FAILED`
-- `AUTO_BACKUP_START:interval=<N>min`
 - `RESTORE_START` / `RESTORE_START:auto=<filename>`
 - `RESTORE_COMPLETE` / `RESTORE_FAILED`
 - `SNAPSHOT_RESTORE_START`
@@ -90,9 +88,8 @@ The `module` field categorizes events. Key modules:
   disruptive op, defensive aborts
 - `PresetManager` — create, rename, delete, switch (with mod-count delta),
   import/export, refusals (e.g. delete Default)
-- `Backup` — create / restore / delete with detail, auto-cleanup of old zips,
-  auto-backup invocation
-- `SaveMonitor` — session start / pause / end, snapshot create / cleanup
+- `Backup` — manual create / restore / delete with detail, upgrade-backup cleanup
+- `SaveMonitor` — session start / pause, snapshot create / cleanup, interrupted-session reconcile
 - `FileWatcher` — external `mod_config.xml` change detection
 - `Workshop` — install check results (installed / missing counts)
 - `CrashHandler` — panic payload, location, thread, backtrace
@@ -104,14 +101,11 @@ The `module` field categorizes events. Key modules:
 - `max_log_files`
 - `max_log_size_mb` (hardcoded to 10 MB, not user-adjustable)
 - `log_level`
-- `auto_save`
-- `flush_interval_minutes`
 - `collect_system_info`
 
 Current runtime behavior:
 - `collect_system_info` is active and controls startup system-information logging.
 - `log_level` filters entries before they enter the in-memory/file buffers.
-- `auto_save` and `flush_interval_minutes` control periodic file flushes while the app is running.
 - `max_log_files` is persisted but currently not enforced in `core::logging`.
 - `max_log_size_mb` is kept at 10 MB default and not exposed in the settings UI.
 

@@ -208,9 +208,9 @@ pub const SCALE_INTERNAL_DEFAULT: f32 = 1.25;
 // These are multiplied by the actual zoom factor to get the final size.
 // At default zoom 1.25: min = 680*1.25 × 520*1.25 = 850×650
 pub const BASE_MIN_NORMAL: (f32, f32) = (680.0, 520.0);
-pub const BASE_MIN_COMPACT: (f32, f32) = (240.0, 300.0);
+pub const BASE_MIN_COMPACT: (f32, f32) = (300.0, 380.0);
 pub const BASE_SIZE_NORMAL: (f32, f32) = (880.0, 640.0);
-pub const BASE_SIZE_COMPACT: (f32, f32) = (384.0, 320.0);
+pub const BASE_SIZE_COMPACT: (f32, f32) = (400.0, 420.0);
 
 /// Compute the scaled minimum window size for the current UI scale.
 /// Multiplies the base (zoom-1.0 logical pixels) by the zoom factor.

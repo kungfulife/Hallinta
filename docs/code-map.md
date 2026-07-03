@@ -23,7 +23,7 @@ Fast navigation notes for agents and maintainers.
 - `monitor.rs`: save monitor session lifecycle and snapshot scheduling.
 - `sorting.rs`: reusable mod sort helper.
 - `task_results.rs`: UI-thread handling for completed async work.
-- `timers.rs`: periodic log flushing, file-watch polling, backup cleanup, auto-backup, save-monitor scans.
+- `timers.rs`: file-watch polling and save-monitor change-detection scans.
 
 ## Domain Logic
 
@@ -43,7 +43,7 @@ Fast navigation notes for agents and maintainers.
 - `src/ui/sidebar.rs`: backup/restore/monitor/settings actions outside compact mode.
 - `src/ui/mod_list.rs`: main mod list, filters, sorting controls, monitor edit notice.
 - `src/ui/compact.rs`: compact monitor-focused layout.
-- `src/ui/settings.rs`: settings view and path/appearance/backup/logging controls.
+- `src/ui/settings.rs`: settings view and path/appearance/logging/save-monitor controls.
 - `src/ui/modals.rs`: modal rendering; behavior lives in `src/app/modal_actions.rs`.
 - `src/ui/context_menu.rs`: mod row context actions.
 - `src/ui/design.rs`, `src/ui/theme.rs`: spacing, sizing, zoom, colors.

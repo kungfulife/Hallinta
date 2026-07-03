@@ -1,6 +1,7 @@
 use crate::core::settings::get_data_dir;
 use crate::models::{OpenSourceLibrary, SystemInfo};
 use chrono::{Local, Utc};
+use std::fs;
 use std::path::{Path, PathBuf};
 
 // Generated at build time from Cargo.lock (BUG-4 fix)
@@ -84,6 +85,30 @@ pub fn get_noita_save_path() -> Result<PathBuf, String> {
 }
 
 /// BUG-5 FIX: Auto-detect returns the save/data path (not config path).
+/// True when the path is missing or contains no files/subdirectories.
+pub fn directory_missing_or_empty(path: &Path) -> bool {
+    if !path.exists() {
+        return true;
+    }
+    fs::read_dir(path)
+        .map(|mut entries| entries.next().is_none())
+        .unwrap_or(true)
+}
+
+pub fn entangled_dir_usable(path: &str) -> bool {
+    let trimmed = path.trim();
+    !trimmed.is_empty() && !directory_missing_or_empty(Path::new(trimmed))
+}
+
+pub fn save01_dir_for_noita(noita_dir: &str) -> Option<PathBuf> {
+    let save00 = PathBuf::from(noita_dir);
+    save00.parent().map(|parent| parent.join("save01"))
+}
+
+pub fn save01_usable(noita_dir: &str) -> bool {
+    save01_dir_for_noita(noita_dir).is_some_and(|path| !directory_missing_or_empty(&path))
+}
+
 pub fn get_entangled_worlds_save_path() -> Result<PathBuf, String> {
     #[cfg(target_os = "windows")]
     {

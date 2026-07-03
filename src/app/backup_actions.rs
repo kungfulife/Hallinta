@@ -42,29 +42,6 @@ impl HallintaApp {
         });
     }
 
-    /// Auto-backup: silent quick backup (save00 + presets, no entangled, no save01).
-    pub fn start_auto_backup(&mut self) {
-        let noita_dir = PathBuf::from(self.settings.noita_dir.clone());
-        if noita_dir.as_os_str().is_empty() {
-            return;
-        }
-        let tx = self.task_tx.clone();
-        self.backup_state.in_progress = true;
-        let _ = logging::log("INFO", "Auto-backup triggered", "Backup");
-        logging::write_session_marker(&format!(
-            "AUTO_BACKUP_START:interval={}min",
-            self.settings.backup_settings.backup_interval_minutes
-        ));
-        self.async_runtime.spawn(async move {
-            let result = tokio::task::spawn_blocking(move || {
-                backup::create_backup(&noita_dir, false, true, false, None)
-            })
-            .await
-            .unwrap_or_else(|e| Err(format!("Auto-backup task failed: {}", e)));
-            let _ = tx.send(TaskResult::BackupComplete(result));
-        });
-    }
-
     /// Restore the most recent backup with default options (one-click).
     pub fn restore_last_backup(&mut self) {
         match backup::list_backups() {
@@ -85,6 +62,7 @@ impl HallintaApp {
                     cancel_text: "Cancel".to_string(),
                     action: ConfirmAction::RestoreLatest(latest.filename.clone()),
                     cancel_action: None,
+                    dismissable: false,
                 });
             }
             Ok(_) => {

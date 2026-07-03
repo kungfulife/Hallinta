@@ -165,10 +165,11 @@ impl HallintaApp {
                             cancel_text: "New Session".to_string(),
                             action: ConfirmAction::ContinueMonitorSession(paused[0].id.clone()),
                             cancel_action: Some(ConfirmAction::StartNewMonitorSession),
+                            dismissable: true,
                         });
                     }
                     _ => {
-                        self.start_new_monitor_session();
+                        self.prompt_new_monitor_session();
                     }
                 },
                 TaskResult::SessionListLoaded(res) => {
