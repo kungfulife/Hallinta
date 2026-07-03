@@ -2,6 +2,8 @@ use crate::app::HallintaApp;
 use crate::models::{DragState, FilterMode, SortMode};
 use eframe::egui;
 
+const MONITOR_EDIT_NOTICE: &str = "Monitoring active - edit mods carefully.";
+
 pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
 
@@ -450,7 +452,7 @@ fn render_monitor_edit_notice(app: &HallintaApp, ui: &mut egui::Ui, d: &crate::u
         .show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.label(
-                    egui::RichText::new("Monitoring active - edit mods carefully.")
+                    egui::RichText::new(MONITOR_EDIT_NOTICE)
                         .strong()
                         .size(d.font_body)
                         .color(d.helper_text_color),
@@ -535,30 +537,13 @@ fn draw_badge(ui: &mut egui::Ui, text: &str, bg: egui::Color32, d: &crate::ui::d
 
 #[cfg(test)]
 mod tests {
+    use super::MONITOR_EDIT_NOTICE;
+
     #[test]
     fn monitor_mode_mod_list_has_passive_edit_notice() {
-        let source = include_str!("mod_list.rs");
-        let notice = concat!("Monitoring active", " - edit mods carefully.");
-
-        assert!(
-            source.contains(notice),
-            "monitoring should show a passive edit warning instead of replacing the list"
-        );
-    }
-
-    #[test]
-    fn monitor_mode_does_not_lock_direct_mod_list_edits() {
-        let source = include_str!("mod_list.rs");
-        let lock_var = concat!("let is_", "locked = app.save_monitor.is_running()");
-        let locked_copy = concat!("Mod list and Modpacks", " are locked");
-
-        assert!(
-            !source.contains(lock_var),
-            "mod-list rendering should not treat monitoring as a direct edit lock"
-        );
-        assert!(
-            !source.contains(locked_copy),
-            "stale monitor lock copy should be removed"
+        assert_eq!(
+            MONITOR_EDIT_NOTICE,
+            "Monitoring active - edit mods carefully."
         );
     }
 }

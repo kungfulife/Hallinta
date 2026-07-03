@@ -135,6 +135,7 @@ fn modal_can_be_dismissed_with_escape(modal: &Modal) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_support::{mod_entry, test_app};
     use super::*;
     use crate::models::ExternalModChangeSummary;
 
@@ -153,15 +154,14 @@ mod tests {
 
     #[test]
     fn bulk_enable_disable_is_not_monitor_locked() {
-        let source = include_str!("input.rs");
-        let bulk_monitor_return = concat!(
-            "if self.save_monitor.is_running()",
-            " {\n            return;\n        }"
-        );
+        let (_runtime, mut app) = test_app(vec![
+            mod_entry("Alpha", true, "1"),
+            mod_entry("Beta", true, "2"),
+        ]);
+        app.save_monitor.running = true;
 
-        assert!(
-            !source.contains(bulk_monitor_return),
-            "bulk mod-list edits should stay available while monitoring"
-        );
+        app.bulk_set_enabled(false);
+
+        assert!(app.current_mods.iter().all(|m| !m.enabled));
     }
 }

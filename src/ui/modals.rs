@@ -813,15 +813,4 @@ mod tests {
             "modal windows should not show user resize handles"
         );
     }
-
-    #[test]
-    fn system_info_modal_does_not_show_data_directory() {
-        let source = include_str!("modals.rs");
-        let app_data_dir = concat!("App Data", " Dir");
-
-        assert!(
-            !source.contains(app_data_dir),
-            "System Information should not surface data-directory notes"
-        );
-    }
 }

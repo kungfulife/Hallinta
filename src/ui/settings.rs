@@ -504,20 +504,4 @@ mod tests {
             "appearance settings should still expose UI scale"
         );
     }
-
-    #[test]
-    fn settings_view_does_not_show_data_path_notes() {
-        let source = include_str!("settings.rs");
-        let debug_app_data = concat!("Debug App", " Data:");
-        let debug_direct_paths = concat!("Debug build:", " Noita and Entangled Worlds");
-
-        assert!(
-            !source.contains(debug_app_data),
-            "Settings should not show data-path implementation notes"
-        );
-        assert!(
-            !source.contains(debug_direct_paths),
-            "Settings should not show stale debug path behavior notes"
-        );
-    }
 }

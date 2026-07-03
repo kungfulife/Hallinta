@@ -230,75 +230,9 @@ fn mods_equal(a: &[ModEntry], b: &[ModEntry]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_support::{mod_entry, test_app};
     use super::*;
-    use crate::models::{
-        AppSettings, BackupSettings, BackupState, FileWatcherState, FilterMode, LogSettings, Modal,
-        SaveMonitorSettings, SaveMonitorState, SortMode, View,
-    };
-    use std::collections::BTreeMap;
-    use std::sync::mpsc;
-
-    fn mod_entry(name: &str, enabled: bool, workshop_id: &str) -> ModEntry {
-        ModEntry {
-            name: name.to_string(),
-            enabled,
-            workshop_id: workshop_id.to_string(),
-            settings_fold_open: false,
-        }
-    }
-
-    fn default_settings() -> AppSettings {
-        AppSettings {
-            noita_dir: String::new(),
-            entangled_dir: String::new(),
-            dark_mode: false,
-            selected_preset: "Default".to_string(),
-            version: "test".to_string(),
-            log_settings: LogSettings::default(),
-            backup_settings: BackupSettings::default(),
-            save_monitor_settings: SaveMonitorSettings::default(),
-            steam_path: String::new(),
-            compact_mode: false,
-            ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
-            last_filter_mode: String::new(),
-            last_sort_mode: String::new(),
-        }
-    }
-
-    fn test_app(current_mods: Vec<ModEntry>) -> (tokio::runtime::Runtime, HallintaApp) {
-        let runtime = tokio::runtime::Runtime::new().expect("test runtime should start");
-        let (task_tx, task_rx) = mpsc::channel();
-        let now = Instant::now();
-        let app = HallintaApp {
-            settings: default_settings(),
-            presets: BTreeMap::new(),
-            current_mods,
-            selected_preset: "Default".to_string(),
-            active_view: View::ModList,
-            search_query: String::new(),
-            filter_mode: FilterMode::All,
-            sort_mode: SortMode::Default,
-            compact_mode: false,
-            dark_mode: false,
-            active_modal: None,
-            save_monitor: SaveMonitorState::new(),
-            backup_state: BackupState::new(),
-            file_watcher: FileWatcherState::new(),
-            async_runtime: runtime.handle().clone(),
-            task_tx,
-            task_rx,
-            drag_state: None,
-            last_log_flush: now,
-            last_auto_backup: None,
-            last_backup_cleanup: None,
-            normal_window_size: None,
-            deferred_min_size: None,
-            close_requested: false,
-            focus_search_requested: false,
-            was_focused: true,
-        };
-        (runtime, app)
-    }
+    use crate::models::Modal;
 
     #[test]
     fn external_mods_are_deferred_while_monitoring() {
@@ -398,17 +332,18 @@ mod tests {
 
     #[test]
     fn auto_backup_scheduler_is_monitor_locked() {
-        let source = include_str!("timers.rs");
-        let auto_backup_guard = concat!(
-            "if interval_min > 0\n",
-            "            && !self.backup_state.in_progress\n",
-            "            && !self.backup_state.restoring\n",
-            "            && !self.save_monitor.is_running()"
-        );
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+        app.settings.backup_settings.backup_interval_minutes = 1;
+        app.settings.backup_settings.auto_delete_days = 0;
 
-        assert!(
-            source.contains(auto_backup_guard),
-            "auto-backup should follow manual backup locking while monitoring"
-        );
+        app.check_timers(&egui::Context::default());
+
+        assert!(app.last_auto_backup.is_none());
+
+        app.save_monitor.running = false;
+        app.check_timers(&egui::Context::default());
+
+        assert!(app.last_auto_backup.is_some());
     }
 }

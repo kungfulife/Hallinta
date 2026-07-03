@@ -6,7 +6,7 @@ impl HallintaApp {
     // ── Import / Export ────────────────────────────────────────────────
 
     pub fn import_mod_list(&mut self) {
-        if self.save_monitor.is_running() {
+        if !self.can_import_mod_list() {
             let _ = logging::log(
                 "INFO",
                 "Mod list import skipped while monitor is running",
@@ -94,6 +94,10 @@ impl HallintaApp {
         } else {
             self.apply_mod_import(&found_in_order);
         }
+    }
+
+    fn can_import_mod_list(&self) -> bool {
+        !self.save_monitor.is_running()
     }
 
     fn apply_mod_import(&mut self, found_indices: &[usize]) {
@@ -326,14 +330,13 @@ impl HallintaApp {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_support::test_app;
+
     #[test]
     fn import_mod_list_has_app_layer_monitor_guard() {
-        let source = include_str!("import_export.rs");
-        let monitor_guard = concat!("if self.save_monitor.is_running()", " {");
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
 
-        assert!(
-            source.contains(monitor_guard),
-            "mod-list import should be guarded in the action, not only in sidebar UI"
-        );
+        assert!(!app.can_import_mod_list());
     }
 }

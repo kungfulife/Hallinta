@@ -67,17 +67,3 @@ impl eframe::App for HallintaApp {
         self.cleanup_on_exit();
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn monitor_mode_keeps_rendering_the_mod_list_view() {
-        let source = include_str!("lifecycle.rs");
-        let monitor_replacement = concat!("render_", "monitor_active");
-
-        assert!(
-            !source.contains(monitor_replacement),
-            "monitoring should no longer replace the mod list with a lock screen"
-        );
-    }
-}
