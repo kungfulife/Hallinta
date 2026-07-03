@@ -2,9 +2,10 @@ use crate::app::HallintaApp;
 use crate::models::{FilterMode, SortMode, View};
 use eframe::egui;
 
-pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
-    let d = crate::ui::design::Design::new(ctx, &app.settings);
-    egui::TopBottomPanel::top("header_panel").show(ctx, |ui| {
+pub fn render_header(app: &mut HallintaApp, ui: &mut egui::Ui) {
+    let ctx = ui.ctx().clone();
+    let d = crate::ui::design::Design::new(&ctx, &app.settings);
+    egui::Panel::top("header_panel").show(ui, |ui| {
         ui.add_space(d.sm);
 
         // Row 1: Tab buttons + search + filter
@@ -117,7 +118,7 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
                     .on_hover_text("Toggle compact / normal window")
                     .clicked()
                 {
-                    app.toggle_compact_mode(ctx);
+                    app.toggle_compact_mode(&ctx);
                 }
 
                 // Quick dark-mode toggle
@@ -127,7 +128,7 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
                     .clicked()
                 {
                     app.settings.dark_mode = !app.settings.dark_mode;
-                    app.on_dark_mode_changed(ctx);
+                    app.on_dark_mode_changed(&ctx);
                 }
 
                 // Monitor indicator

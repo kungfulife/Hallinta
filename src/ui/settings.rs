@@ -539,8 +539,8 @@ mod tests {
 
     fn rendered_appearance_labels(settings: &mut AppSettings) -> Vec<String> {
         let ctx = egui::Context::default();
-        let output = ctx.run(Default::default(), |ctx| {
-            egui::CentralPanel::default().show(ctx, |ui| {
+        let output = ctx.run_ui(Default::default(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 let d = Design::new(ui.ctx(), settings);
                 let mut scale_changed = false;
                 render_appearance_settings(ui, &d, settings, &mut scale_changed);

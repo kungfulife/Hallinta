@@ -60,7 +60,7 @@ pub struct Design {
 
 impl Design {
     pub fn new(ctx: &egui::Context, _settings: &AppSettings) -> Self {
-        let dark = ctx.style().visuals.dark_mode;
+        let dark = ctx.global_style().visuals.dark_mode;
 
         // Enabled rows: purple-tinted alternating stripes (Noita magical energy)
         // Disabled rows: neutral gray alternating stripes

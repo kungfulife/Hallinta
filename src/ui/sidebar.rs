@@ -2,14 +2,14 @@ use crate::app::HallintaApp;
 use crate::models::{ConfirmAction, Modal};
 use eframe::egui;
 
-pub fn render_sidebar(app: &mut HallintaApp, ctx: &egui::Context) {
-    let d = crate::ui::design::Design::new(ctx, &app.settings);
-    egui::SidePanel::right("sidebar_panel")
+pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
+    let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
+    egui::Panel::right("sidebar_panel")
         .resizable(true)
-        .default_width(d.sidebar_w)
-        .min_width(d.sidebar_w)
-        .max_width(d.sidebar_w * 2.5)
-        .show(ctx, |ui| {
+        .default_size(d.sidebar_w)
+        .min_size(d.sidebar_w)
+        .max_size(d.sidebar_w * 2.5)
+        .show(ui, |ui| {
             ui.add_space(d.md);
             let btn_width = (ui.available_width() - d.md * 2.0).max(d.sidebar_w - d.md * 2.0);
             ui.label(egui::RichText::new("Actions").size(d.font_heading).strong());
