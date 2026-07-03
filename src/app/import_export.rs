@@ -6,6 +6,15 @@ impl HallintaApp {
     // ── Import / Export ────────────────────────────────────────────────
 
     pub fn import_mod_list(&mut self) {
+        if self.save_monitor.is_running() {
+            let _ = logging::log(
+                "INFO",
+                "Mod list import skipped while monitor is running",
+                "ModManager",
+            );
+            return;
+        }
+
         let path = rfd::FileDialog::new()
             .set_title("Import Mod List")
             .add_filter("JSON", &["json"])
@@ -312,5 +321,19 @@ impl HallintaApp {
                 selected_names: Vec::new(),
             }),
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn import_mod_list_has_app_layer_monitor_guard() {
+        let source = include_str!("import_export.rs");
+        let monitor_guard = concat!("if self.save_monitor.is_running()", " {");
+
+        assert!(
+            source.contains(monitor_guard),
+            "mod-list import should be guarded in the action, not only in sidebar UI"
+        );
     }
 }

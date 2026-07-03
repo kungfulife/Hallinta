@@ -5,6 +5,11 @@ use eframe::egui;
 pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
 
+    if app.save_monitor.is_running() {
+        render_monitor_edit_notice(app, ui, &d);
+        ui.add_space(d.sm);
+    }
+
     if app.current_mods.is_empty() {
         ui.centered_and_justified(|ui| {
             ui.label(
@@ -16,16 +21,13 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
         return;
     }
 
-    let is_locked = app.save_monitor.is_running();
     let search_lower = app.search_query.to_lowercase();
     let filter = app.filter_mode;
     let sort = app.sort_mode;
 
     // Drag-to-reorder only works on the unfiltered, unsorted list to avoid index confusion.
-    let can_drag = !is_locked
-        && search_lower.is_empty()
-        && filter == FilterMode::All
-        && sort == SortMode::Default;
+    let can_drag =
+        search_lower.is_empty() && filter == FilterMode::All && sort == SortMode::Default;
 
     // Build the visible subset (filtered).
     let mut filtered_indices: Vec<usize> = app
@@ -229,7 +231,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 if row_resp.hovered() {
                     if app.drag_state.is_some() {
                         ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
-                    } else if !is_locked {
+                    } else {
                         ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                     }
                 }
@@ -240,7 +242,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 }
 
                 // Row click toggles the mod (egui guarantees clicked() is false when drag was started)
-                if row_resp.clicked() && !is_locked {
+                if row_resp.clicked() {
                     toggle_idx = Some(row.idx);
                 }
 
@@ -317,7 +319,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                         .color(ui.visuals().weak_text_color()),
                 );
 
-                if !is_locked && total > 0 {
+                if total > 0 {
                     ui.separator();
                     if ui.small_button("Enable All")
                         .on_hover_text("Enable every mod (Ctrl+E)")
@@ -440,64 +442,37 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     }
 }
 
-/// Shown when the save monitor is active, blocking mod list / modpacks access.
-pub fn render_monitor_active(app: &mut HallintaApp, ui: &mut egui::Ui) {
-    let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
-
-    // True vertical centering: pad top by half available height minus estimated content height
-    let content_h = d.font_display + d.font_heading + d.font_body * 3.0 + d.lg * 5.0;
-    let top_pad = ((ui.available_height() - content_h) / 2.0).max(d.lg);
-    ui.add_space(top_pad);
-
-    ui.vertical_centered(|ui| {
-        ui.label(
-            egui::RichText::new("Save Monitor Active")
-                .size(d.font_display)
-                .strong(),
-        );
-        ui.add_space(d.md);
-
-        ui.colored_label(
-            d.status_ok,
-            egui::RichText::new("Running").size(d.font_heading).strong(),
-        );
-
-        ui.add_space(d.md);
-        ui.label(egui::RichText::new(format!("Preset: {}", app.selected_preset)).size(d.font_body));
-        ui.label(
-            egui::RichText::new(format!(
-                "Snapshots taken: {}",
-                app.save_monitor.snapshot_count
-            ))
-            .size(d.font_body),
-        );
-        ui.label(
-            egui::RichText::new(format!(
-                "Max snapshots per session: {}",
-                app.settings.save_monitor_settings.max_snapshots_per_session,
-            ))
-            .size(d.font_small)
-            .color(ui.visuals().weak_text_color()),
-        );
-
-        ui.add_space(d.lg);
-
-        ui.label(
-            egui::RichText::new("Mod list and Modpacks are locked while monitor is running.")
-                .italics()
-                .size(d.font_small)
-                .color(ui.visuals().weak_text_color()),
-        );
-
-        ui.add_space(d.md);
-
-        if ui
-            .button(egui::RichText::new("Stop Monitor").size(d.font_body))
-            .clicked()
-        {
-            app.stop_save_monitor();
-        }
-    });
+fn render_monitor_edit_notice(app: &HallintaApp, ui: &mut egui::Ui, d: &crate::ui::design::Design) {
+    egui::Frame::NONE
+        .fill(d.helper_text_bg)
+        .corner_radius(4.0)
+        .inner_margin(egui::Margin::symmetric(d.md as i8, d.sm as i8))
+        .show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    egui::RichText::new("Monitoring active - edit mods carefully.")
+                        .strong()
+                        .size(d.font_body)
+                        .color(d.helper_text_color),
+                );
+                ui.separator();
+                ui.label(
+                    egui::RichText::new(format!("Snapshots: {}", app.save_monitor.snapshot_count))
+                        .size(d.font_small)
+                        .color(ui.visuals().weak_text_color()),
+                );
+                if app.file_watcher.pending_external_mods.is_some() {
+                    ui.separator();
+                    ui.label(
+                        egui::RichText::new(
+                            "Disk changes will be reviewed when monitoring pauses.",
+                        )
+                        .size(d.font_small)
+                        .color(ui.visuals().weak_text_color()),
+                    );
+                }
+            });
+        });
 }
 
 fn draw_toggle_visual(ui: &mut egui::Ui, enabled: bool, d: &crate::ui::design::Design) {
@@ -556,4 +531,34 @@ fn draw_badge(ui: &mut egui::Ui, text: &str, bg: egui::Color32, d: &crate::ui::d
                     .strong(),
             );
         });
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn monitor_mode_mod_list_has_passive_edit_notice() {
+        let source = include_str!("mod_list.rs");
+        let notice = concat!("Monitoring active", " - edit mods carefully.");
+
+        assert!(
+            source.contains(notice),
+            "monitoring should show a passive edit warning instead of replacing the list"
+        );
+    }
+
+    #[test]
+    fn monitor_mode_does_not_lock_direct_mod_list_edits() {
+        let source = include_str!("mod_list.rs");
+        let lock_var = concat!("let is_", "locked = app.save_monitor.is_running()");
+        let locked_copy = concat!("Mod list and Modpacks", " are locked");
+
+        assert!(
+            !source.contains(lock_var),
+            "mod-list rendering should not treat monitoring as a direct edit lock"
+        );
+        assert!(
+            !source.contains(locked_copy),
+            "stale monitor lock copy should be removed"
+        );
+    }
 }

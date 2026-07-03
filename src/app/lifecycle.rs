@@ -46,21 +46,16 @@ impl eframe::App for HallintaApp {
             crate::ui::sidebar::render_sidebar(self, ctx);
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            match self.active_view {
-                View::ModList => {
-                    if self.compact_mode {
-                        crate::ui::compact::render_compact(self, ui);
-                    } else if self.save_monitor.is_running() {
-                        // Monitor running: show monitor status instead of mod list
-                        crate::ui::mod_list::render_monitor_active(self, ui);
-                    } else {
-                        crate::ui::mod_list::render_mod_list(self, ui);
-                    }
+        egui::CentralPanel::default().show(ctx, |ui| match self.active_view {
+            View::ModList => {
+                if self.compact_mode {
+                    crate::ui::compact::render_compact(self, ui);
+                } else {
+                    crate::ui::mod_list::render_mod_list(self, ui);
                 }
-                View::Settings => {
-                    crate::ui::settings::render_settings(self, ui);
-                }
+            }
+            View::Settings => {
+                crate::ui::settings::render_settings(self, ui);
             }
         });
 
@@ -70,5 +65,19 @@ impl eframe::App for HallintaApp {
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         self.cleanup_on_exit();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn monitor_mode_keeps_rendering_the_mod_list_view() {
+        let source = include_str!("lifecycle.rs");
+        let monitor_replacement = concat!("render_", "monitor_active");
+
+        assert!(
+            !source.contains(monitor_replacement),
+            "monitoring should no longer replace the mod list with a lock screen"
+        );
     }
 }

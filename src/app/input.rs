@@ -13,7 +13,11 @@ impl HallintaApp {
 
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             if modal_open {
-                if !matches!(self.active_modal, Some(Modal::Progress { .. })) {
+                if self
+                    .active_modal
+                    .as_ref()
+                    .is_some_and(modal_can_be_dismissed_with_escape)
+                {
                     self.active_modal = None;
                 }
             } else if self.active_view == View::Settings {
@@ -45,7 +49,6 @@ impl HallintaApp {
         }
         if ctrl
             && ctx.input(|i| i.key_pressed(egui::Key::E))
-            && !monitor_running
             && !typing
             && self.active_view == View::ModList
         {
@@ -53,7 +56,6 @@ impl HallintaApp {
         }
         if ctrl
             && ctx.input(|i| i.key_pressed(egui::Key::D))
-            && !monitor_running
             && !typing
             && self.active_view == View::ModList
         {
@@ -71,9 +73,6 @@ impl HallintaApp {
     /// Enable or disable every mod. Single audit log line; same path used by
     /// both keyboard shortcut and footer button so the trail is uniform.
     pub fn bulk_set_enabled(&mut self, enabled: bool) {
-        if self.save_monitor.is_running() {
-            return;
-        }
         let total = self.current_mods.len();
         if total == 0 {
             return;
@@ -124,5 +123,45 @@ impl HallintaApp {
                 cancel_action: Some(ConfirmAction::ExitWithoutSnapshot),
             });
         }
+    }
+}
+
+fn modal_can_be_dismissed_with_escape(modal: &Modal) -> bool {
+    !matches!(
+        modal,
+        Modal::Progress { .. } | Modal::ExternalModChanges { .. }
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::ExternalModChangeSummary;
+
+    #[test]
+    fn external_mod_changes_requires_button_choice() {
+        let modal = Modal::ExternalModChanges {
+            file_mods: Vec::new(),
+            summary: ExternalModChangeSummary::default(),
+        };
+
+        assert!(
+            !modal_can_be_dismissed_with_escape(&modal),
+            "deferred external changes should require Use Disk List or Keep Current"
+        );
+    }
+
+    #[test]
+    fn bulk_enable_disable_is_not_monitor_locked() {
+        let source = include_str!("input.rs");
+        let bulk_monitor_return = concat!(
+            "if self.save_monitor.is_running()",
+            " {\n            return;\n        }"
+        );
+
+        assert!(
+            !source.contains(bulk_monitor_return),
+            "bulk mod-list edits should stay available while monitoring"
+        );
     }
 }

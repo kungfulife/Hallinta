@@ -8,7 +8,6 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
         ui.label(egui::RichText::new("(mod no longer in list)").italics());
         return;
     }
-    let is_locked = app.save_monitor.is_running();
     let mod_entry = &app.current_mods[mod_index];
     let is_workshop = mod_entry.workshop_id != "0" && !mod_entry.workshop_id.is_empty();
     let workshop_id = mod_entry.workshop_id.clone();
@@ -20,7 +19,7 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
     } else {
         "Enable"
     };
-    if ui.button(toggle_label).clicked() && !is_locked {
+    if ui.button(toggle_label).clicked() {
         let new_state = !app.current_mods[mod_index].enabled;
         app.current_mods[mod_index].enabled = new_state;
         let _ = crate::core::logging::log(
@@ -38,7 +37,7 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
 
     ui.separator();
 
-    if ui.button("Move to position...").clicked() && !is_locked {
+    if ui.button("Move to position...").clicked() {
         app.active_modal = Some(Modal::Input {
             title: format!("Move \"{}\" to position:", mod_name),
             value: (mod_index + 1).to_string(),
@@ -47,7 +46,7 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
         ui.close();
     }
 
-    if ui.button("Delete mod").clicked() && !is_locked {
+    if ui.button("Delete mod").clicked() {
         app.active_modal = Some(Modal::Confirm {
             message: format!("Delete mod \"{}\"?", mod_name),
             confirm_text: "Delete".to_string(),

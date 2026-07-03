@@ -17,11 +17,16 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
                 let ml_selected = app.active_view == View::ModList;
                 let ml_fill = if ml_selected { d.tab_bg_selected } else { d.tab_bg };
                 let ml_color = if ml_selected { d.tab_text_selected } else { d.tab_text };
-                let ml_text = egui::RichText::new("Mod List").font(tab_font).strong().color(ml_color);
-                if ui.add(egui::Button::new(ml_text).fill(ml_fill).corner_radius(4.0)).clicked()
-                    && !app.save_monitor.is_running() {
-                        app.active_view = View::ModList;
-                    }
+                let ml_text = egui::RichText::new("Mod List")
+                    .font(tab_font)
+                    .strong()
+                    .color(ml_color);
+                if ui
+                    .add(egui::Button::new(ml_text).fill(ml_fill).corner_radius(4.0))
+                    .clicked()
+                {
+                    app.active_view = View::ModList;
+                }
 
                 ui.separator();
 
@@ -51,14 +56,17 @@ pub fn render_header(app: &mut HallintaApp, ctx: &egui::Context) {
                 }
 
                 // Filter mode (mod list only)
-                if app.active_view == View::ModList && !app.save_monitor.is_running() {
+                if app.active_view == View::ModList {
                     ui.separator();
                     for mode in [FilterMode::All, FilterMode::Enabled, FilterMode::Disabled] {
                         let selected = app.filter_mode == mode;
                         let fill = if selected { d.filter_bg_selected } else { d.filter_bg };
                         let color = if selected { d.tab_text_selected } else { d.tab_text };
                         let text = egui::RichText::new(mode.label()).strong().color(color);
-                        if ui.add(egui::Button::new(text).fill(fill).corner_radius(4.0)).clicked() {
+                        if ui
+                            .add(egui::Button::new(text).fill(fill).corner_radius(4.0))
+                            .clicked()
+                        {
                             app.set_filter_mode(mode);
                         }
                     }

@@ -18,7 +18,6 @@ pub struct Design {
     pub font_body: f32,    // 13
     pub font_tab: f32,     // 15
     pub font_heading: f32, // 18
-    pub font_display: f32, // 22
     // Widget sizes
     pub toggle_w: f32,     // 30
     pub toggle_h: f32,     // 16
@@ -104,7 +103,6 @@ impl Design {
             font_body: 13.0,
             font_tab: 15.0,
             font_heading: 18.0,
-            font_display: 22.0,
             toggle_w: 30.0,
             toggle_h: 16.0,
             sidebar_w: 160.0,

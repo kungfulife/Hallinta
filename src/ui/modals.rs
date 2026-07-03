@@ -60,6 +60,9 @@ pub fn render_modals(app: &mut HallintaApp, ctx: &egui::Context) {
         Modal::MissingMods { mods, action } => {
             render_missing_mods(app, ctx, &mods, action);
         }
+        Modal::ExternalModChanges { file_mods, summary } => {
+            render_external_mod_changes(app, ctx, file_mods, &summary);
+        }
         Modal::SystemInfo => {
             render_system_info(app, ctx);
         }
@@ -335,6 +338,68 @@ fn render_missing_mods(
     }
 }
 
+fn render_external_mod_changes(
+    app: &mut HallintaApp,
+    ctx: &egui::Context,
+    file_mods: Vec<ModEntry>,
+    summary: &ExternalModChangeSummary,
+) {
+    let d = crate::ui::design::Design::new(ctx, &app.settings);
+    let mut use_disk = false;
+    let mut keep_current = false;
+
+    egui::Window::new("Mod List Changed")
+        .collapsible(false)
+        .resizable(false)
+        .default_width(380.0)
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            ui.label("Changes were noticed while monitoring.");
+            ui.add_space(d.sm);
+            egui::Frame::group(ui.style())
+                .inner_margin(egui::Margin::same(d.sm as i8))
+                .show(ui, |ui| {
+                    ui.label(format!(
+                        "Current: {} mods, {} enabled",
+                        summary.current_total, summary.current_enabled
+                    ));
+                    ui.label(format!(
+                        "Disk: {} mods, {} enabled",
+                        summary.disk_total, summary.disk_enabled
+                    ));
+                    ui.separator();
+                    ui.label(format!("Added: {}", summary.added));
+                    ui.label(format!("Removed: {}", summary.removed));
+                    ui.label(format!("Enabled changed: {}", summary.enabled_changed));
+                    ui.label(format!(
+                        "Order changed: {}",
+                        if summary.order_changed { "Yes" } else { "No" }
+                    ));
+                });
+            ui.add_space(d.md);
+            ui.horizontal(|ui| {
+                if ui.button("Use Disk List").clicked() {
+                    use_disk = true;
+                }
+                if ui.button("Keep Current").clicked() {
+                    keep_current = true;
+                }
+            });
+        });
+
+    if use_disk {
+        app.handle_confirm_action(ConfirmAction::AcceptExternalChanges(file_mods));
+    } else if keep_current {
+        app.handle_confirm_action(ConfirmAction::KeepCurrentPreset);
+    } else {
+        app.active_modal = Some(Modal::ExternalModChanges {
+            file_mods,
+            summary: summary.clone(),
+        });
+    }
+}
+
 fn render_system_info(app: &mut HallintaApp, ctx: &egui::Context) {
     let _d = crate::ui::design::Design::new(ctx, &app.settings);
     let mut open = true;
@@ -370,7 +435,6 @@ fn render_system_info(app: &mut HallintaApp, ctx: &egui::Context) {
                         sysinfo_row(ui, "Local Time", &info.local_time);
                         sysinfo_row(ui, "UTC Time", &info.utc_time);
                         sysinfo_row(ui, "Executable Dir", &info.executable_dir);
-                        sysinfo_row(ui, "App Data Dir", &info.app_data_dir);
                     });
             }
         });
@@ -747,6 +811,17 @@ mod tests {
         assert!(
             !source.contains(RESIZABLE_TRUE),
             "modal windows should not show user resize handles"
+        );
+    }
+
+    #[test]
+    fn system_info_modal_does_not_show_app_data_dir() {
+        let source = include_str!("modals.rs");
+        let app_data_dir = concat!("App Data", " Dir");
+
+        assert!(
+            !source.contains(app_data_dir),
+            "System Information should not surface debug app-data directory notes"
         );
     }
 }

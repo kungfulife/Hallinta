@@ -106,6 +106,7 @@ impl HallintaApp {
         self.save_monitor.pending_change_since = None;
         let _ = logging::log("INFO", "Monitor session ended", "SaveMonitor");
         logging::write_session_marker(&format!("MONITOR_STOP:snapshots={}", count));
+        self.show_pending_external_mods_after_monitor();
     }
 
     pub fn stop_save_monitor(&mut self) {
@@ -120,6 +121,7 @@ impl HallintaApp {
         self.save_monitor.pending_change_since = None;
         let _ = logging::log("INFO", "Monitor session paused", "SaveMonitor");
         logging::write_session_marker(&format!("MONITOR_STOP:snapshots={}", count));
+        self.show_pending_external_mods_after_monitor();
     }
 
     pub(super) fn check_save_monitor_changes(&mut self) {

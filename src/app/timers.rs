@@ -1,7 +1,8 @@
 use super::HallintaApp;
 use crate::core::{backup, file_watcher, logging, mods};
-use crate::models::{ConfirmAction, ModEntry, Modal};
+use crate::models::{ModEntry, Modal};
 use eframe::egui;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -21,6 +22,13 @@ impl HallintaApp {
         let focused = ctx.input(|i| i.viewport().focused.unwrap_or(true));
         let regained_focus = focused && !self.was_focused;
         self.was_focused = focused;
+
+        if !self.save_monitor.is_running()
+            && self.active_modal.is_none()
+            && self.file_watcher.pending_external_mods.is_some()
+        {
+            self.show_pending_external_mods_after_monitor();
+        }
 
         let should_check = focused
             && (regained_focus
@@ -51,7 +59,11 @@ impl HallintaApp {
 
         // Auto-backup scheduler
         let interval_min = self.settings.backup_settings.backup_interval_minutes;
-        if interval_min > 0 && !self.backup_state.in_progress && !self.backup_state.restoring {
+        if interval_min > 0
+            && !self.backup_state.in_progress
+            && !self.backup_state.restoring
+            && !self.save_monitor.is_running()
+        {
             let interval = Duration::from_secs(interval_min as u64 * 60);
             let should_backup = self
                 .last_auto_backup
@@ -98,31 +110,112 @@ impl HallintaApp {
 
             if let Ok(xml) = mods::read_mod_config(&dir)
                 && let Ok(file_mods) = mods::parse_mods_from_xml(&xml)
-                && !mods_equal(&self.current_mods, &file_mods)
             {
-                let _ = logging::log(
-                    "INFO",
-                    &format!(
-                        "External mod_config.xml change detected ({} mods on disk vs {} in memory)",
-                        file_mods.len(),
-                        self.current_mods.len()
-                    ),
-                    "FileWatcher",
-                );
-                self.active_modal = Some(Modal::Confirm {
-                    message: format!(
-                        "mod_config.xml was modified externally and no longer matches your \"{}\" preset.",
-                        self.selected_preset
-                    ),
-                    confirm_text: "Accept External Changes".to_string(),
-                    cancel_text: "Keep Current Preset".to_string(),
-                    action: ConfirmAction::AcceptExternalChanges(file_mods),
-                    cancel_action: Some(ConfirmAction::KeepCurrentPreset),
-                });
+                self.defer_or_prompt_external_mods(file_mods);
             }
         }
     }
+
+    pub(super) fn defer_or_prompt_external_mods(&mut self, file_mods: Vec<ModEntry>) {
+        if mods_equal(&self.current_mods, &file_mods) {
+            self.file_watcher.pending_external_mods = None;
+            return;
+        }
+
+        let _ = logging::log(
+            "INFO",
+            &format!(
+                "External mod_config.xml change detected ({} mods on disk vs {} in memory)",
+                file_mods.len(),
+                self.current_mods.len()
+            ),
+            "FileWatcher",
+        );
+
+        if self.save_monitor.is_running() {
+            self.file_watcher.pending_external_mods = Some(file_mods);
+            return;
+        }
+
+        let summary = build_external_mod_change_summary(&self.current_mods, &file_mods);
+        self.active_modal = Some(Modal::ExternalModChanges { file_mods, summary });
+    }
+
+    pub(super) fn show_pending_external_mods_after_monitor(&mut self) {
+        if self.save_monitor.is_running() {
+            return;
+        }
+        if self.active_modal.is_some() {
+            return;
+        }
+
+        if let Some(file_mods) = self.file_watcher.pending_external_mods.take() {
+            self.defer_or_prompt_external_mods(file_mods);
+        }
+    }
 }
+
+pub(crate) fn build_external_mod_change_summary(
+    current: &[ModEntry],
+    disk: &[ModEntry],
+) -> crate::models::ExternalModChangeSummary {
+    let current_enabled = current.iter().filter(|m| m.enabled).count();
+    let disk_enabled = disk.iter().filter(|m| m.enabled).count();
+    let current_by_key = mods_by_key(current);
+    let disk_by_key = mods_by_key(disk);
+
+    let added = disk_by_key
+        .keys()
+        .filter(|key| !current_by_key.contains_key(*key))
+        .count();
+    let removed = current_by_key
+        .keys()
+        .filter(|key| !disk_by_key.contains_key(*key))
+        .count();
+    let enabled_changed = current_by_key
+        .iter()
+        .filter_map(|(key, current_mod)| {
+            disk_by_key.get(key).map(|disk_mod| (current_mod, disk_mod))
+        })
+        .filter(|(current_mod, disk_mod)| current_mod.enabled != disk_mod.enabled)
+        .count();
+
+    let current_common_order: Vec<String> = current
+        .iter()
+        .map(mod_identity_key)
+        .filter(|key| disk_by_key.contains_key(key))
+        .collect();
+    let disk_common_order: Vec<String> = disk
+        .iter()
+        .map(mod_identity_key)
+        .filter(|key| current_by_key.contains_key(key))
+        .collect();
+
+    crate::models::ExternalModChangeSummary {
+        current_total: current.len(),
+        disk_total: disk.len(),
+        current_enabled,
+        disk_enabled,
+        added,
+        removed,
+        enabled_changed,
+        order_changed: current_common_order != disk_common_order,
+    }
+}
+
+fn mods_by_key(mods: &[ModEntry]) -> BTreeMap<String, &ModEntry> {
+    mods.iter().map(|m| (mod_identity_key(m), m)).collect()
+}
+
+fn mod_identity_key(mod_entry: &ModEntry) -> String {
+    let workshop_id = mod_entry.workshop_id.trim();
+    if workshop_id.is_empty() || workshop_id == "0" {
+        format!("local:{}", mod_entry.name)
+    } else {
+        format!("workshop:{}", workshop_id)
+    }
+}
+
 fn mods_equal(a: &[ModEntry], b: &[ModEntry]) -> bool {
     if a.len() != b.len() {
         return false;
@@ -133,4 +226,189 @@ fn mods_equal(a: &[ModEntry], b: &[ModEntry]) -> bool {
             && x.workshop_id == y.workshop_id
             && x.settings_fold_open == y.settings_fold_open
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{
+        AppSettings, BackupSettings, BackupState, FileWatcherState, FilterMode, LogSettings, Modal,
+        SaveMonitorSettings, SaveMonitorState, SortMode, View,
+    };
+    use std::collections::BTreeMap;
+    use std::sync::mpsc;
+
+    fn mod_entry(name: &str, enabled: bool, workshop_id: &str) -> ModEntry {
+        ModEntry {
+            name: name.to_string(),
+            enabled,
+            workshop_id: workshop_id.to_string(),
+            settings_fold_open: false,
+        }
+    }
+
+    fn default_settings() -> AppSettings {
+        AppSettings {
+            noita_dir: String::new(),
+            entangled_dir: String::new(),
+            dark_mode: false,
+            selected_preset: "Default".to_string(),
+            version: "test".to_string(),
+            log_settings: LogSettings::default(),
+            backup_settings: BackupSettings::default(),
+            save_monitor_settings: SaveMonitorSettings::default(),
+            steam_path: String::new(),
+            compact_mode: false,
+            ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
+            last_filter_mode: String::new(),
+            last_sort_mode: String::new(),
+        }
+    }
+
+    fn test_app(current_mods: Vec<ModEntry>) -> (tokio::runtime::Runtime, HallintaApp) {
+        let runtime = tokio::runtime::Runtime::new().expect("test runtime should start");
+        let (task_tx, task_rx) = mpsc::channel();
+        let now = Instant::now();
+        let app = HallintaApp {
+            settings: default_settings(),
+            presets: BTreeMap::new(),
+            current_mods,
+            selected_preset: "Default".to_string(),
+            active_view: View::ModList,
+            search_query: String::new(),
+            filter_mode: FilterMode::All,
+            sort_mode: SortMode::Default,
+            compact_mode: false,
+            dark_mode: false,
+            active_modal: None,
+            save_monitor: SaveMonitorState::new(),
+            backup_state: BackupState::new(),
+            file_watcher: FileWatcherState::new(),
+            async_runtime: runtime.handle().clone(),
+            task_tx,
+            task_rx,
+            drag_state: None,
+            last_log_flush: now,
+            last_auto_backup: None,
+            last_backup_cleanup: None,
+            normal_window_size: None,
+            deferred_min_size: None,
+            close_requested: false,
+            focus_search_requested: false,
+            was_focused: true,
+        };
+        (runtime, app)
+    }
+
+    #[test]
+    fn external_mods_are_deferred_while_monitoring() {
+        let (_runtime, mut app) = test_app(vec![mod_entry("Alpha", true, "1")]);
+        app.save_monitor.running = true;
+
+        app.defer_or_prompt_external_mods(vec![mod_entry("Alpha", false, "1")]);
+
+        assert!(
+            app.active_modal.is_none(),
+            "monitoring should not interrupt the UI with an external-change modal"
+        );
+        let pending = app
+            .file_watcher
+            .pending_external_mods
+            .as_ref()
+            .expect("external mods should be remembered for post-monitor review");
+        assert_eq!(pending.len(), 1);
+        assert!(!pending[0].enabled);
+    }
+
+    #[test]
+    fn pending_external_mods_prompt_after_monitor_stops() {
+        let (_runtime, mut app) = test_app(vec![mod_entry("Alpha", true, "1")]);
+        app.file_watcher.pending_external_mods = Some(vec![mod_entry("Alpha", false, "1")]);
+
+        app.show_pending_external_mods_after_monitor();
+
+        assert!(
+            app.file_watcher.pending_external_mods.is_none(),
+            "pending changes should be consumed when review is shown"
+        );
+        match app.active_modal {
+            Some(Modal::ExternalModChanges {
+                ref file_mods,
+                ref summary,
+            }) => {
+                assert_eq!(file_mods.len(), 1);
+                assert_eq!(summary.enabled_changed, 1);
+            }
+            other => panic!("expected external changes modal, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn matching_external_mods_clear_pending_without_prompt() {
+        let current = vec![mod_entry("Alpha", true, "1")];
+        let (_runtime, mut app) = test_app(current.clone());
+        app.file_watcher.pending_external_mods = Some(vec![mod_entry("Alpha", false, "1")]);
+
+        app.defer_or_prompt_external_mods(current);
+
+        assert!(app.active_modal.is_none());
+        assert!(app.file_watcher.pending_external_mods.is_none());
+    }
+
+    #[test]
+    fn pending_external_mods_wait_when_another_modal_is_open() {
+        let (_runtime, mut app) = test_app(vec![mod_entry("Alpha", true, "1")]);
+        app.file_watcher.pending_external_mods = Some(vec![mod_entry("Alpha", false, "1")]);
+        app.active_modal = Some(Modal::Info {
+            title: "Busy".to_string(),
+            message: "Finish this first".to_string(),
+        });
+
+        app.show_pending_external_mods_after_monitor();
+
+        assert!(
+            app.file_watcher.pending_external_mods.is_some(),
+            "pending changes should wait behind existing modals"
+        );
+        assert!(matches!(app.active_modal, Some(Modal::Info { .. })));
+    }
+
+    #[test]
+    fn external_mod_change_summary_counts_common_differences() {
+        let current = vec![
+            mod_entry("Alpha", true, "1"),
+            mod_entry("Beta", false, "2"),
+            mod_entry("Gamma", true, "3"),
+        ];
+        let disk = vec![
+            mod_entry("Beta", true, "2"),
+            mod_entry("Alpha", true, "1"),
+            mod_entry("Delta", true, "4"),
+        ];
+
+        let summary = build_external_mod_change_summary(&current, &disk);
+
+        assert_eq!(summary.current_total, 3);
+        assert_eq!(summary.disk_total, 3);
+        assert_eq!(summary.added, 1);
+        assert_eq!(summary.removed, 1);
+        assert_eq!(summary.enabled_changed, 1);
+        assert!(summary.order_changed);
+    }
+
+    #[test]
+    fn auto_backup_scheduler_is_monitor_locked() {
+        let source = include_str!("timers.rs");
+        let auto_backup_guard = concat!(
+            "if interval_min > 0\n",
+            "            && !self.backup_state.in_progress\n",
+            "            && !self.backup_state.restoring\n",
+            "            && !self.save_monitor.is_running()"
+        );
+
+        assert!(
+            source.contains(auto_backup_guard),
+            "auto-backup should follow manual backup locking while monitoring"
+        );
+    }
 }

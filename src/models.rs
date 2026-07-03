@@ -317,6 +317,10 @@ pub enum Modal {
         mods: Vec<(String, String)>, // (name, workshop_id)
         action: MissingModsAction,
     },
+    ExternalModChanges {
+        file_mods: Vec<ModEntry>,
+        summary: ExternalModChangeSummary,
+    },
     SystemInfo,
     OpenSourceLibraries,
     BackupManager,
@@ -381,6 +385,18 @@ pub struct ChecklistItem {
 pub struct PresetImportData {
     pub presets: BTreeMap<String, Vec<ModEntry>>,
     pub selected_names: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ExternalModChangeSummary {
+    pub current_total: usize,
+    pub disk_total: usize,
+    pub current_enabled: usize,
+    pub disk_enabled: usize,
+    pub added: usize,
+    pub removed: usize,
+    pub enabled_changed: usize,
+    pub order_changed: bool,
 }
 
 // ── Drag State ─────────────────────────────────────────────────────────────
@@ -450,6 +466,7 @@ pub struct FileWatcherState {
     pub last_check: Option<Instant>,
     pub last_modified_time: u64,
     pub check_interval: std::time::Duration,
+    pub pending_external_mods: Option<Vec<ModEntry>>,
 }
 
 impl FileWatcherState {
@@ -458,6 +475,7 @@ impl FileWatcherState {
             last_check: None,
             last_modified_time: 0,
             check_interval: std::time::Duration::from_secs(5),
+            pending_external_mods: None,
         }
     }
 }

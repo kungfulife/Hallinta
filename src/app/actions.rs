@@ -44,12 +44,17 @@ impl HallintaApp {
         let noita_dir = self.settings.noita_dir.clone();
         if !noita_dir.is_empty() {
             let xml = mods::mods_to_xml(&self.current_mods);
-            if let Err(e) = mods::write_mod_config(&PathBuf::from(&noita_dir), &xml) {
-                let _ = logging::log(
-                    "ERROR",
-                    &format!("Failed to write mod_config.xml at {}: {}", noita_dir, e),
-                    "ModManager",
-                );
+            match mods::write_mod_config(&PathBuf::from(&noita_dir), &xml) {
+                Ok(()) => {
+                    self.file_watcher.pending_external_mods = None;
+                }
+                Err(e) => {
+                    let _ = logging::log(
+                        "ERROR",
+                        &format!("Failed to write mod_config.xml at {}: {}", noita_dir, e),
+                        "ModManager",
+                    );
+                }
             }
 
             let config_path = PathBuf::from(&noita_dir).join("mod_config.xml");
@@ -222,6 +227,7 @@ impl HallintaApp {
             && let Ok(file_mods) = mods::parse_mods_from_xml(&xml)
         {
             self.current_mods = file_mods;
+            self.file_watcher.pending_external_mods = None;
             self.presets
                 .insert(self.selected_preset.clone(), self.current_mods.clone());
             let _ = presets::save_presets(&self.presets);
@@ -282,9 +288,6 @@ impl HallintaApp {
         if self.sort_mode == SortMode::Default {
             return;
         }
-        if self.save_monitor.is_running() {
-            return;
-        }
         let mut sorted = self.current_mods.clone();
         sort_mods(&mut sorted, self.sort_mode);
         let mode = self.sort_mode;
@@ -327,5 +330,120 @@ impl HallintaApp {
         if mods::check_file_exists(&config_path) {
             let _ = platform::open_file(&config_path);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{
+        AppSettings, BackupSettings, BackupState, FileWatcherState, FilterMode, LogSettings,
+        SaveMonitorSettings, SaveMonitorState, SortMode, View,
+    };
+    use std::collections::BTreeMap;
+    use std::sync::mpsc;
+    use std::time::Instant;
+
+    fn mod_entry(name: &str, enabled: bool, workshop_id: &str) -> ModEntry {
+        ModEntry {
+            name: name.to_string(),
+            enabled,
+            workshop_id: workshop_id.to_string(),
+            settings_fold_open: false,
+        }
+    }
+
+    fn default_settings() -> AppSettings {
+        AppSettings {
+            noita_dir: String::new(),
+            entangled_dir: String::new(),
+            dark_mode: false,
+            selected_preset: "Default".to_string(),
+            version: "test".to_string(),
+            log_settings: LogSettings::default(),
+            backup_settings: BackupSettings::default(),
+            save_monitor_settings: SaveMonitorSettings::default(),
+            steam_path: String::new(),
+            compact_mode: false,
+            ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
+            last_filter_mode: String::new(),
+            last_sort_mode: String::new(),
+        }
+    }
+
+    fn test_app(current_mods: Vec<ModEntry>) -> (tokio::runtime::Runtime, HallintaApp) {
+        let runtime = tokio::runtime::Runtime::new().expect("test runtime should start");
+        let (task_tx, task_rx) = mpsc::channel();
+        let now = Instant::now();
+        let app = HallintaApp {
+            settings: default_settings(),
+            presets: BTreeMap::new(),
+            current_mods,
+            selected_preset: "Default".to_string(),
+            active_view: View::ModList,
+            search_query: String::new(),
+            filter_mode: FilterMode::All,
+            sort_mode: SortMode::Default,
+            compact_mode: false,
+            dark_mode: false,
+            active_modal: None,
+            save_monitor: SaveMonitorState::new(),
+            backup_state: BackupState::new(),
+            file_watcher: FileWatcherState::new(),
+            async_runtime: runtime.handle().clone(),
+            task_tx,
+            task_rx,
+            drag_state: None,
+            last_log_flush: now,
+            last_auto_backup: None,
+            last_backup_cleanup: None,
+            normal_window_size: None,
+            deferred_min_size: None,
+            close_requested: false,
+            focus_search_requested: false,
+            was_focused: true,
+        };
+        (runtime, app)
+    }
+
+    #[test]
+    fn reload_mods_clears_pending_external_mods_after_loading_disk() {
+        let dir = std::env::temp_dir().join(format!(
+            "hallinta_reload_pending_test_{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).expect("test dir should be created");
+        let disk_mods = vec![mod_entry("Alpha", false, "1")];
+        mods::write_mod_config(&dir, &mods::mods_to_xml(&disk_mods))
+            .expect("test mod_config should be written");
+
+        let (_runtime, mut app) = test_app(vec![mod_entry("Alpha", true, "1")]);
+        app.settings.noita_dir = dir.to_string_lossy().to_string();
+        app.file_watcher.pending_external_mods = Some(disk_mods.clone());
+
+        app.reload_mods();
+
+        assert!(
+            app.file_watcher.pending_external_mods.is_none(),
+            "manual reload should reconcile pending external-change state"
+        );
+        assert_eq!(app.current_mods.len(), 1);
+        assert!(!app.current_mods[0].enabled);
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn apply_sort_to_order_is_not_monitor_locked() {
+        let source = include_str!("actions.rs");
+        let monitor_return = concat!(
+            "if self.save_monitor.is_running()",
+            " {\n            return;\n        }"
+        );
+
+        assert!(
+            !source.contains(monitor_return),
+            "applying sort order is a direct mod-list edit and should stay available while monitoring"
+        );
     }
 }

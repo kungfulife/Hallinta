@@ -31,6 +31,8 @@ pub fn render_sidebar(app: &mut HallintaApp, ctx: &egui::Context) {
                     {
                         app.import_mod_list();
                     }
+                });
+                ui.add_enabled_ui(!backup_busy, |ui| {
                     if ui
                         .add_sized([btn_width, 0.0], egui::Button::new("Export Mod List"))
                         .on_hover_text("Save the currently enabled mods to a .json file")
