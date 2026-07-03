@@ -12,7 +12,8 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
     ui.add_space(top_pad);
 
     ui.vertical_centered(|ui| {
-        ui.set_max_width(260.0);
+        let content_width = (available.x - d.lg * 2.0).clamp(240.0, 520.0);
+        ui.set_width(content_width);
 
         // ── Preset selector ──────────────────────────────────────────────────
         ui.label(
@@ -39,7 +40,7 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
         ui.add_enabled_ui(!is_locked, |ui| {
             egui::ComboBox::from_id_salt("compact_preset_selector")
                 .selected_text(&app.selected_preset)
-                .width(250.0)
+                .width(content_width)
                 .show_ui(ui, |ui| {
                     for name in &preset_names {
                         if ui
@@ -71,7 +72,7 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
         ui.separator();
         ui.add_space(d.lg);
 
-        let btn_w = 240.0;
+        let btn_w = content_width;
         let btn_h = 28.0;
         let backup_busy = app.backup_state.in_progress || app.backup_state.restoring;
 
@@ -137,19 +138,6 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
             .clicked()
         {
             app.load_sessions_async();
-        }
-
-        // ── Live snapshot count when running ─────────────────────────────────
-        if is_locked {
-            ui.add_space(d.md);
-            ui.label(
-                egui::RichText::new(format!(
-                    "Snapshots taken: {}",
-                    app.save_monitor.snapshot_count
-                ))
-                .size(d.font_small)
-                .color(ui.visuals().weak_text_color()),
-            );
         }
     });
 }

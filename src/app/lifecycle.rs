@@ -22,9 +22,21 @@ impl eframe::App for HallintaApp {
         // 0. Apply UI zoom (must be before any rendering)
         crate::ui::design::apply_zoom(ctx, &self.settings);
 
-        // 0b. Apply deferred min size (queued on previous frame to avoid one-behind lag)
-        if let Some(min) = self.deferred_min_size.take() {
-            ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(min));
+        // 0b. Apply deferred viewport resizing (queued to avoid OS min-size lag)
+        if let Some(action) = self.deferred_viewport_action.take() {
+            match action {
+                super::DeferredViewportAction::ResizeThenMin {
+                    inner_size,
+                    min_size,
+                } => {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(inner_size));
+                    self.deferred_viewport_action =
+                        Some(super::DeferredViewportAction::ApplyMin { min_size });
+                }
+                super::DeferredViewportAction::ApplyMin { min_size } => {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(min_size));
+                }
+            }
         }
 
         // 1. Poll async task results
@@ -61,6 +73,8 @@ impl eframe::App for HallintaApp {
 
         // 6. Render modals on top
         crate::ui::modals::render_modals(self, ctx);
+
+        self.close_after_monitor_prompt(ctx);
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {

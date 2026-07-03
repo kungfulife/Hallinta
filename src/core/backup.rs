@@ -582,61 +582,6 @@ pub fn restore_from_path(
     Ok(())
 }
 
-/// Delete backup zips older than `max_age_days`. `0` disables cleanup.
-/// Returns the number of files deleted.
-pub fn cleanup_old_backups(max_age_days: u32) -> Result<u32, String> {
-    if max_age_days == 0 {
-        return Ok(0);
-    }
-    let data_dir = get_data_dir()?;
-    let backups_dir = data_dir.join("backups");
-    if !backups_dir.exists() {
-        return Ok(0);
-    }
-    let now = SystemTime::now();
-    let max_age = std::time::Duration::from_secs(max_age_days as u64 * 86_400);
-    let mut deleted = 0u32;
-    for entry in fs::read_dir(&backups_dir)
-        .map_err(|e| format!("Failed to read backups dir: {}", e))?
-        .flatten()
-    {
-        let path = entry.path();
-        if path.extension().is_none_or(|ext| ext != "zip") {
-            continue;
-        }
-        let modified = match entry.metadata().and_then(|m| m.modified()) {
-            Ok(t) => t,
-            Err(_) => continue,
-        };
-        if let Ok(age) = now.duration_since(modified)
-            && age > max_age
-        {
-            let name = path
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_default();
-            match fs::remove_file(&path) {
-                Ok(_) => {
-                    deleted += 1;
-                    let _ = logging::log(
-                        "INFO",
-                        &format!("Auto-deleted old backup ({}d): {}", max_age_days, name),
-                        "Backup",
-                    );
-                }
-                Err(e) => {
-                    let _ = logging::log(
-                        "WARN",
-                        &format!("Failed to auto-delete {}: {}", name, e),
-                        "Backup",
-                    );
-                }
-            }
-        }
-    }
-    Ok(deleted)
-}
-
 fn cleanup_old_upgrade_backups(upgrade_backup_dir: &Path, keep_count: usize) -> Result<(), String> {
     if !upgrade_backup_dir.exists() {
         return Ok(());

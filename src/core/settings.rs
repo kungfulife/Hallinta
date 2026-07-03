@@ -82,7 +82,6 @@ pub fn load_settings() -> Result<AppSettings, String> {
         settings.steam_path = p.to_string_lossy().to_string();
         dirty = true;
     }
-
     if dirty {
         save_settings(&settings)?;
     }
@@ -205,7 +204,6 @@ mod tests {
                 "auto_save": true
             },
             "backup_settings": {
-                "auto_delete_days": 30,
                 "backup_interval_minutes": 0
             },
             "save_monitor_settings": {

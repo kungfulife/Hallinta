@@ -1,4 +1,4 @@
-use super::{HallintaApp, sort_mods};
+use super::{DeferredViewportAction, HallintaApp, sort_mods};
 use crate::core::{logging, mods, platform, presets, settings};
 use crate::models::*;
 use eframe::egui;
@@ -88,6 +88,7 @@ impl HallintaApp {
 
     /// Persist current settings to disk.
     pub fn save_current_settings(&mut self) {
+        logging::configure(&self.settings.log_settings);
         if let Err(e) = settings::save_settings(&self.settings) {
             let _ = logging::log(
                 "ERROR",
@@ -115,20 +116,18 @@ impl HallintaApp {
                 if current_size.x > 500.0 {
                     self.normal_window_size = Some(current_size);
                 }
-                ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
-                    crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_COMPACT, scale),
-                ));
-                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                self.queue_viewport_resize(
+                    ctx,
                     crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_COMPACT, scale),
-                ));
+                    crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_COMPACT, scale),
+                );
             } else {
-                ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
-                    crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_NORMAL, scale),
-                ));
+                let min =
+                    crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_NORMAL, scale);
                 let size = self.normal_window_size.unwrap_or_else(|| {
                     crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_NORMAL, scale)
                 });
-                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
+                self.queue_viewport_resize(ctx, size, min);
             }
         }
         self.save_current_settings();
@@ -157,14 +156,7 @@ impl HallintaApp {
         let new_w = (current_size.x * ratio).max(new_min.x);
         let new_h = (current_size.y * ratio).max(new_min.y);
 
-        // Phase 1 (this frame's command batch):
-        // Clear the minimum so the OS stops enforcing the old (possibly larger) value,
-        // then resize the window in the same batch.
-        ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(1.0, 1.0)));
-        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(new_w, new_h)));
-
-        // Phase 2 (next frame): apply the correct minimum.
-        self.deferred_min_size = Some(new_min);
+        self.queue_viewport_resize(ctx, egui::vec2(new_w, new_h), new_min);
 
         // Update stored normal size so compact→normal restores correctly
         if !self.compact_mode {
@@ -199,22 +191,31 @@ impl HallintaApp {
             if current_size.x > 500.0 {
                 self.normal_window_size = Some(current_size);
             }
-            // Must lower min-size BEFORE setting inner size, or the OS clamps it.
-            ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
-                crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_COMPACT, scale),
-            ));
-            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
+            self.queue_viewport_resize(
+                ctx,
                 crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_COMPACT, scale),
-            ));
+                crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_COMPACT, scale),
+            );
         } else {
-            ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(
-                crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_NORMAL, scale),
-            ));
+            let min = crate::ui::design::scaled_min_size(crate::ui::design::BASE_MIN_NORMAL, scale);
             let size = self.normal_window_size.unwrap_or_else(|| {
                 crate::ui::design::scaled_size(crate::ui::design::BASE_SIZE_NORMAL, scale)
             });
-            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
+            self.queue_viewport_resize(ctx, size, min);
         }
+    }
+
+    fn queue_viewport_resize(
+        &mut self,
+        ctx: &egui::Context,
+        inner_size: egui::Vec2,
+        min_size: egui::Vec2,
+    ) {
+        ctx.send_viewport_cmd(egui::ViewportCommand::MinInnerSize(egui::vec2(1.0, 1.0)));
+        self.deferred_viewport_action = Some(DeferredViewportAction::ResizeThenMin {
+            inner_size,
+            min_size,
+        });
     }
 
     pub fn reload_mods(&mut self) {

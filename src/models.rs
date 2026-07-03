@@ -47,8 +47,14 @@ pub struct LogSettings {
     pub max_log_size_mb: usize,
     pub log_level: String,
     pub auto_save: bool,
+    #[serde(default = "default_log_flush_interval_minutes")]
+    pub flush_interval_minutes: u32,
     #[serde(default)]
     pub collect_system_info: bool,
+}
+
+pub fn default_log_flush_interval_minutes() -> u32 {
+    3
 }
 
 impl Default for LogSettings {
@@ -58,23 +64,24 @@ impl Default for LogSettings {
             max_log_size_mb: 10,
             log_level: "INFO".to_string(),
             auto_save: true,
+            flush_interval_minutes: default_log_flush_interval_minutes(),
             collect_system_info: false,
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct BackupSettings {
-    pub auto_delete_days: u32,
     pub backup_interval_minutes: u32,
 }
 
-impl Default for BackupSettings {
-    fn default() -> Self {
-        Self {
-            auto_delete_days: 30,
-            backup_interval_minutes: 0,
-        }
+#[cfg(test)]
+mod backup_settings_tests {
+    use super::BackupSettings;
+
+    #[test]
+    fn backup_settings_default_keeps_auto_backup_off() {
+        assert_eq!(BackupSettings::default().backup_interval_minutes, 0);
     }
 }
 
@@ -477,6 +484,16 @@ impl FileWatcherState {
             check_interval: std::time::Duration::from_secs(5),
             pending_external_mods: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod log_settings_tests {
+    use super::LogSettings;
+
+    #[test]
+    fn log_settings_default_flush_interval_is_three_minutes() {
+        assert_eq!(LogSettings::default().flush_interval_minutes, 3);
     }
 }
 

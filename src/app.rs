@@ -57,18 +57,18 @@ pub struct HallintaApp {
     // Timers
     last_log_flush: Instant,
     last_auto_backup: Option<Instant>,
-    last_backup_cleanup: Option<Instant>,
 
     // Normal mode window size (for restoring after compact)
     normal_window_size: Option<egui::Vec2>,
 
-    // Deferred min size: viewport commands are processed next frame, so when
-    // LOWERING the min we first clear it to (1,1), then apply the real value
-    // on the following frame via this field.
-    deferred_min_size: Option<egui::Vec2>,
+    // Deferred viewport resizing. The OS can clamp a resize against the
+    // previous min-size if both commands land in one frame, so size changes
+    // are applied over two follow-up frames.
+    deferred_viewport_action: Option<DeferredViewportAction>,
 
     // Track whether close was requested while monitor is running
     close_requested: bool,
+    close_after_snapshot: bool,
 
     // Keyboard / focus signals
     pub focus_search_requested: bool,
@@ -102,6 +102,7 @@ impl HallintaApp {
                 last_sort_mode: String::new(),
             }
         });
+        logging::configure(&app_settings.log_settings);
 
         // Load presets
         let app_presets = presets::load_presets().unwrap_or_else(|e| {
@@ -250,10 +251,10 @@ impl HallintaApp {
             drag_state: None,
             last_log_flush: now,
             last_auto_backup: None,
-            last_backup_cleanup: None,
             normal_window_size: None,
-            deferred_min_size: None,
+            deferred_viewport_action: None,
             close_requested: false,
+            close_after_snapshot: false,
             focus_search_requested: false,
             was_focused: true,
         };
@@ -284,12 +285,7 @@ impl HallintaApp {
         let _ = logging::log(
             "INFO",
             &format!(
-                "Backup config: auto-delete {} | auto-backup {}",
-                if bs.auto_delete_days > 0 {
-                    format!("after {}d", bs.auto_delete_days)
-                } else {
-                    "off".to_string()
-                },
+                "Backup config: auto-backup {}",
                 if bs.backup_interval_minutes > 0 {
                     format!("every {}min", bs.backup_interval_minutes)
                 } else {
@@ -301,4 +297,15 @@ impl HallintaApp {
         logging::write_session_marker(&format!("APP_INITIALIZED:v{}", platform::get_version()));
         app
     }
+}
+
+#[derive(Clone, Copy)]
+enum DeferredViewportAction {
+    ResizeThenMin {
+        inner_size: egui::Vec2,
+        min_size: egui::Vec2,
+    },
+    ApplyMin {
+        min_size: egui::Vec2,
+    },
 }

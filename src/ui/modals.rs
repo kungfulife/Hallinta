@@ -594,10 +594,11 @@ fn render_restore_manager(
     let mut view_session: Option<(String, String)> = None;
     let mut back_to_list = false;
     let mut delete_session_id: Option<(String, String)> = None;
+    let mut open_session_dir: Option<(String, String)> = None;
     let mut restore_snap: Option<SnapshotEntry> = None;
 
     let title = if let Some((_, ref name)) = selected_session {
-        format!("Snapshots: {}", name)
+        format!("Session: {}", name)
     } else {
         "Monitor Sessions".to_string()
     };
@@ -612,17 +613,27 @@ fn render_restore_manager(
         .show(ctx, |ui| {
             if let Some((ref _session_id, ref _session_name)) = selected_session {
                 // ── Snapshot list view ──
-                if ui.button("\u{2190} Back to Sessions").clicked() {
-                    back_to_list = true;
-                }
+                ui.horizontal(|ui| {
+                    if ui.button("\u{2190} Back to Sessions").clicked() {
+                        back_to_list = true;
+                    }
+                    if let Some((ref session_id, _)) = selected_session
+                        && ui.button("Open Folder").clicked()
+                    {
+                        let preset = sessions
+                            .iter()
+                            .find(|session| session.id == *session_id)
+                            .map(|session| session.preset_name.clone())
+                            .unwrap_or_else(|| app.selected_preset.clone());
+                        open_session_dir = Some((preset, session_id.clone()));
+                    }
+                });
                 ui.add_space(d.sm);
 
                 if snapshots.is_empty() {
                     ui.label("No snapshots in this session.");
                 } else {
-                    ui.label(
-                        egui::RichText::new(format!("{} snapshot(s)", snapshots.len())).strong(),
-                    );
+                    ui.label(egui::RichText::new("Available snapshots").strong());
                     ui.add_space(d.sm);
 
                     egui::ScrollArea::vertical()
@@ -697,8 +708,7 @@ fn render_restore_manager(
                                                 };
                                                 ui.colored_label(status_color, status_text);
                                                 ui.label(format!(
-                                                    "{} snapshots | Started: {}",
-                                                    session.snapshot_count,
+                                                    "Started: {}",
                                                     &session.started_at
                                                         [..19.min(session.started_at.len())]
                                                 ));
@@ -710,6 +720,12 @@ fn render_restore_manager(
                                                         view_session = Some((
                                                             session.id.clone(),
                                                             session.name.clone(),
+                                                        ));
+                                                    }
+                                                    if ui.button("Open Folder").clicked() {
+                                                        open_session_dir = Some((
+                                                            session.preset_name.clone(),
+                                                            session.id.clone(),
                                                         ));
                                                     }
                                                     if session.status != SessionStatus::Active
@@ -759,6 +775,15 @@ fn render_restore_manager(
     } else if let Some((sid, preset)) = delete_session_id {
         let _ = crate::core::save_monitor::delete_session_snapshots(&preset, &sid);
         app.load_sessions_async();
+    } else if let Some((preset, sid)) = open_session_dir {
+        if let Ok(dir) = crate::core::save_monitor::get_session_dir(&preset, &sid) {
+            let _ = crate::core::platform::open_directory(&dir);
+        }
+        app.active_modal = Some(Modal::RestoreManager {
+            sessions,
+            snapshots,
+            selected_session,
+        });
     } else if let Some(snap) = restore_snap {
         // Build restore checklist for this snapshot
         if let Ok(zip_path) = crate::core::save_monitor::get_snapshot_path(

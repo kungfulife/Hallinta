@@ -136,7 +136,6 @@ pub fn render_sidebar(app: &mut HallintaApp, ctx: &egui::Context) {
                     if let Some(ref session) = app.save_monitor.current_session {
                         ui.label(format!("Session: {}", session.name));
                     }
-                    ui.label(format!("Snapshots: {}", app.save_monitor.snapshot_count));
 
                     if ui
                         .add_sized([btn_width, 0.0], egui::Button::new("Pause Monitor"))

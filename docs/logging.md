@@ -42,7 +42,7 @@ Markers are written directly to the session file.
 1. `main()` installs the panic hook via `install_panic_logging_hook()`.
 2. `main()` starts the session via `init_log_session()` (`SESSION BEGIN` marker).
 3. During runtime, `log()` appends entries to an in-memory queue.
-4. `HallintaApp::check_timers()` in `src/app/timers.rs` calls `flush_log_buffer()` every 5 seconds.
+4. `HallintaApp::check_timers()` in `src/app/timers.rs` calls `flush_log_buffer()` on the configured interval (default: every 3 minutes).
 5. On normal exit, `cleanup_on_exit()` in `src/app/lifecycle.rs` writes `APP_SHUTDOWN`, flushes synchronously, writes `SESSION END`, and flushes again.
 6. On panic, the panic hook logs panic details, flushes synchronously, and writes `SESSION CRASH`.
 
@@ -105,11 +105,14 @@ The `module` field categorizes events. Key modules:
 - `max_log_size_mb` (hardcoded to 10 MB, not user-adjustable)
 - `log_level`
 - `auto_save`
+- `flush_interval_minutes`
 - `collect_system_info`
 
 Current runtime behavior:
 - `collect_system_info` is active and controls startup system-information logging.
-- `max_log_files`, `log_level`, and `auto_save` are persisted but currently not enforced in `core::logging`.
+- `log_level` filters entries before they enter the in-memory/file buffers.
+- `auto_save` and `flush_interval_minutes` control periodic file flushes while the app is running.
+- `max_log_files` is persisted but currently not enforced in `core::logging`.
 - `max_log_size_mb` is kept at 10 MB default and not exposed in the settings UI.
 
 ## Privacy Notes

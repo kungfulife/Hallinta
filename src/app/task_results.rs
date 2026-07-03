@@ -135,6 +135,10 @@ impl HallintaApp {
                             );
                         }
                     }
+                    if self.close_after_snapshot {
+                        self.close_after_snapshot = false;
+                        self.pause_monitor_for_close();
+                    }
                 }
                 TaskResult::UpgradeBackupComplete(res) => {
                     if let Err(e) = res {
@@ -265,5 +269,31 @@ impl HallintaApp {
                 },
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_support::test_app;
+    use crate::tasks::TaskResult;
+
+    #[test]
+    fn snapshot_completion_finishes_pending_monitor_close() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+        app.save_monitor.snapshot_in_flight = true;
+        app.close_after_snapshot = true;
+        app.close_requested = true;
+
+        app.task_tx
+            .send(TaskResult::SnapshotComplete(Ok("snapshot.zip".to_string())))
+            .expect("test task result should send");
+
+        app.poll_task_results();
+
+        assert!(!app.save_monitor.running);
+        assert!(!app.save_monitor.snapshot_in_flight);
+        assert!(!app.close_after_snapshot);
+        assert!(app.close_requested);
     }
 }

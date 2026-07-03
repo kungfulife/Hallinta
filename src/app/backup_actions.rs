@@ -17,7 +17,7 @@ impl HallintaApp {
             ChecklistItem {
                 id: "save01".to_string(),
                 label: "save01".to_string(),
-                checked: false,
+                checked: true,
             },
             ChecklistItem {
                 id: "presets".to_string(),
@@ -30,7 +30,7 @@ impl HallintaApp {
             items.push(ChecklistItem {
                 id: "entangled".to_string(),
                 label: "Entangled Worlds".to_string(),
-                checked: false,
+                checked: true,
             });
         }
 
@@ -180,5 +180,29 @@ impl HallintaApp {
             items,
             action: ChecklistAction::Restore(String::new()),
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_support::test_app;
+    use super::*;
+
+    #[test]
+    fn backup_modal_defaults_optional_save_components_checked() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.entangled_dir = "C:/Entangled".to_string();
+
+        app.start_backup_modal();
+
+        let Some(Modal::Checklist { items, .. }) = app.active_modal else {
+            panic!("expected backup checklist modal");
+        };
+        assert!(items.iter().any(|item| item.id == "save01" && item.checked));
+        assert!(
+            items
+                .iter()
+                .any(|item| item.id == "entangled" && item.checked)
+        );
     }
 }

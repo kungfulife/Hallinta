@@ -106,22 +106,37 @@ impl HallintaApp {
             return;
         }
 
-        if self.save_monitor.is_running() && !self.close_requested {
+        if self.close_requested || self.close_after_snapshot {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-            self.close_requested = true;
+            return;
+        }
+
+        if self.save_monitor.is_running() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             let _ = logging::log(
                 "INFO",
-                "Close requested while monitor running — prompting for final snapshot",
+                "Close requested while monitor running - prompting for snapshot",
                 "App",
             );
             self.active_modal = Some(Modal::Confirm {
-                message: "Save Monitor is running. Take a final snapshot before closing?"
+                message: "Save a monitor snapshot before closing Hallinta? The session will pause and can be resumed later."
                     .to_string(),
-                confirm_text: "Snapshot & Close".to_string(),
+                confirm_text: "Save Snapshot & Close".to_string(),
                 cancel_text: "Close Without Snapshot".to_string(),
                 action: ConfirmAction::ExitWithSnapshot,
                 cancel_action: Some(ConfirmAction::ExitWithoutSnapshot),
             });
+        }
+    }
+
+    pub(super) fn close_after_monitor_prompt(&mut self, ctx: &egui::Context) {
+        if self.close_requested
+            && !self.close_after_snapshot
+            && !self.save_monitor.is_running()
+            && self.active_modal.is_none()
+        {
+            self.close_requested = false;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
     }
 }

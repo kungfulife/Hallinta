@@ -154,15 +154,22 @@ impl HallintaApp {
                 });
             }
             ConfirmAction::ExitWithSnapshot => {
-                let _ = logging::log("INFO", "Exit chosen: take final snapshot", "App");
-                self.take_monitor_snapshot();
-                self.end_monitor_session();
-                self.close_requested = false;
+                let _ = logging::log("INFO", "Exit chosen: save snapshot and close", "App");
+                self.close_requested = true;
+                self.close_after_snapshot = true;
+                if !self.save_monitor.snapshot_in_flight {
+                    self.take_monitor_snapshot();
+                }
+                if !self.save_monitor.snapshot_in_flight {
+                    self.close_after_snapshot = false;
+                    self.pause_monitor_for_close();
+                }
             }
             ConfirmAction::ExitWithoutSnapshot => {
-                let _ = logging::log("INFO", "Exit chosen: no final snapshot", "App");
-                self.end_monitor_session();
-                self.close_requested = false;
+                let _ = logging::log("INFO", "Exit chosen: close without snapshot", "App");
+                self.close_requested = true;
+                self.close_after_snapshot = false;
+                self.pause_monitor_for_close();
             }
             ConfirmAction::DeleteBackup(filename) => {
                 self.delete_backup_async(filename);
@@ -569,6 +576,7 @@ impl HallintaApp {
 
 #[cfg(test)]
 mod tests {
+    use super::super::test_support::test_app;
     use super::*;
 
     fn ids(values: &[&str]) -> Vec<String> {
@@ -591,5 +599,16 @@ mod tests {
                 "backup.zip".to_string()
             ))
         );
+    }
+
+    #[test]
+    fn exit_without_snapshot_pauses_monitor_and_requests_close() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+
+        app.handle_confirm_action(ConfirmAction::ExitWithoutSnapshot);
+
+        assert!(!app.save_monitor.running);
+        assert!(app.close_requested);
     }
 }

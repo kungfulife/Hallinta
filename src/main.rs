@@ -53,6 +53,9 @@ fn main() {
 
     // Step 7: Configure eframe window — scale-aware initial sizing + multi-monitor centering
     let saved_settings = core::settings::load_settings().ok();
+    if let Some(settings) = saved_settings.as_ref() {
+        core::logging::configure(&settings.log_settings);
+    }
     let saved_scale = saved_settings
         .as_ref()
         .map(|s| s.ui_scale)

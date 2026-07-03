@@ -1,6 +1,6 @@
 use super::HallintaApp;
-use crate::core::{backup, file_watcher, logging, mods};
-use crate::models::{ModEntry, Modal};
+use crate::core::{file_watcher, logging, mods};
+use crate::models::{LogSettings, ModEntry, Modal};
 use eframe::egui;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -12,8 +12,11 @@ impl HallintaApp {
     pub(super) fn check_timers(&mut self, ctx: &egui::Context) {
         let now = Instant::now();
 
-        // Log flush (every 5 seconds)
-        if now.duration_since(self.last_log_flush) > Duration::from_secs(5) {
+        // Log flush
+        if self.settings.log_settings.auto_save
+            && now.duration_since(self.last_log_flush)
+                > log_flush_interval(&self.settings.log_settings)
+        {
             let _ = logging::flush_log_buffer();
             self.last_log_flush = now;
         }
@@ -39,22 +42,6 @@ impl HallintaApp {
         if should_check && self.active_modal.is_none() {
             self.file_watcher.last_check = Some(now);
             self.check_external_changes();
-        }
-
-        // Backup cleanup (every 6 hours, plus once on first frame)
-        let cleanup_interval = Duration::from_secs(6 * 60 * 60);
-        let should_cleanup = self
-            .last_backup_cleanup
-            .is_none_or(|t| now.duration_since(t) > cleanup_interval);
-        if should_cleanup {
-            self.last_backup_cleanup = Some(now);
-            let days = self.settings.backup_settings.auto_delete_days;
-            if days > 0 {
-                self.async_runtime.spawn(async move {
-                    let _ = tokio::task::spawn_blocking(move || backup::cleanup_old_backups(days))
-                        .await;
-                });
-            }
         }
 
         // Auto-backup scheduler
@@ -228,6 +215,10 @@ fn mods_equal(a: &[ModEntry], b: &[ModEntry]) -> bool {
     })
 }
 
+fn log_flush_interval(settings: &LogSettings) -> Duration {
+    Duration::from_secs(u64::from(settings.flush_interval_minutes.max(1)) * 60)
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::test_support::{mod_entry, test_app};
@@ -335,7 +326,6 @@ mod tests {
         let (_runtime, mut app) = test_app(Vec::new());
         app.save_monitor.running = true;
         app.settings.backup_settings.backup_interval_minutes = 1;
-        app.settings.backup_settings.auto_delete_days = 0;
 
         app.check_timers(&egui::Context::default());
 
@@ -345,5 +335,13 @@ mod tests {
         app.check_timers(&egui::Context::default());
 
         assert!(app.last_auto_backup.is_some());
+    }
+
+    #[test]
+    fn log_flush_interval_defaults_to_three_minutes() {
+        assert_eq!(
+            log_flush_interval(&LogSettings::default()),
+            Duration::from_secs(180)
+        );
     }
 }

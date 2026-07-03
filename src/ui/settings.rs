@@ -111,281 +111,358 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let mut show_noita_warning = false;
     let mut scale_changed = false;
 
-    egui::ScrollArea::vertical().show(ui, |ui| {
-        ui.heading("Settings");
-        ui.add_space(d.md);
+    egui::ScrollArea::vertical()
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.heading("Settings");
+            ui.add_space(d.md);
 
-        // ── Directory Settings ──────────���──────────────────────────────
-        ui.group(|ui| {
-            ui.label(egui::RichText::new("Directories").strong().size(d.font_tab));
-            ui.add_space(d.sm);
+            // ── Directory Settings ──────────���──────────────────────────────
+            ui.group(|ui| {
+                ui.label(egui::RichText::new("Directories").strong().size(d.font_tab));
+                ui.add_space(d.sm);
 
-            // Noita save directory
-            ui.label("Noita Save Directory:");
-            ui.horizontal(|ui| {
-                let resp = focused_text_edit(
-                    ui,
-                    &d,
-                    &mut app.settings.noita_dir,
-                    ui.available_width() - 250.0,
-                );
-                if resp.lost_focus() && app.settings.noita_dir != prev_noita_dir {
-                    noita_dir_lost_focus = true;
-                }
-                if ui.button("Browse").clicked()
-                    && let Some(folder) = rfd::FileDialog::new()
-                        .set_title("Select Noita Save Directory")
-                        .pick_folder()
-                {
-                    app.settings.noita_dir = folder.to_string_lossy().to_string();
-                    noita_dir_lost_focus = true;
-                }
-                if ui.button("Auto-detect").clicked()
-                    && let Ok(path) = crate::core::platform::get_noita_save_path()
-                {
-                    app.settings.noita_dir = path.to_string_lossy().to_string();
-                    noita_dir_lost_focus = true;
-                }
-                if !app.settings.noita_dir.is_empty() && ui.button("Open").clicked() {
-                    let _ = crate::core::platform::open_directory(std::path::Path::new(
-                        &app.settings.noita_dir,
-                    ));
-                }
+                // Noita save directory
+                ui.label("Noita Save Directory:");
+                ui.horizontal(|ui| {
+                    let resp = focused_text_edit(
+                        ui,
+                        &d,
+                        &mut app.settings.noita_dir,
+                        ui.available_width() - 250.0,
+                    );
+                    if resp.lost_focus() && app.settings.noita_dir != prev_noita_dir {
+                        noita_dir_lost_focus = true;
+                    }
+                    if ui.button("Browse").clicked()
+                        && let Some(folder) = rfd::FileDialog::new()
+                            .set_title("Select Noita Save Directory")
+                            .pick_folder()
+                    {
+                        app.settings.noita_dir = folder.to_string_lossy().to_string();
+                        noita_dir_lost_focus = true;
+                    }
+                    if ui.button("Auto-detect").clicked()
+                        && let Ok(path) = crate::core::platform::get_noita_save_path()
+                    {
+                        app.settings.noita_dir = path.to_string_lossy().to_string();
+                        noita_dir_lost_focus = true;
+                    }
+                    if !app.settings.noita_dir.is_empty() && ui.button("Open").clicked() {
+                        let _ = crate::core::platform::open_directory(std::path::Path::new(
+                            &app.settings.noita_dir,
+                        ));
+                    }
+                });
+
+                ui.add_space(d.sm);
+
+                // Entangled Worlds directory
+                ui.label("Entangled Worlds Save Directory:");
+                ui.horizontal(|ui| {
+                    let resp = focused_text_edit(
+                        ui,
+                        &d,
+                        &mut app.settings.entangled_dir,
+                        ui.available_width() - 250.0,
+                    );
+                    if resp.lost_focus() && app.settings.entangled_dir != prev_entangled_dir {
+                        entangled_dir_lost_focus = true;
+                    }
+                    if ui.button("Browse").clicked()
+                        && let Some(folder) = rfd::FileDialog::new()
+                            .set_title("Select Entangled Worlds Directory")
+                            .pick_folder()
+                    {
+                        app.settings.entangled_dir = folder.to_string_lossy().to_string();
+                        entangled_dir_lost_focus = true;
+                    }
+                    if ui.button("Auto-detect").clicked()
+                        && let Ok(path) = crate::core::platform::get_entangled_worlds_save_path()
+                    {
+                        app.settings.entangled_dir = path.to_string_lossy().to_string();
+                        entangled_dir_lost_focus = true;
+                    }
+                    if !app.settings.entangled_dir.is_empty() && ui.button("Open").clicked() {
+                        let _ = crate::core::platform::open_directory(std::path::Path::new(
+                            &app.settings.entangled_dir,
+                        ));
+                    }
+                });
             });
 
-            ui.add_space(d.sm);
+            ui.add_space(d.md);
 
-            // Entangled Worlds directory
-            ui.label("Entangled Worlds Save Directory:");
-            ui.horizontal(|ui| {
-                let resp = focused_text_edit(
-                    ui,
-                    &d,
-                    &mut app.settings.entangled_dir,
-                    ui.available_width() - 250.0,
-                );
-                if resp.lost_focus() && app.settings.entangled_dir != prev_entangled_dir {
-                    entangled_dir_lost_focus = true;
-                }
-                if ui.button("Browse").clicked()
-                    && let Some(folder) = rfd::FileDialog::new()
-                        .set_title("Select Entangled Worlds Directory")
-                        .pick_folder()
-                {
-                    app.settings.entangled_dir = folder.to_string_lossy().to_string();
-                    entangled_dir_lost_focus = true;
-                }
-                if ui.button("Auto-detect").clicked()
-                    && let Ok(path) = crate::core::platform::get_entangled_worlds_save_path()
-                {
-                    app.settings.entangled_dir = path.to_string_lossy().to_string();
-                    entangled_dir_lost_focus = true;
-                }
-                if !app.settings.entangled_dir.is_empty() && ui.button("Open").clicked() {
-                    let _ = crate::core::platform::open_directory(std::path::Path::new(
-                        &app.settings.entangled_dir,
-                    ));
-                }
-            });
-        });
+            // ── Appearance ───────────��──────────────────────────────────────
+            render_appearance_settings(ui, &d, &mut app.settings, &mut scale_changed);
 
-        ui.add_space(d.md);
+            ui.add_space(d.md);
 
-        // ── Appearance ───────────��──────────────────────────────────────
-        render_appearance_settings(ui, &d, &mut app.settings, &mut scale_changed);
+            // ── Logging Settings ───────────────────────────────────────────
+            ui.group(|ui| {
+                ui.label(egui::RichText::new("Logging").strong().size(d.font_tab));
+                ui.add_space(d.sm);
 
-        ui.add_space(d.md);
-
-        // ── Logging Settings ───────────────────────────────────────────
-        ui.group(|ui| {
-            ui.label(egui::RichText::new("Logging").strong().size(d.font_tab));
-            ui.add_space(d.sm);
-
-            ui.horizontal(|ui| {
-                ui.label("Max Log Files:");
-                if ui
-                    .add(
-                        egui::DragValue::new(&mut app.settings.log_settings.max_log_files)
-                            .range(1..=500),
-                    )
-                    .changed()
-                {
-                    needs_save = true;
-                }
-            });
-            ui.horizontal(|ui| {
-                ui.label("Log Level:");
-                let prev_level = app.settings.log_settings.log_level.clone();
-                egui::ComboBox::from_id_salt("log_level")
-                    .selected_text(&app.settings.log_settings.log_level)
-                    .show_ui(ui, |ui| {
-                        for level in &["DEBUG", "INFO", "WARN", "ERROR"] {
-                            ui.selectable_value(
-                                &mut app.settings.log_settings.log_level,
-                                level.to_string(),
-                                *level,
-                            );
-                        }
-                    });
-                if app.settings.log_settings.log_level != prev_level {
-                    needs_save = true;
-                }
-            });
-            if ui
-                .checkbox(
-                    &mut app.settings.log_settings.collect_system_info,
-                    "Log detailed system info on startup",
-                )
-                .changed()
-            {
-                needs_save = true;
-            }
-        });
-
-        ui.add_space(d.md);
-
-        // ── Save Monitor Settings ──────────────────────────────────────
-        ui.group(|ui| {
-            ui.label(
-                egui::RichText::new("Save Monitor")
-                    .strong()
-                    .size(d.font_tab),
-            );
-            ui.add_space(d.sm);
-
-            ui.horizontal(|ui| {
-                ui.label("Max snapshots per session:");
-                if ui
-                    .add(
-                        egui::DragValue::new(
-                            &mut app.settings.save_monitor_settings.max_snapshots_per_session,
+                ui.horizontal(|ui| {
+                    ui.label("Max Log Files:");
+                    if ui
+                        .add(
+                            egui::DragValue::new(&mut app.settings.log_settings.max_log_files)
+                                .range(1..=500),
                         )
-                        .range(1..=100),
+                        .changed()
+                    {
+                        needs_save = true;
+                    }
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Log Level:");
+                    let prev_level = app.settings.log_settings.log_level.clone();
+                    egui::ComboBox::from_id_salt("log_level")
+                        .selected_text(&app.settings.log_settings.log_level)
+                        .show_ui(ui, |ui| {
+                            for level in &["DEBUG", "INFO", "WARN", "ERROR"] {
+                                ui.selectable_value(
+                                    &mut app.settings.log_settings.log_level,
+                                    level.to_string(),
+                                    *level,
+                                );
+                            }
+                        });
+                    if app.settings.log_settings.log_level != prev_level {
+                        needs_save = true;
+                    }
+                });
+                if ui
+                    .checkbox(
+                        &mut app.settings.log_settings.collect_system_info,
+                        "Log detailed system info on startup",
+                    )
+                    .changed()
+                {
+                    needs_save = true;
+                }
+                ui.horizontal(|ui| {
+                    ui.label("Write logs every:");
+                    if ui
+                        .add(
+                            egui::Slider::new(
+                                &mut app.settings.log_settings.flush_interval_minutes,
+                                1..=60,
+                            )
+                            .suffix(" min"),
+                        )
+                        .changed()
+                    {
+                        needs_save = true;
+                    }
+                    if ui
+                        .add(
+                            egui::DragValue::new(
+                                &mut app.settings.log_settings.flush_interval_minutes,
+                            )
+                            .range(1..=60)
+                            .suffix(" min"),
+                        )
+                        .changed()
+                    {
+                        needs_save = true;
+                    }
+                });
+                helper_text(
+                    ui,
+                    &d,
+                    "Shutdown and crash logs are still written immediately.",
+                );
+            });
+
+            ui.add_space(d.md);
+
+            // ── Backup Settings ───────────────────────────────────────────
+            ui.group(|ui| {
+                ui.label(egui::RichText::new("Backups").strong().size(d.font_tab));
+                ui.add_space(d.sm);
+
+                ui.horizontal(|ui| {
+                    ui.label("Automatic backups:");
+                    if ui
+                        .add(
+                            egui::Slider::new(
+                                &mut app.settings.backup_settings.backup_interval_minutes,
+                                0..=120,
+                            )
+                            .suffix(" min"),
+                        )
+                        .changed()
+                    {
+                        needs_save = true;
+                    }
+                    if ui
+                        .add(
+                            egui::DragValue::new(
+                                &mut app.settings.backup_settings.backup_interval_minutes,
+                            )
+                            .range(0..=120)
+                            .suffix(" min"),
+                        )
+                        .changed()
+                    {
+                        needs_save = true;
+                    }
+                });
+                let backup_help = if app.settings.backup_settings.backup_interval_minutes == 0 {
+                    "Off. Set a minute interval to create automatic backups while idle."
+                } else {
+                    "Automatic backups wait while monitoring, restoring, or another backup is running."
+                };
+                helper_text(ui, &d, backup_help);
+            });
+
+            ui.add_space(d.md);
+
+            // ── Save Monitor Settings ──────────────────────────────────────
+            ui.group(|ui| {
+                ui.label(
+                    egui::RichText::new("Save Monitor")
+                        .strong()
+                        .size(d.font_tab),
+                );
+                ui.add_space(d.sm);
+
+                ui.horizontal(|ui| {
+                    ui.label("Max snapshots per session:");
+                    if ui
+                        .add(
+                            egui::DragValue::new(
+                                &mut app.settings.save_monitor_settings.max_snapshots_per_session,
+                            )
+                            .range(1..=100),
+                        )
+                        .changed()
+                    {
+                        needs_save = true;
+                    }
+                });
+                helper_text(
+                    ui,
+                    &d,
+                    "Oldest snapshots are removed when the limit is reached.",
+                );
+                if ui
+                    .checkbox(
+                        &mut app.settings.save_monitor_settings.include_save01,
+                        "Include save01 in snapshots",
+                    )
+                    .changed()
+                {
+                    needs_save = true;
+                }
+                if ui
+                    .checkbox(
+                        &mut app.settings.save_monitor_settings.include_entangled,
+                        "Include Entangled Worlds in snapshots",
+                    )
+                    .changed()
+                {
+                    needs_save = true;
+                }
+                if ui
+                    .checkbox(
+                        &mut app.settings.save_monitor_settings.start_in_monitor_mode,
+                        "Start Save Monitor on launch",
                     )
                     .changed()
                 {
                     needs_save = true;
                 }
             });
-            helper_text(
-                ui,
-                &d,
-                "Oldest snapshots are removed when the limit is reached.",
-            );
-            if ui
-                .checkbox(
-                    &mut app.settings.save_monitor_settings.include_save01,
-                    "Include save01 in snapshots",
-                )
-                .changed()
-            {
-                needs_save = true;
-            }
-            if ui
-                .checkbox(
-                    &mut app.settings.save_monitor_settings.include_entangled,
-                    "Include Entangled Worlds in snapshots",
-                )
-                .changed()
-            {
-                needs_save = true;
-            }
-            if ui
-                .checkbox(
-                    &mut app.settings.save_monitor_settings.start_in_monitor_mode,
-                    "Start Save Monitor on launch",
-                )
-                .changed()
-            {
-                needs_save = true;
-            }
-        });
 
-        ui.add_space(d.md);
+            ui.add_space(d.md);
 
-        // ── Workshop Settings ────────────────────────────────────────────
-        ui.group(|ui| {
-            ui.label(egui::RichText::new("Workshop").strong().size(d.font_tab));
-            ui.add_space(d.sm);
+            // ── Workshop Settings ────────────────────────────────────────────
+            ui.group(|ui| {
+                ui.label(egui::RichText::new("Workshop").strong().size(d.font_tab));
+                ui.add_space(d.sm);
 
-            ui.label("Steam Path:");
+                ui.label("Steam Path:");
+                ui.horizontal(|ui| {
+                    let steam_prev = app.settings.steam_path.clone();
+                    let resp = focused_text_edit(
+                        ui,
+                        &d,
+                        &mut app.settings.steam_path,
+                        ui.available_width() - 250.0,
+                    );
+                    if resp.lost_focus() && app.settings.steam_path != steam_prev {
+                        needs_save = true;
+                    }
+                    if ui.button("Browse").clicked()
+                        && let Some(folder) = rfd::FileDialog::new()
+                            .set_title("Select Steam Directory")
+                            .pick_folder()
+                    {
+                        app.settings.steam_path = folder.to_string_lossy().to_string();
+                        needs_save = true;
+                    }
+                    if ui.button("Auto-detect").clicked()
+                        && let Ok(path) = crate::core::workshop::detect_steam_path()
+                    {
+                        app.settings.steam_path = path.to_string_lossy().to_string();
+                        needs_save = true;
+                    }
+                    if !app.settings.steam_path.is_empty() && ui.button("Open").clicked() {
+                        let _ = crate::core::platform::open_directory(std::path::Path::new(
+                            &app.settings.steam_path,
+                        ));
+                    }
+                });
+            });
+
+            ui.add_space(d.lg);
+
+            // ── Action Buttons ───────────────────────��─────────────────────
             ui.horizontal(|ui| {
-                let steam_prev = app.settings.steam_path.clone();
-                let resp = focused_text_edit(
-                    ui,
-                    &d,
-                    &mut app.settings.steam_path,
-                    ui.available_width() - 250.0,
-                );
-                if resp.lost_focus() && app.settings.steam_path != steam_prev {
+                if ui.button("Reset to Defaults").clicked() {
+                    let mut defaults = default_settings();
+                    // Auto-detect directories so the user sees populated paths
+                    if let Ok(path) = crate::core::platform::get_noita_save_path() {
+                        defaults.noita_dir = path.to_string_lossy().to_string();
+                    }
+                    if let Ok(path) = crate::core::platform::get_entangled_worlds_save_path() {
+                        defaults.entangled_dir = path.to_string_lossy().to_string();
+                    }
+                    if let Ok(path) = crate::core::workshop::detect_steam_path() {
+                        defaults.steam_path = path.to_string_lossy().to_string();
+                    }
+                    app.settings = defaults;
+                    // All side-effects (theme, compact, scale) are picked up below
+                    // via the prev_ snapshot comparisons and scale_changed flag
+                    if app.settings.ui_scale != prev_ui_scale {
+                        scale_changed = true;
+                    }
+                    noita_dir_lost_focus = true;
                     needs_save = true;
                 }
-                if ui.button("Browse").clicked()
-                    && let Some(folder) = rfd::FileDialog::new()
-                        .set_title("Select Steam Directory")
-                        .pick_folder()
+            });
+
+            ui.add_space(d.lg);
+
+            // ── Info Panels ──────────────��────────────────────────���────────
+            ui.horizontal(|ui| {
+                if ui.button("System Information").clicked() {
+                    app.active_modal = Some(Modal::SystemInfo);
+                }
+                if ui.button("Open Source Libraries").clicked() {
+                    app.active_modal = Some(Modal::OpenSourceLibraries);
+                }
+                if ui.button("Open Settings Folder").clicked()
+                    && let Ok(dir) = crate::core::settings::get_data_dir()
                 {
-                    app.settings.steam_path = folder.to_string_lossy().to_string();
-                    needs_save = true;
-                }
-                if ui.button("Auto-detect").clicked()
-                    && let Ok(path) = crate::core::workshop::detect_steam_path()
-                {
-                    app.settings.steam_path = path.to_string_lossy().to_string();
-                    needs_save = true;
-                }
-                if !app.settings.steam_path.is_empty() && ui.button("Open").clicked() {
-                    let _ = crate::core::platform::open_directory(std::path::Path::new(
-                        &app.settings.steam_path,
-                    ));
+                    let _ = crate::core::platform::open_directory(&dir);
                 }
             });
         });
-
-        ui.add_space(d.lg);
-
-        // ── Action Buttons ───────────────────────��─────────────────────
-        ui.horizontal(|ui| {
-            if ui.button("Reset to Defaults").clicked() {
-                let mut defaults = default_settings();
-                // Auto-detect directories so the user sees populated paths
-                if let Ok(path) = crate::core::platform::get_noita_save_path() {
-                    defaults.noita_dir = path.to_string_lossy().to_string();
-                }
-                if let Ok(path) = crate::core::platform::get_entangled_worlds_save_path() {
-                    defaults.entangled_dir = path.to_string_lossy().to_string();
-                }
-                if let Ok(path) = crate::core::workshop::detect_steam_path() {
-                    defaults.steam_path = path.to_string_lossy().to_string();
-                }
-                app.settings = defaults;
-                // All side-effects (theme, compact, scale) are picked up below
-                // via the prev_ snapshot comparisons and scale_changed flag
-                if app.settings.ui_scale != prev_ui_scale {
-                    scale_changed = true;
-                }
-                noita_dir_lost_focus = true;
-                needs_save = true;
-            }
-        });
-
-        ui.add_space(d.lg);
-
-        // ── Info Panels ──────────────��────────────────────────���────────
-        ui.horizontal(|ui| {
-            if ui.button("System Information").clicked() {
-                app.active_modal = Some(Modal::SystemInfo);
-            }
-            if ui.button("Open Source Libraries").clicked() {
-                app.active_modal = Some(Modal::OpenSourceLibraries);
-            }
-            if ui.button("Open Settings Folder").clicked()
-                && let Ok(dir) = crate::core::settings::get_data_dir()
-            {
-                let _ = crate::core::platform::open_directory(&dir);
-            }
-        });
-    });
 
     // ── Handle side-effects after the scroll area ──────────────────────
 

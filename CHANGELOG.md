@@ -22,9 +22,8 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 - **Security**: Fixed Zip Slip vulnerability in `restore_backup` and `restore_from_path`
   — crafted backups can no longer write outside their target directory. Added
   `is_safe_relative()` guard with unit tests
-- **Backups**: Wired the previously dead `backup_settings.auto_delete_days` and
-  `backup_interval_minutes` settings; auto-cleanup runs every 6h, auto-backup runs
-  on the configured interval. Both log their activity
+- **Backups**: Exposed automatic-backup interval settings and retired the old
+  hidden backup cleanup path; backups are no longer deleted by a hidden default
 - **Backups**: Backup creation now fails with a clear error when the configured
   Noita save directory is missing or invalid, instead of producing a zip without
   `save00` data
@@ -58,7 +57,7 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
   enable/disable (single and bulk), preset switch with mod counts, drag move
   with name + position delta, manual reload counts, theme/scale/window-mode
   changes, noita_dir changes, workshop check results (installed/missing),
-  external mod_config detection, backup config (interval/auto-delete) at startup,
+  external mod_config detection, backup config at startup,
   filter/sort changes, restore start/complete/fail with detail, save errors
   (`mod_config.xml`, `presets.json`, `settings.json`)
 - **Lints**: Cleaned orphan doc comment, `build.rs` borrow, `mod_list` `map_or`
@@ -190,7 +189,7 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 - Fixed detached log window preventing application from closing fully (now handled at Tauri level)
 - Fixed log level select in settings not showing color for the selected value
 - Removed Data Directory from System Info panel (already viewable in settings)
-- Added descriptive helper text for retention settings (backup auto-delete, upgrade backups, save monitor snapshots)
+- Added descriptive helper text for retention settings (upgrade backups, save monitor snapshots)
 - Added "(0 = keep all)" and "(0 = off)" hints to backup settings inputs
 
 ## 0.6.0

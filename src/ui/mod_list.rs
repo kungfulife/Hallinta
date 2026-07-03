@@ -457,12 +457,6 @@ fn render_monitor_edit_notice(app: &HallintaApp, ui: &mut egui::Ui, d: &crate::u
                         .size(d.font_body)
                         .color(d.helper_text_color),
                 );
-                ui.separator();
-                ui.label(
-                    egui::RichText::new(format!("Snapshots: {}", app.save_monitor.snapshot_count))
-                        .size(d.font_small)
-                        .color(ui.visuals().weak_text_color()),
-                );
                 if app.file_watcher.pending_external_mods.is_some() {
                     ui.separator();
                     ui.label(

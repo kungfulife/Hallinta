@@ -1,13 +1,13 @@
 use crate::core::platform;
 use crate::core::settings::get_data_dir;
-use crate::models::LogEntry;
+use crate::models::{LogEntry, LogSettings};
 use chrono::{Local, Utc};
 use std::backtrace::Backtrace;
 use std::collections::VecDeque;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::panic::PanicHookInfo;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Mutex, Once};
 
 static LOG_BUFFER: Mutex<VecDeque<LogEntry>> = Mutex::new(VecDeque::new());
@@ -17,6 +17,12 @@ static INSTANCE_ID: std::sync::LazyLock<String> =
     std::sync::LazyLock::new(|| Local::now().format("%Y%m%d_%H%M%S").to_string());
 static SESSION_STARTED: AtomicBool = AtomicBool::new(false);
 static PANIC_HOOK_INSTALLED: Once = Once::new();
+static MIN_LOG_LEVEL: AtomicU8 = AtomicU8::new(LOG_LEVEL_INFO);
+
+const LOG_LEVEL_DEBUG: u8 = 10;
+const LOG_LEVEL_INFO: u8 = 20;
+const LOG_LEVEL_WARN: u8 = 30;
+const LOG_LEVEL_ERROR: u8 = 40;
 
 fn log_file_name(version: &str, instance_id: &str) -> String {
     let dev_tag = if cfg!(debug_assertions) { "_dev" } else { "" };
@@ -37,6 +43,24 @@ fn write_session_marker_to_file(file: &mut std::fs::File, marker: &str) {
         marker, version, build_mode, git_hash, timestamp
     );
     let _ = file.write_all(line.as_bytes());
+}
+
+pub fn configure(settings: &LogSettings) {
+    MIN_LOG_LEVEL.store(log_level_rank(&settings.log_level), Ordering::Relaxed);
+}
+
+fn log_level_rank(level: &str) -> u8 {
+    match level.trim().to_uppercase().as_str() {
+        "DEBUG" => LOG_LEVEL_DEBUG,
+        "WARN" => LOG_LEVEL_WARN,
+        "ERROR" => LOG_LEVEL_ERROR,
+        _ => LOG_LEVEL_INFO,
+    }
+}
+
+#[cfg(test)]
+fn level_is_enabled(entry_level: &str, min_level: &str) -> bool {
+    log_level_rank(entry_level) >= log_level_rank(min_level)
 }
 
 /// Create the log file and write the SESSION BEGIN marker.
@@ -141,6 +165,9 @@ pub fn install_panic_logging_hook() {
 
 pub fn log(level: &str, message: &str, module: &str) -> Result<(), String> {
     let normalized_level = level.to_uppercase();
+    if log_level_rank(&normalized_level) < MIN_LOG_LEVEL.load(Ordering::Relaxed) {
+        return Ok(());
+    }
     let timestamp = Utc::now().to_rfc3339();
     let entry = LogEntry {
         timestamp,
@@ -239,5 +266,18 @@ pub fn write_session_marker(marker: &str) {
         if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_file) {
             write_session_marker_to_file(&mut file, marker);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn debug_entries_are_filtered_at_info_level() {
+        assert!(!super::level_is_enabled("DEBUG", "INFO"));
+    }
+
+    #[test]
+    fn debug_entries_are_enabled_at_debug_level() {
+        assert!(super::level_is_enabled("DEBUG", "DEBUG"));
     }
 }
