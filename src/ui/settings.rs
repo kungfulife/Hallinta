@@ -506,14 +506,14 @@ mod tests {
     }
 
     #[test]
-    fn settings_view_does_not_show_debug_data_notes() {
+    fn settings_view_does_not_show_data_path_notes() {
         let source = include_str!("settings.rs");
         let debug_app_data = concat!("Debug App", " Data:");
         let debug_direct_paths = concat!("Debug build:", " Noita and Entangled Worlds");
 
         assert!(
             !source.contains(debug_app_data),
-            "Settings should not show debug app-data implementation notes"
+            "Settings should not show data-path implementation notes"
         );
         assert!(
             !source.contains(debug_direct_paths),

@@ -5,11 +5,7 @@ use std::path::{Path, PathBuf};
 
 pub fn get_data_dir() -> Result<PathBuf, String> {
     let local_data_dir = dirs::data_local_dir();
-    let data_dir = choose_app_data_dir(
-        cfg!(debug_assertions),
-        Path::new(env!("CARGO_MANIFEST_DIR")),
-        local_data_dir.as_deref(),
-    )?;
+    let data_dir = choose_app_data_dir(local_data_dir.as_deref())?;
 
     if !data_dir.exists() {
         fs::create_dir_all(&data_dir)
@@ -19,18 +15,10 @@ pub fn get_data_dir() -> Result<PathBuf, String> {
     Ok(data_dir)
 }
 
-fn choose_app_data_dir(
-    is_debug: bool,
-    manifest_dir: &Path,
-    local_data_dir: Option<&Path>,
-) -> Result<PathBuf, String> {
-    if is_debug {
-        Ok(manifest_dir.join("dev_data"))
-    } else {
-        local_data_dir
-            .map(|dir| dir.join("Hallinta"))
-            .ok_or_else(|| "Could not find local data directory".to_string())
-    }
+fn choose_app_data_dir(local_data_dir: Option<&Path>) -> Result<PathBuf, String> {
+    local_data_dir
+        .map(|dir| dir.join("Hallinta"))
+        .ok_or_else(|| "Could not find local data directory".to_string())
 }
 
 pub fn load_settings() -> Result<AppSettings, String> {
@@ -142,33 +130,19 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn choose_app_data_dir_uses_manifest_dev_data_for_debug_builds() {
-        let manifest_dir = Path::new("C:/repo/Hallinta");
-        let local_data_dir = Some(Path::new("C:/Users/example/AppData/Local"));
-
-        let path = choose_app_data_dir(true, manifest_dir, local_data_dir)
-            .expect("debug data dir choice should not depend on OS local data dir");
-
-        assert_eq!(path, manifest_dir.join("dev_data"));
-    }
-
-    #[test]
-    fn choose_app_data_dir_uses_hallinta_local_data_for_release_builds() {
-        let manifest_dir = Path::new("C:/repo/Hallinta");
+    fn choose_app_data_dir_uses_hallinta_local_data() {
         let local_data_dir = Path::new("C:/Users/example/AppData/Local");
 
-        let path = choose_app_data_dir(false, manifest_dir, Some(local_data_dir))
-            .expect("release data dir choice should use local data dir");
+        let path = choose_app_data_dir(Some(local_data_dir))
+            .expect("app data dir choice should use local data dir");
 
         assert_eq!(path, local_data_dir.join("Hallinta"));
     }
 
     #[test]
-    fn choose_app_data_dir_requires_local_data_dir_for_release_builds() {
-        let manifest_dir = Path::new("C:/repo/Hallinta");
-
-        let err = choose_app_data_dir(false, manifest_dir, None)
-            .expect_err("release data dir choice should require local data dir");
+    fn choose_app_data_dir_requires_local_data_dir() {
+        let err = choose_app_data_dir(None)
+            .expect_err("app data dir choice should require local data dir");
 
         assert_eq!(err, "Could not find local data directory");
     }

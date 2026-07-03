@@ -3,12 +3,12 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 # Update History
 
 ## 0.8.0 (Work In Progress)
-- **Developer workflow**: Removed the debug-only Noita save sandbox. Debug builds
-  still keep Hallinta-owned settings, logs, backups, and presets under
-  `./dev_data`, but Noita and Entangled Worlds operations now use the paths
-  configured in Settings directly. No release user data migration is required;
-  devs with old debug settings pointing at `dev_data/save00` should re-run
-  Auto-detect or Browse in Settings.
+- **Developer workflow**: Removed repo-local debug runtime data. Debug builds
+  now use the same OS-local Hallinta data directory as release builds. Noita
+  and Entangled Worlds operations continue to use the paths configured in
+  Settings directly. Existing release user data does not need migration; devs
+  with older repo-local settings should manually copy anything they want to keep
+  into the OS-local Hallinta data directory.
 - **Master parity sweep** — audited the egui port against the original Tauri
   branch and brought back two non-UI features that were dropped in transit:
   - `SystemInfo.logical_cpu_cores` — shown in the System Info modal and logged

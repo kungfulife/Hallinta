@@ -41,7 +41,7 @@ Fast navigation notes for agents and maintainers.
 
 - `src/ui/header.rs`: top navigation, search, preset controls, global buttons.
 - `src/ui/sidebar.rs`: backup/restore/monitor/settings actions outside compact mode.
-- `src/ui/mod_list.rs`: main mod list, filters, sorting controls, monitor-active view.
+- `src/ui/mod_list.rs`: main mod list, filters, sorting controls, monitor edit notice.
 - `src/ui/compact.rs`: compact monitor-focused layout.
 - `src/ui/settings.rs`: settings view and path/appearance/backup/logging controls.
 - `src/ui/modals.rs`: modal rendering; behavior lives in `src/app/modal_actions.rs`.
@@ -57,7 +57,7 @@ Fast navigation notes for agents and maintainers.
 
 ## Docs Nearby
 
-- `docs/dev-mode.md`: debug app-data location and legacy `dev_data` folder cleanup.
+- `docs/dev-mode.md`: debug markers and app-data behavior.
 - `docs/logging.md`: log files, session markers, flush lifecycle.
 - `docs/design-system.md`: visual spacing/color conventions.
 - `docs/egui.md`: egui implementation notes and UI pitfalls.

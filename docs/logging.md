@@ -4,10 +4,11 @@ This document describes the current logging implementation in `src/core/logging.
 
 ## Log Storage Location
 
-- Debug builds: `<repo>/dev_data/logs/`
-- Release builds:
-  - Windows: `%LOCALAPPDATA%\Hallinta\logs\`
-  - Linux: `~/.local/share/Hallinta/logs/`
+Logs are stored under the OS-local Hallinta data directory in every build
+profile:
+
+- Windows: `%LOCALAPPDATA%\Hallinta\logs\`
+- Linux: `~/.local/share/Hallinta/logs/`
 
 Location is resolved through `core::settings::get_data_dir()`.
 
