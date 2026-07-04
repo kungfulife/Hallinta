@@ -275,10 +275,24 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                         needs_save = true;
                     }
                 });
+                ui.horizontal(|ui| {
+                    ui.label("Monitoring backup delay (minutes):");
+                    if ui
+                        .add(
+                            egui::DragValue::new(
+                                &mut app.settings.save_monitor_settings.backup_delay_minutes,
+                            )
+                            .range(1..=120),
+                        )
+                        .changed()
+                    {
+                        needs_save = true;
+                    }
+                });
                 helper_text(
                     ui,
                     &d,
-                    "Oldest snapshots are removed when the limit is reached.",
+                    "Oldest automatic snapshots are removed when the limit is reached. Manual backups are kept separately.",
                 );
                 let save01_available =
                     crate::core::platform::save01_usable(&app.settings.noita_dir);

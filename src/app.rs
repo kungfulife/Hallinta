@@ -49,6 +49,8 @@ pub struct HallintaApp {
     pub async_runtime: tokio::runtime::Handle,
     pub task_tx: mpsc::Sender<TaskResult>,
     pub task_rx: mpsc::Receiver<TaskResult>,
+    pending_mod_list_export: Option<(String, Vec<ModListEntry>)>,
+    pending_preset_export: Option<Vec<String>>,
 
     // Drag state
     pub drag_state: Option<DragState>,
@@ -226,7 +228,7 @@ impl HallintaApp {
             let _ = logging::log(
                 "INFO",
                 &format!(
-                    "Reconciled {} interrupted monitor session(s) to Paused",
+                    "Reconciled {} interrupted monitor session(s) to Stopped",
                     fixed
                 ),
                 "SaveMonitor",
@@ -255,6 +257,8 @@ impl HallintaApp {
             async_runtime: rt,
             task_tx,
             task_rx,
+            pending_mod_list_export: None,
+            pending_preset_export: None,
             drag_state: None,
             normal_window_size: None,
             deferred_viewport_action: None,

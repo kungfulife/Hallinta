@@ -132,8 +132,8 @@ pub fn create_backup(
         "Backup",
     );
 
-    let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-    let filename = format!("hallinta_backup_{}.zip", timestamp);
+    let timestamp = Utc::now().format("%Y%m%d_%H%M%S").to_string();
+    let filename = manual_backup_filename(&timestamp);
     let zip_path = backups_dir.join(&filename);
 
     let file =
@@ -180,6 +180,10 @@ pub fn create_backup(
         .map_err(|e| format!("Failed to finish backup zip: {}", e))?;
 
     Ok(filename)
+}
+
+fn manual_backup_filename(timestamp: &str) -> String {
+    format!("hallinta_manual_backup_{}.zip", timestamp)
 }
 
 pub fn list_backups() -> Result<Vec<BackupInfo>, String> {
@@ -619,6 +623,13 @@ fn cleanup_old_upgrade_backups(upgrade_backup_dir: &Path, keep_count: usize) -> 
 #[cfg(test)]
 mod tests {
     use super::is_safe_relative;
+
+    #[test]
+    fn manual_backup_filename_is_explicit() {
+        let filename = super::manual_backup_filename("20260102_030405");
+
+        assert_eq!(filename, "hallinta_manual_backup_20260102_030405.zip");
+    }
 
     #[test]
     fn safe_relative_accepts_normal_paths() {

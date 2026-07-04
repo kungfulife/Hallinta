@@ -36,7 +36,7 @@ impl HallintaApp {
         }
 
         // Save monitor (change-detection based)
-        if self.save_monitor.is_running() && !self.save_monitor.snapshot_in_flight {
+        if self.save_monitor.is_running() && self.can_start_monitor_snapshot() {
             let should_scan = self
                 .save_monitor
                 .last_scan
@@ -45,9 +45,10 @@ impl HallintaApp {
                 self.save_monitor.last_scan = Some(now);
                 self.check_save_monitor_changes();
             }
-            // Wait 5 seconds after change detected for stability
+            // Wait long enough for Noita to finish writing before snapshotting.
             if let Some(change_time) = self.save_monitor.pending_change_since
-                && now.duration_since(change_time) > Duration::from_secs(5)
+                && now.duration_since(change_time)
+                    > monitor_backup_delay(self.settings.save_monitor_settings.backup_delay_minutes)
             {
                 self.save_monitor.pending_change_since = None;
                 self.take_monitor_snapshot();
@@ -114,6 +115,10 @@ impl HallintaApp {
             self.defer_or_prompt_external_mods(file_mods);
         }
     }
+}
+
+fn monitor_backup_delay(minutes: u64) -> Duration {
+    Duration::from_secs(minutes.clamp(1, 120) * 60)
 }
 
 pub(crate) fn build_external_mod_change_summary(
@@ -289,5 +294,34 @@ mod tests {
         assert_eq!(summary.removed, 1);
         assert_eq!(summary.enabled_changed, 1);
         assert!(summary.order_changed);
+    }
+
+    #[test]
+    fn monitor_backup_delay_uses_minutes_with_safe_bounds() {
+        assert_eq!(monitor_backup_delay(3), Duration::from_secs(180));
+        assert_eq!(monitor_backup_delay(0), Duration::from_secs(60));
+    }
+
+    #[test]
+    fn monitor_snapshot_waits_for_manual_backup_in_progress() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+        app.backup_state.in_progress = true;
+
+        assert!(!app.can_start_monitor_snapshot());
+    }
+
+    #[test]
+    fn monitor_pending_change_survives_while_manual_backup_is_busy() {
+        let ctx = egui::Context::default();
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+        app.backup_state.in_progress = true;
+        app.save_monitor.pending_change_since =
+            Some(Instant::now() - monitor_backup_delay(3) - Duration::from_secs(1));
+
+        app.check_timers(&ctx);
+
+        assert!(app.save_monitor.pending_change_since.is_some());
     }
 }

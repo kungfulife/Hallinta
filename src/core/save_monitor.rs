@@ -37,6 +37,10 @@ fn session_storage_key(session: &SessionInfo) -> &str {
     }
 }
 
+fn is_monitor_snapshot_zip(filename: &str) -> bool {
+    filename.starts_with("snapshot_") && filename.ends_with(".zip")
+}
+
 fn session_dir_from_monitor_dir(
     monitor_dir: &Path,
     preset_name: &str,
@@ -180,14 +184,14 @@ pub fn list_sessions(preset_name: &str) -> Result<Vec<SessionInfo>, String> {
     Ok(sessions)
 }
 
-pub fn list_paused_sessions(preset_name: &str) -> Result<Vec<SessionInfo>, String> {
+pub fn list_stopped_sessions(preset_name: &str) -> Result<Vec<SessionInfo>, String> {
     Ok(list_sessions(preset_name)?
         .into_iter()
         .filter(|s| s.status == SessionStatus::Paused)
         .collect())
 }
 
-/// Sessions left as Monitoring on disk were interrupted (crash/force-quit). Mark them Paused.
+/// Sessions left as Monitoring on disk were interrupted (crash/force-quit). Mark them stopped.
 pub fn reconcile_interrupted_sessions() -> Result<u32, String> {
     let monitor_dir = get_monitor_dir()?;
     let mut fixed = 0u32;
@@ -337,11 +341,11 @@ pub fn list_session_snapshots(
     for entry in fs::read_dir(&session_dir).map_err(|e| format!("Failed to read: {}", e))? {
         let entry = entry.map_err(|e| format!("Entry error: {}", e))?;
         let path = entry.path();
-        if path.extension().is_some_and(|ext| ext == "zip") {
-            let filename = path
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_default();
+        let filename = path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        if is_monitor_snapshot_zip(&filename) {
             let metadata = fs::metadata(&path).map_err(|e| format!("Metadata error: {}", e))?;
             let modified = metadata
                 .modified()
@@ -377,7 +381,12 @@ pub fn cleanup_session_snapshots(
     let mut files: Vec<_> = fs::read_dir(&session_dir)
         .map_err(|e| format!("Failed to read session directory: {}", e))?
         .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "zip"))
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_str()
+                .is_some_and(is_monitor_snapshot_zip)
+        })
         .collect();
     if files.len() <= keep_count {
         return Ok(0);
@@ -497,6 +506,17 @@ mod tests {
         let path = super::session_dir_from_monitor_dir(&monitor_dir, "My/Preset", "session-1");
 
         assert_eq!(path, monitor_dir.join("My_Preset").join("session-1"));
+    }
+
+    #[test]
+    fn monitor_cleanup_only_targets_automatic_snapshots() {
+        assert!(super::is_monitor_snapshot_zip(
+            "snapshot_20260102_030405.zip"
+        ));
+        assert!(!super::is_monitor_snapshot_zip(
+            "hallinta_manual_backup_20260102_030405.zip"
+        ));
+        assert!(!super::is_monitor_snapshot_zip("notes.zip"));
     }
 
     #[test]

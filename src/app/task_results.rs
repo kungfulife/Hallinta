@@ -27,10 +27,17 @@ impl HallintaApp {
                                 .unwrap_or(0);
                             let _ = logging::log(
                                 "INFO",
-                                &format!("Backup created: {} ({} MB)", filename, size / 1_048_576),
+                                &format!(
+                                    "Manual backup created: {} ({} MB)",
+                                    filename,
+                                    size / 1_048_576
+                                ),
                                 "Backup",
                             );
-                            logging::write_session_marker(&format!("BACKUP_OK:{}", filename));
+                            logging::write_session_marker(&format!(
+                                "MANUAL_BACKUP_OK:{}",
+                                filename
+                            ));
                             self.load_backup_list_async();
                             let backup_path = settings::get_data_dir()
                                 .map(|d| {
@@ -43,18 +50,21 @@ impl HallintaApp {
                             // Don't override with success modal if a modal is already open (e.g. another action)
                             if was_modal_progress {
                                 self.active_modal = Some(Modal::Info {
-                                    title: "Backup Created".to_string(),
+                                    title: "Manual Backup Created".to_string(),
                                     message: format!("Saved to:\n{}", backup_path),
                                 });
                             }
                         }
                         Err(e) => {
-                            let _ =
-                                logging::log("ERROR", &format!("Backup failed: {}", e), "Backup");
-                            logging::write_session_marker("BACKUP_FAILED");
+                            let _ = logging::log(
+                                "ERROR",
+                                &format!("Manual backup failed: {}", e),
+                                "Backup",
+                            );
+                            logging::write_session_marker("MANUAL_BACKUP_FAILED");
                             if was_modal_progress {
                                 self.active_modal = Some(Modal::Info {
-                                    title: "Backup Failed".to_string(),
+                                    title: "Manual Backup Failed".to_string(),
                                     message: e,
                                 });
                             }
@@ -137,7 +147,7 @@ impl HallintaApp {
                     }
                     if self.close_after_snapshot {
                         self.close_after_snapshot = false;
-                        self.pause_monitor_for_close();
+                        self.stop_monitor_for_close();
                     }
                 }
                 TaskResult::UpgradeBackupComplete(res) => {
@@ -155,15 +165,15 @@ impl HallintaApp {
                     }
                 }
                 TaskResult::SessionCheckComplete(res) => match res {
-                    Ok(paused) if !paused.is_empty() => {
+                    Ok(stopped) if !stopped.is_empty() => {
                         self.active_modal = Some(Modal::Confirm {
                             message: format!(
-                                "Found {} paused session(s). Resume the most recent one?",
-                                paused.len()
+                                "Found {} stopped session(s). Resume the most recent one?",
+                                stopped.len()
                             ),
                             confirm_text: "Resume".to_string(),
                             cancel_text: "New Session".to_string(),
-                            action: ConfirmAction::ContinueMonitorSession(paused[0].id.clone()),
+                            action: ConfirmAction::ContinueMonitorSession(stopped[0].id.clone()),
                             cancel_action: Some(ConfirmAction::StartNewMonitorSession),
                             dismissable: true,
                         });

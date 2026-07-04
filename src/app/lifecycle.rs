@@ -37,6 +37,7 @@ impl HallintaApp {
         self.handle_close(ctx);
         self.handle_keyboard(ctx);
         self.close_after_monitor_prompt(ctx);
+        self.run_deferred_file_dialogs();
     }
 
     pub fn cleanup_on_exit(&mut self) {

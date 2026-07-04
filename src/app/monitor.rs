@@ -12,7 +12,7 @@ impl HallintaApp {
         let tx = self.task_tx.clone();
         self.async_runtime.spawn(async move {
             let result =
-                tokio::task::spawn_blocking(move || save_monitor::list_paused_sessions(&preset))
+                tokio::task::spawn_blocking(move || save_monitor::list_stopped_sessions(&preset))
                     .await
                     .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
             let _ = tx.send(TaskResult::SessionCheckComplete(result));
@@ -109,10 +109,10 @@ impl HallintaApp {
     }
 
     pub fn stop_save_monitor(&mut self) {
-        self.pause_save_monitor(true);
+        self.stop_save_monitor_inner(true);
     }
 
-    fn pause_save_monitor(&mut self, show_pending_external_mods: bool) {
+    fn stop_save_monitor_inner(&mut self, show_pending_external_mods: bool) {
         if let Some(ref mut session) = self.save_monitor.current_session {
             session.status = SessionStatus::Paused;
             session.snapshot_count = self.save_monitor.snapshot_count;
@@ -122,15 +122,21 @@ impl HallintaApp {
         self.save_monitor.running = false;
         self.save_monitor.current_session = None;
         self.save_monitor.pending_change_since = None;
-        let _ = logging::log("INFO", "Monitor session paused", "SaveMonitor");
+        let _ = logging::log("INFO", "Monitor session stopped", "SaveMonitor");
         logging::write_session_marker(&format!("MONITOR_STOP:snapshots={}", count));
         if show_pending_external_mods {
             self.show_pending_external_mods_after_monitor();
         }
     }
 
-    pub(super) fn pause_monitor_for_close(&mut self) {
-        self.pause_save_monitor(false);
+    pub(super) fn stop_monitor_for_close(&mut self) {
+        self.stop_save_monitor_inner(false);
+    }
+
+    pub(crate) fn can_start_monitor_snapshot(&self) -> bool {
+        !self.save_monitor.snapshot_in_flight
+            && !self.backup_state.in_progress
+            && !self.backup_state.restoring
     }
 
     pub(super) fn check_save_monitor_changes(&mut self) {
@@ -163,6 +169,10 @@ impl HallintaApp {
     }
 
     pub(super) fn take_monitor_snapshot(&mut self) {
+        if !self.can_start_monitor_snapshot() {
+            return;
+        }
+
         let noita_dir = self.settings.noita_dir.clone();
         if noita_dir.is_empty() {
             return;
@@ -197,5 +207,38 @@ impl HallintaApp {
             .unwrap_or_else(|e| Err(format!("Snapshot task failed: {}", e)));
             let _ = tx.send(TaskResult::SnapshotComplete(result));
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_support::test_app;
+    use crate::models::{SessionInfo, SessionStatus};
+
+    fn test_session() -> SessionInfo {
+        SessionInfo {
+            id: "session-id".to_string(),
+            name: "Session".to_string(),
+            preset_name: "Default".to_string(),
+            started_at: "2026-01-01T00:00:00Z".to_string(),
+            ended_at: None,
+            status: SessionStatus::Monitoring,
+            snapshot_count: 0,
+            locked_mods: Vec::new(),
+            folder_name: "session-id".to_string(),
+        }
+    }
+
+    #[test]
+    fn take_monitor_snapshot_waits_for_manual_backup_in_progress() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.noita_dir = "C:/Noita/save00".to_string();
+        app.save_monitor.running = true;
+        app.save_monitor.current_session = Some(test_session());
+        app.backup_state.in_progress = true;
+
+        app.take_monitor_snapshot();
+
+        assert!(!app.save_monitor.snapshot_in_flight);
     }
 }

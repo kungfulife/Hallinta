@@ -1,5 +1,5 @@
 use super::HallintaApp;
-use crate::core::{backup, gallery, logging, mods, platform, presets};
+use crate::core::{backup, logging, presets};
 use crate::models::*;
 use crate::tasks::TaskResult;
 use std::collections::BTreeMap;
@@ -162,14 +162,14 @@ impl HallintaApp {
                 }
                 if !self.save_monitor.snapshot_in_flight {
                     self.close_after_snapshot = false;
-                    self.pause_monitor_for_close();
+                    self.stop_monitor_for_close();
                 }
             }
             ConfirmAction::ExitWithoutSnapshot => {
                 let _ = logging::log("INFO", "Exit chosen: close without snapshot", "App");
                 self.close_requested = true;
                 self.close_after_snapshot = false;
-                self.pause_monitor_for_close();
+                self.stop_monitor_for_close();
             }
             ConfirmAction::DeleteBackup(filename) => {
                 self.delete_backup_async(filename);
@@ -305,41 +305,7 @@ impl HallintaApp {
                 if selected.is_empty() {
                     return;
                 }
-
-                let mut export_presets = BTreeMap::new();
-                for name in &selected {
-                    if let Some(mods_list) = self.presets.get(name) {
-                        export_presets.insert(name.clone(), mods_list.clone());
-                    }
-                }
-
-                let checksum = serde_json::to_string(&export_presets)
-                    .ok()
-                    .map(|s| gallery::compute_checksum(&s));
-
-                let export = PresetExportFile {
-                    hallinta_export: "presets".to_string(),
-                    version: platform::get_version(),
-                    presets: export_presets,
-                    checksum,
-                };
-
-                let path = rfd::FileDialog::new()
-                    .set_title("Export Presets")
-                    .set_file_name("hallinta-presets.json")
-                    .add_filter("JSON", &["json"])
-                    .save_file();
-
-                if let Some(path) = path
-                    && let Ok(content) = serde_json::to_string_pretty(&export)
-                {
-                    let _ = mods::write_file(&path, &content);
-                    let _ = logging::log(
-                        "INFO",
-                        &format!("Exported {} preset(s)", selected.len()),
-                        "PresetManager",
-                    );
-                }
+                self.pending_preset_export = Some(selected);
             }
             ChecklistAction::ImportPresets(mut import) => {
                 import.selected_names = selected;
@@ -372,6 +338,14 @@ impl HallintaApp {
                 }
             }
             ChecklistAction::Backup => {
+                if !self.can_start_manual_backup() {
+                    self.active_modal = Some(Modal::Info {
+                        title: "Backup Busy".to_string(),
+                        message: "Wait for the current backup or monitor snapshot to finish before creating a manual backup.".to_string(),
+                    });
+                    return;
+                }
+
                 let include_save01 = selected.contains(&"save01".to_string());
                 let include_presets = selected.contains(&"presets".to_string());
                 let include_entangled = selected.contains(&"entangled".to_string());
@@ -386,11 +360,11 @@ impl HallintaApp {
 
                 self.backup_state.in_progress = true;
                 self.active_modal = Some(Modal::Progress {
-                    message: "Creating backup...".to_string(),
+                    message: "Creating manual backup...".to_string(),
                     progress: 0.5,
                 });
 
-                logging::write_session_marker("BACKUP_START");
+                logging::write_session_marker("MANUAL_BACKUP_START");
                 self.async_runtime.spawn(async move {
                     let result = tokio::task::spawn_blocking(move || {
                         backup::create_backup(
@@ -634,7 +608,7 @@ mod tests {
     }
 
     #[test]
-    fn exit_without_snapshot_pauses_monitor_and_requests_close() {
+    fn exit_without_snapshot_stops_monitor_and_requests_close() {
         let (_runtime, mut app) = test_app(Vec::new());
         app.save_monitor.running = true;
 
@@ -642,5 +616,29 @@ mod tests {
 
         assert!(!app.save_monitor.running);
         assert!(app.close_requested);
+    }
+
+    #[test]
+    fn preset_export_checklist_defers_native_file_dialog() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.presets.insert("Default".to_string(), Vec::new());
+
+        app.handle_checklist_action(ChecklistAction::ExportPresets, ids(&["Default"]));
+
+        assert_eq!(app.pending_preset_export, Some(ids(&["Default"])));
+    }
+
+    #[test]
+    fn backup_checklist_waits_for_monitor_snapshot_in_flight() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.snapshot_in_flight = true;
+
+        app.handle_checklist_action(ChecklistAction::Backup, ids(&["save01", "presets"]));
+
+        assert!(!app.backup_state.in_progress);
+        assert!(matches!(
+            app.active_modal,
+            Some(Modal::Info { ref title, .. }) if title == "Backup Busy"
+        ));
     }
 }

@@ -5,13 +5,13 @@ use eframe::egui;
 pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
     egui::Panel::right("sidebar_panel")
-        .resizable(true)
+        .resizable(false)
         .default_size(d.sidebar_w)
         .min_size(d.sidebar_w)
-        .max_size(d.sidebar_w * 2.5)
+        .max_size(d.sidebar_w)
         .show(ui, |ui| {
             ui.add_space(d.md);
-            let btn_width = (ui.available_width() - d.md * 2.0).max(d.sidebar_w - d.md * 2.0);
+            let btn_width = (ui.available_width() - d.md * 2.0).max(1.0);
             ui.label(egui::RichText::new("Actions").size(d.font_heading).strong());
             ui.add_space(d.md);
 
@@ -64,7 +64,7 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 ui.label(egui::RichText::new("Presets").strong());
                 ui.add_space(d.sm);
 
-                ui.add_enabled_ui(!is_locked && !backup_busy, |ui| {
+                ui.add_enabled_ui(app.can_export_presets(), |ui| {
                     if ui
                         .add_sized([btn_width, 0.0], egui::Button::new("Export Presets"))
                         .on_hover_text("Bundle one or more presets into a shareable .json")
@@ -72,6 +72,8 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     {
                         app.start_export_presets();
                     }
+                });
+                ui.add_enabled_ui(!is_locked && !backup_busy, |ui| {
                     if ui
                         .add_sized([btn_width, 0.0], egui::Button::new("Import Presets"))
                         .on_hover_text("Load presets from a .json file")
@@ -89,16 +91,18 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 ui.label(egui::RichText::new("Backup").strong());
                 ui.add_space(d.sm);
 
-                ui.add_enabled_ui(!is_locked && !backup_busy, |ui| {
+                ui.add_enabled_ui(app.can_start_manual_backup(), |ui| {
                     if ui
-                        .add_sized([btn_width, 0.0], egui::Button::new("Create Backup"))
+                        .add_sized([btn_width, 0.0], egui::Button::new("Create Manual Backup"))
                         .on_hover_text(
-                            "Bundle save00, presets, and optional save dirs into a .zip (Ctrl+B)",
+                            "Bundle save00, presets, and optional save dirs into a manual .zip (Ctrl+B)",
                         )
                         .clicked()
                     {
                         app.start_backup_modal();
                     }
+                });
+                ui.add_enabled_ui(!is_locked && !backup_busy, |ui| {
                     if ui
                         .add_sized([btn_width, 0.0], egui::Button::new("Restore Latest"))
                         .on_hover_text("Restore the most recent backup with default options")
@@ -113,6 +117,8 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     {
                         app.start_restore_modal();
                     }
+                });
+                ui.add_enabled_ui(!backup_busy, |ui| {
                     if ui
                         .add_sized([btn_width, 0.0], egui::Button::new("Manage Backups"))
                         .on_hover_text("Browse, inspect, and delete backups")
@@ -138,10 +144,8 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     }
 
                     if ui
-                        .add_sized([btn_width, 0.0], egui::Button::new("Pause Monitor"))
-                        .on_hover_text(
-                            "Pause the monitor — session is saved and can be resumed later",
-                        )
+                        .add_sized([btn_width, 0.0], egui::Button::new("Stop Monitor"))
+                        .on_hover_text("Stop the monitor - session is saved and can be resumed later")
                         .clicked()
                     {
                         app.stop_save_monitor();
@@ -189,4 +193,19 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 });
             });
         });
+}
+
+#[cfg(test)]
+mod tests {
+    const RESIZABLE_TRUE: &str = concat!(".resizable", "(true)");
+
+    #[test]
+    fn sidebar_is_not_user_resizable() {
+        let source = include_str!("sidebar.rs");
+
+        assert!(
+            !source.contains(RESIZABLE_TRUE),
+            "the actions sidebar should not expose a resize handle"
+        );
+    }
 }

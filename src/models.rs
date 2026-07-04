@@ -41,19 +41,34 @@ pub struct AppSettings {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LogSettings {
+    #[serde(default = "default_max_log_files")]
     pub max_log_files: usize,
+    #[serde(default = "default_max_log_size_mb")]
     pub max_log_size_mb: usize,
+    #[serde(default = "default_log_level")]
     pub log_level: String,
     #[serde(default)]
     pub collect_system_info: bool,
 }
 
+fn default_max_log_files() -> usize {
+    50
+}
+
+fn default_max_log_size_mb() -> usize {
+    10
+}
+
+fn default_log_level() -> String {
+    "INFO".to_string()
+}
+
 impl Default for LogSettings {
     fn default() -> Self {
         Self {
-            max_log_files: 50,
-            max_log_size_mb: 10,
-            log_level: "INFO".to_string(),
+            max_log_files: default_max_log_files(),
+            max_log_size_mb: default_max_log_size_mb(),
+            log_level: default_log_level(),
             collect_system_info: false,
         }
     }
@@ -64,6 +79,10 @@ pub struct SaveMonitorSettings {
     #[serde(default = "default_max_snapshots_per_session")]
     #[serde(alias = "max_snapshots_per_preset")]
     pub max_snapshots_per_session: usize,
+    #[serde(default = "default_backup_delay_minutes")]
+    #[serde(alias = "interval_minutes")]
+    pub backup_delay_minutes: u64,
+    #[serde(default)]
     pub include_entangled: bool,
     #[serde(default = "default_include_save01")]
     pub include_save01: bool,
@@ -73,6 +92,10 @@ pub struct SaveMonitorSettings {
 
 fn default_max_snapshots_per_session() -> usize {
     15
+}
+
+fn default_backup_delay_minutes() -> u64 {
+    3
 }
 
 fn default_include_save01() -> bool {
@@ -87,6 +110,7 @@ impl Default for SaveMonitorSettings {
     fn default() -> Self {
         Self {
             max_snapshots_per_session: 15,
+            backup_delay_minutes: 3,
             include_entangled: false,
             include_save01: true,
             start_in_monitor_mode: false,
@@ -474,11 +498,16 @@ impl FileWatcherState {
 
 #[cfg(test)]
 mod log_settings_tests {
-    use super::LogSettings;
+    use super::{LogSettings, SaveMonitorSettings};
 
     #[test]
     fn log_settings_default_has_info_level() {
         assert_eq!(LogSettings::default().log_level, "INFO");
+    }
+
+    #[test]
+    fn save_monitor_default_backup_delay_is_three_minutes() {
+        assert_eq!(SaveMonitorSettings::default().backup_delay_minutes, 3);
     }
 }
 

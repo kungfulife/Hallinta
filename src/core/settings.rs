@@ -223,5 +223,35 @@ mod tests {
             !settings.compact_mode,
             "missing compact_mode should default to false"
         );
+        assert_eq!(settings.save_monitor_settings.backup_delay_minutes, 3);
+    }
+
+    #[test]
+    fn old_nested_settings_missing_fields_use_defaults() {
+        let old_json = r#"{
+            "noita_dir": "C:/Noita/save00",
+            "entangled_dir": "",
+            "dark_mode": true,
+            "selected_preset": "Custom",
+            "version": "0.7.0",
+            "log_settings": {
+                "log_level": "WARN"
+            },
+            "save_monitor_settings": {
+                "max_snapshots_per_preset": 7
+            },
+            "steam_path": ""
+        }"#;
+
+        let settings: AppSettings =
+            serde_json::from_str(old_json).expect("old partial settings should not reset app");
+
+        assert_eq!(settings.log_settings.log_level, "WARN");
+        assert_eq!(settings.log_settings.max_log_files, 50);
+        assert_eq!(settings.log_settings.max_log_size_mb, 10);
+        assert_eq!(settings.save_monitor_settings.max_snapshots_per_session, 7);
+        assert_eq!(settings.save_monitor_settings.backup_delay_minutes, 3);
+        assert!(!settings.save_monitor_settings.include_entangled);
+        assert!(settings.save_monitor_settings.include_save01);
     }
 }

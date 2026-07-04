@@ -74,7 +74,6 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
         let btn_w = content_width;
         let btn_h = 28.0;
-        let backup_busy = app.backup_state.in_progress || app.backup_state.restoring;
 
         // ── Monitor button ───────────────────────────────────────────────────
         if is_locked {
@@ -95,7 +94,7 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
             if ui
                 .add_sized(
                     [btn_w, btn_h],
-                    egui::Button::new(egui::RichText::new("Pause Monitor").size(d.font_body)),
+                    egui::Button::new(egui::RichText::new("Stop Monitor").size(d.font_body)),
                 )
                 .clicked()
             {
@@ -116,11 +115,13 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
         ui.add_space(d.sm);
 
         // ── Secondary actions ────────────────────────────────────────────────
-        ui.add_enabled_ui(!is_locked && !backup_busy, |ui| {
+        ui.add_enabled_ui(app.can_start_manual_backup(), |ui| {
             if ui
                 .add_sized(
                     [btn_w, btn_h],
-                    egui::Button::new(egui::RichText::new("Create Backup").size(d.font_body)),
+                    egui::Button::new(
+                        egui::RichText::new("Create Manual Backup").size(d.font_body),
+                    ),
                 )
                 .clicked()
             {

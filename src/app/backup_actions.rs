@@ -7,6 +7,12 @@ use std::path::PathBuf;
 impl HallintaApp {
     // ── Backup ─────────────────────────────────────────────────────────
 
+    pub(crate) fn can_start_manual_backup(&self) -> bool {
+        !self.backup_state.in_progress
+            && !self.backup_state.restoring
+            && !self.save_monitor.snapshot_in_flight
+    }
+
     pub fn start_backup_modal(&mut self) {
         let mut items = vec![
             ChecklistItem {
@@ -35,8 +41,8 @@ impl HallintaApp {
         }
 
         self.active_modal = Some(Modal::Checklist {
-            title: "Create Backup".to_string(),
-            message: "Select components to include:".to_string(),
+            title: "Create Manual Backup".to_string(),
+            message: "Select components to include in this manual backup:".to_string(),
             items,
             action: ChecklistAction::Backup,
         });
@@ -182,5 +188,22 @@ mod tests {
                 .iter()
                 .any(|item| item.id == "entangled" && item.checked)
         );
+    }
+
+    #[test]
+    fn manual_backup_can_start_while_monitoring() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+
+        assert!(app.can_start_manual_backup());
+    }
+
+    #[test]
+    fn manual_backup_waits_for_monitor_snapshot_in_flight() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+        app.save_monitor.snapshot_in_flight = true;
+
+        assert!(!app.can_start_manual_backup());
     }
 }

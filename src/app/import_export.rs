@@ -1,6 +1,7 @@
 use super::HallintaApp;
-use crate::core::{gallery, logging, mods, presets, workshop};
+use crate::core::{gallery, logging, mods, platform, presets, workshop};
 use crate::models::*;
+use std::collections::BTreeMap;
 
 impl HallintaApp {
     // ── Import / Export ────────────────────────────────────────────────
@@ -143,9 +144,13 @@ impl HallintaApp {
             return;
         }
 
+        self.pending_mod_list_export = Some((self.selected_preset.clone(), enabled));
+    }
+
+    fn export_selected_mod_list(&mut self, preset_name: String, enabled: Vec<ModListEntry>) {
         let path = rfd::FileDialog::new()
             .set_title("Export Enabled Mods")
-            .set_file_name(format!("{}-mod-list.json", self.selected_preset))
+            .set_file_name(format!("{}-mod-list.json", preset_name))
             .add_filter("JSON", &["json"])
             .save_file();
 
@@ -175,6 +180,10 @@ impl HallintaApp {
     }
 
     pub fn start_export_presets(&mut self) {
+        if !self.can_export_presets() {
+            return;
+        }
+
         let preset_names: Vec<String> = self.presets.keys().cloned().collect();
         if preset_names.is_empty() {
             return;
@@ -198,6 +207,64 @@ impl HallintaApp {
             items,
             action: ChecklistAction::ExportPresets,
         });
+    }
+
+    pub(crate) fn can_export_presets(&self) -> bool {
+        !self.backup_state.in_progress && !self.backup_state.restoring
+    }
+
+    pub(super) fn run_deferred_file_dialogs(&mut self) {
+        if self.active_modal.is_some() {
+            return;
+        }
+
+        if let Some((preset_name, enabled)) = self.pending_mod_list_export.take() {
+            self.export_selected_mod_list(preset_name, enabled);
+            return;
+        }
+
+        let Some(selected) = self.pending_preset_export.take() else {
+            return;
+        };
+
+        self.export_selected_presets(selected);
+    }
+
+    fn export_selected_presets(&mut self, selected: Vec<String>) {
+        let mut export_presets = BTreeMap::new();
+        for name in &selected {
+            if let Some(mods_list) = self.presets.get(name) {
+                export_presets.insert(name.clone(), mods_list.clone());
+            }
+        }
+
+        let checksum = serde_json::to_string(&export_presets)
+            .ok()
+            .map(|s| gallery::compute_checksum(&s));
+
+        let export = PresetExportFile {
+            hallinta_export: "presets".to_string(),
+            version: platform::get_version(),
+            presets: export_presets,
+            checksum,
+        };
+
+        let path = rfd::FileDialog::new()
+            .set_title("Export Presets")
+            .set_file_name("hallinta-presets.json")
+            .add_filter("JSON", &["json"])
+            .save_file();
+
+        if let Some(path) = path
+            && let Ok(content) = serde_json::to_string_pretty(&export)
+        {
+            let _ = mods::write_file(&path, &content);
+            let _ = logging::log(
+                "INFO",
+                &format!("Exported {} preset(s)", selected.len()),
+                "PresetManager",
+            );
+        }
     }
 
     pub fn import_presets(&mut self) {
@@ -339,5 +406,24 @@ mod tests {
         app.save_monitor.running = true;
 
         assert!(!app.can_import_mod_list());
+    }
+
+    #[test]
+    fn preset_export_is_allowed_while_monitoring() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+
+        assert!(app.can_export_presets());
+    }
+
+    #[test]
+    fn mod_list_export_defers_native_file_dialog() {
+        let (_runtime, mut app) = test_app(vec![super::super::test_support::mod_entry(
+            "Alpha", true, "1",
+        )]);
+
+        app.export_mod_list();
+
+        assert!(app.pending_mod_list_export.is_some());
     }
 }

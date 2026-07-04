@@ -8,8 +8,6 @@ impl HallintaApp {
 
     pub(super) fn handle_keyboard(&mut self, ctx: &egui::Context) {
         let modal_open = self.active_modal.is_some();
-        let monitor_running = self.save_monitor.is_running();
-        let backup_busy = self.backup_state.in_progress || self.backup_state.restoring;
 
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             if modal_open {
@@ -41,8 +39,7 @@ impl HallintaApp {
         }
         if ctrl
             && ctx.input(|i| i.key_pressed(egui::Key::B))
-            && !backup_busy
-            && !monitor_running
+            && self.can_start_manual_backup()
             && self.active_view == View::ModList
         {
             self.start_backup_modal();
@@ -119,7 +116,7 @@ impl HallintaApp {
                 "App",
             );
             self.active_modal = Some(Modal::Confirm {
-                message: "Save a monitor snapshot before closing Hallinta? The session will pause and can be resumed later."
+                message: "Save a monitor snapshot before closing Hallinta? The session will stop and can be resumed later."
                     .to_string(),
                 confirm_text: "Save Snapshot & Close".to_string(),
                 cancel_text: "Close Without Snapshot".to_string(),

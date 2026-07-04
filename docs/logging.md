@@ -61,9 +61,9 @@ App markers:
 - `APP_INITIALIZED:v<version>`
 - `APP_SHUTDOWN`
 - `PRESET_SWITCH:<preset_name>`
-- `BACKUP_START`
-- `BACKUP_OK:<filename>`
-- `BACKUP_FAILED`
+- `MANUAL_BACKUP_START`
+- `MANUAL_BACKUP_OK:<filename>`
+- `MANUAL_BACKUP_FAILED`
 - `RESTORE_START` / `RESTORE_START:auto=<filename>`
 - `RESTORE_COMPLETE` / `RESTORE_FAILED`
 - `SNAPSHOT_RESTORE_START`
@@ -89,7 +89,7 @@ The `module` field categorizes events. Key modules:
 - `PresetManager` — create, rename, delete, switch (with mod-count delta),
   import/export, refusals (e.g. delete Default)
 - `Backup` — manual create / restore / delete with detail, upgrade-backup cleanup
-- `SaveMonitor` — session start / pause, snapshot create / cleanup, interrupted-session reconcile
+- `SaveMonitor` — session start / stop, snapshot create / cleanup, interrupted-session reconcile
 - `FileWatcher` — external `mod_config.xml` change detection
 - `Workshop` — install check results (installed / missing counts)
 - `CrashHandler` — panic payload, location, thread, backtrace

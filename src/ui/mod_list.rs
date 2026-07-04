@@ -460,11 +460,9 @@ fn render_monitor_edit_notice(app: &HallintaApp, ui: &mut egui::Ui, d: &crate::u
                 if app.file_watcher.pending_external_mods.is_some() {
                     ui.separator();
                     ui.label(
-                        egui::RichText::new(
-                            "Disk changes will be reviewed when monitoring pauses.",
-                        )
-                        .size(d.font_small)
-                        .color(ui.visuals().weak_text_color()),
+                        egui::RichText::new("Disk changes will be reviewed when monitoring stops.")
+                            .size(d.font_small)
+                            .color(ui.visuals().weak_text_color()),
                     );
                 }
             });
