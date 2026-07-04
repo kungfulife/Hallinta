@@ -157,11 +157,18 @@ impl HallintaApp {
         );
         if current_mtime > self.save_monitor.last_known_mtime {
             self.save_monitor.last_known_mtime = current_mtime;
-            if self.save_monitor.pending_change_since.is_none() {
-                self.save_monitor.pending_change_since = Some(Instant::now());
+            let was_pending = self.save_monitor.pending_change_since.is_some();
+            self.save_monitor.pending_change_since = Some(Instant::now());
+            if !was_pending {
                 let _ = logging::log(
                     "DEBUG",
                     "Save file change detected, waiting for stability...",
+                    "SaveMonitor",
+                );
+            } else {
+                let _ = logging::log(
+                    "DEBUG",
+                    "Save file changed again, resetting stability timer...",
                     "SaveMonitor",
                 );
             }
@@ -214,6 +221,7 @@ impl HallintaApp {
 mod tests {
     use super::super::test_support::test_app;
     use crate::models::{SessionInfo, SessionStatus};
+    use std::time::{Duration, Instant};
 
     fn test_session() -> SessionInfo {
         SessionInfo {
@@ -240,5 +248,32 @@ mod tests {
         app.take_monitor_snapshot();
 
         assert!(!app.save_monitor.snapshot_in_flight);
+    }
+
+    #[test]
+    fn save_monitor_resets_pending_timer_when_save_changes_again() {
+        let dir =
+            std::env::temp_dir().join(format!("hallinta_monitor_debounce_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("test save dir should be created");
+
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.noita_dir = dir.to_string_lossy().to_string();
+        app.save_monitor.running = true;
+        app.save_monitor.last_known_mtime = 0;
+        let old_pending = Instant::now() - Duration::from_secs(180);
+        app.save_monitor.pending_change_since = Some(old_pending);
+
+        app.check_save_monitor_changes();
+
+        let reset_pending = app
+            .save_monitor
+            .pending_change_since
+            .expect("pending change should remain set");
+        assert!(
+            reset_pending > old_pending,
+            "new save writes should reset the quiet-period timer"
+        );
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

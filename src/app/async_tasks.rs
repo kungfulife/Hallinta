@@ -38,9 +38,10 @@ impl HallintaApp {
         });
     }
 
-    pub fn check_workshop_mods_async(&self) {
+    pub fn check_workshop_mods_async(&mut self) {
         let steam_path = self.settings.steam_path.clone();
         if steam_path.is_empty() {
+            self.invalidate_workshop_check(Some("Steam path not configured".to_string()));
             return;
         }
         let workshop_ids: Vec<String> = self
@@ -50,8 +51,16 @@ impl HallintaApp {
             .map(|m| m.workshop_id.clone())
             .collect();
         if workshop_ids.is_empty() {
+            self.invalidate_workshop_check(None);
             return;
         }
+        self.backup_state.workshop_check_generation = self
+            .backup_state
+            .workshop_check_generation
+            .saturating_add(1);
+        self.backup_state.workshop_check_in_flight = true;
+        self.backup_state.workshop_diagnostic = None;
+        let generation = self.backup_state.workshop_check_generation;
         let tx = self.task_tx.clone();
         self.async_runtime.spawn(async move {
             let result = tokio::task::spawn_blocking(move || {
@@ -59,8 +68,18 @@ impl HallintaApp {
             })
             .await
             .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
-            let _ = tx.send(TaskResult::WorkshopModsChecked(result));
+            let _ = tx.send(TaskResult::WorkshopModsChecked { generation, result });
         });
+    }
+
+    fn invalidate_workshop_check(&mut self, diagnostic: Option<String>) {
+        self.backup_state.workshop_check_generation = self
+            .backup_state
+            .workshop_check_generation
+            .saturating_add(1);
+        self.backup_state.workshop_status.clear();
+        self.backup_state.workshop_check_in_flight = false;
+        self.backup_state.workshop_diagnostic = diagnostic;
     }
 
     pub fn delete_backup_async(&self, filename: String) {
@@ -83,5 +102,38 @@ impl HallintaApp {
                 .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
             let _ = tx.send(TaskResult::MonitorDataCleared(result));
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_support::{mod_entry, test_app};
+
+    #[test]
+    fn empty_steam_path_invalidates_in_flight_workshop_check() {
+        let (_runtime, mut app) = test_app(vec![mod_entry("Alpha", true, "123")]);
+        app.backup_state.workshop_check_generation = 7;
+        app.backup_state.workshop_check_in_flight = true;
+        app.settings.steam_path = String::new();
+
+        app.check_workshop_mods_async();
+
+        assert_eq!(app.backup_state.workshop_check_generation, 8);
+        assert!(!app.backup_state.workshop_check_in_flight);
+        assert!(app.backup_state.workshop_status.is_empty());
+    }
+
+    #[test]
+    fn no_workshop_ids_invalidates_in_flight_workshop_check() {
+        let (_runtime, mut app) = test_app(vec![mod_entry("Local", true, "0")]);
+        app.backup_state.workshop_check_generation = 3;
+        app.backup_state.workshop_check_in_flight = true;
+        app.settings.steam_path = "C:/Steam".to_string();
+
+        app.check_workshop_mods_async();
+
+        assert_eq!(app.backup_state.workshop_check_generation, 4);
+        assert!(!app.backup_state.workshop_check_in_flight);
+        assert!(app.backup_state.workshop_status.is_empty());
     }
 }

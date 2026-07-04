@@ -1,6 +1,6 @@
 use super::HallintaApp;
 use crate::core::{logging, save_monitor, settings};
-use crate::models::{ConfirmAction, Modal};
+use crate::models::{ConfirmAction, Modal, WorkshopInstallState};
 use crate::tasks::TaskResult;
 
 impl HallintaApp {
@@ -210,35 +210,62 @@ impl HallintaApp {
                         }
                     }
                 }
-                TaskResult::WorkshopModsChecked(res) => match res {
-                    Ok(status) => {
-                        let total = status.len();
-                        let installed = status.iter().filter(|(_, ok)| *ok).count();
-                        let missing = total - installed;
-                        self.backup_state.workshop_status = status;
-                        let _ = logging::log(
-                            "INFO",
-                            &format!(
-                                "Workshop check: {}/{} installed{}",
-                                installed,
-                                total,
-                                if missing > 0 {
-                                    format!(", {} missing", missing)
-                                } else {
-                                    String::new()
-                                }
-                            ),
-                            "Workshop",
-                        );
+                TaskResult::WorkshopModsChecked { generation, result } => {
+                    if generation != self.backup_state.workshop_check_generation {
+                        continue;
                     }
-                    Err(e) => {
-                        let _ = logging::log(
-                            "WARN",
-                            &format!("Workshop check failed: {}", e),
-                            "Workshop",
-                        );
+                    self.backup_state.workshop_check_in_flight = false;
+                    match result {
+                        Ok(report) => {
+                            let total = report.statuses.len();
+                            let installed = report
+                                .statuses
+                                .iter()
+                                .filter(|(_, state)| *state == WorkshopInstallState::Installed)
+                                .count();
+                            let missing = report
+                                .statuses
+                                .iter()
+                                .filter(|(_, state)| *state == WorkshopInstallState::Missing)
+                                .count();
+                            let unknown = total.saturating_sub(installed + missing);
+                            self.backup_state.workshop_status = report.statuses;
+                            self.backup_state.workshop_diagnostic = report.diagnostic.clone();
+                            let _ = logging::log(
+                                "INFO",
+                                &format!(
+                                    "Workshop check: {}/{} installed{}{} (libraries={}, content_roots={})",
+                                    installed,
+                                    total,
+                                    if missing > 0 {
+                                        format!(", {} missing", missing)
+                                    } else {
+                                        String::new()
+                                    },
+                                    if unknown > 0 {
+                                        format!(", {} unknown", unknown)
+                                    } else {
+                                        String::new()
+                                    },
+                                    report.libraries_checked.len(),
+                                    report.content_roots_found
+                                ),
+                                "Workshop",
+                            );
+                            if let Some(diagnostic) = report.diagnostic {
+                                let _ = logging::log("WARN", &diagnostic, "Workshop");
+                            }
+                        }
+                        Err(e) => {
+                            self.backup_state.workshop_diagnostic = Some(e.clone());
+                            let _ = logging::log(
+                                "WARN",
+                                &format!("Workshop check failed: {}", e),
+                                "Workshop",
+                            );
+                        }
                     }
-                },
+                }
                 TaskResult::SnapshotCleanupComplete(res) => {
                     if let Ok(count) = res
                         && count > 0
@@ -286,7 +313,17 @@ impl HallintaApp {
 #[cfg(test)]
 mod tests {
     use super::super::test_support::test_app;
+    use crate::models::{WorkshopCheckReport, WorkshopInstallState};
     use crate::tasks::TaskResult;
+
+    fn workshop_report(id: &str, state: WorkshopInstallState) -> WorkshopCheckReport {
+        WorkshopCheckReport {
+            statuses: vec![(id.to_string(), state)],
+            libraries_checked: vec!["C:/Steam".to_string()],
+            content_roots_found: 1,
+            diagnostic: None,
+        }
+    }
 
     #[test]
     fn snapshot_completion_finishes_pending_monitor_close() {
@@ -306,5 +343,46 @@ mod tests {
         assert!(!app.save_monitor.snapshot_in_flight);
         assert!(!app.close_after_snapshot);
         assert!(app.close_requested);
+    }
+
+    #[test]
+    fn stale_workshop_check_result_is_ignored() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.backup_state.workshop_check_generation = 2;
+        app.backup_state.workshop_check_in_flight = true;
+
+        app.task_tx
+            .send(TaskResult::WorkshopModsChecked {
+                generation: 1,
+                result: Ok(workshop_report("123", WorkshopInstallState::Installed)),
+            })
+            .expect("test task result should send");
+
+        app.poll_task_results();
+
+        assert!(app.backup_state.workshop_status.is_empty());
+        assert!(app.backup_state.workshop_check_in_flight);
+    }
+
+    #[test]
+    fn current_workshop_check_result_updates_status() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.backup_state.workshop_check_generation = 2;
+        app.backup_state.workshop_check_in_flight = true;
+
+        app.task_tx
+            .send(TaskResult::WorkshopModsChecked {
+                generation: 2,
+                result: Ok(workshop_report("123", WorkshopInstallState::Missing)),
+            })
+            .expect("test task result should send");
+
+        app.poll_task_results();
+
+        assert_eq!(
+            app.backup_state.workshop_status,
+            vec![("123".to_string(), WorkshopInstallState::Missing)]
+        );
+        assert!(!app.backup_state.workshop_check_in_flight);
     }
 }

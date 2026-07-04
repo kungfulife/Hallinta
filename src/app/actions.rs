@@ -349,16 +349,17 @@ impl HallintaApp {
         (!trimmed.is_empty()).then(|| trimmed.to_string())
     }
 
-    /// Check if a workshop mod is installed based on cached workshop status.
-    pub fn is_workshop_mod_installed(&self, workshop_id: &str) -> Option<bool> {
+    /// Check workshop install state based on cached workshop status.
+    pub fn workshop_mod_install_state(&self, workshop_id: &str) -> WorkshopInstallState {
         if workshop_id.is_empty() || workshop_id == "0" {
-            return Some(true); // Local mod
+            return WorkshopInstallState::Installed;
         }
         self.backup_state
             .workshop_status
             .iter()
             .find(|(id, _)| id == workshop_id)
-            .map(|(_, installed)| *installed)
+            .map(|(_, state)| *state)
+            .unwrap_or(WorkshopInstallState::Unknown)
     }
 
     // ── Open mod_config.xml ───────────────────────────────────────────

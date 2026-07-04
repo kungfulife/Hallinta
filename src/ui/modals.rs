@@ -241,7 +241,14 @@ fn render_checklist(
                 .max_height(300.0)
                 .show(ui, |ui| {
                     for item in items.iter_mut() {
-                        ui.checkbox(&mut item.checked, &item.label);
+                        if item.required {
+                            item.checked = true;
+                            ui.add_enabled_ui(false, |ui| {
+                                ui.checkbox(&mut item.checked, &item.label);
+                            });
+                        } else {
+                            ui.checkbox(&mut item.checked, &item.label);
+                        }
                     }
                 });
             ui.add_space(8.0);
@@ -258,7 +265,7 @@ fn render_checklist(
     if confirmed {
         let selected: Vec<String> = items
             .iter()
-            .filter(|i| i.checked)
+            .filter(|i| i.checked || i.required)
             .map(|i| i.id.clone())
             .collect();
         app.handle_checklist_action(action, selected);
@@ -635,9 +642,9 @@ fn render_restore_manager(
     let mut open = true;
     let mut view_session: Option<(String, String)> = None;
     let mut back_to_list = false;
-    let mut delete_session_id: Option<(String, String)> = None;
     let mut open_session_dir: Option<(String, String)> = None;
     let mut restore_snap: Option<SnapshotEntry> = None;
+    let mut next_modal: Option<Modal> = None;
 
     let title = if let Some((_, ref name)) = selected_session {
         format!("Session: {}", name)
@@ -768,9 +775,7 @@ fn render_restore_manager(
                                                     session.snapshot_count
                                                 ));
                                             });
-                                            ui.with_layout(
-                                                egui::Layout::right_to_left(egui::Align::Center),
-                                                |ui| {
+                                            let mut show_session_actions = |ui: &mut egui::Ui| {
                                                     if ui.button("View").clicked() {
                                                         view_session = Some((
                                                             session.id.clone(),
@@ -784,7 +789,7 @@ fn render_restore_manager(
                                                         ));
                                                     }
                                                     if !is_live && ui.button("Rename").clicked() {
-                                                        app.active_modal = Some(Modal::Input {
+                                                        next_modal = Some(Modal::Input {
                                                             title: "Rename session".to_string(),
                                                             value: session.name.clone(),
                                                             hint: String::new(),
@@ -809,13 +814,36 @@ fn render_restore_manager(
                                                             )
                                                             .clicked()
                                                     {
-                                                        delete_session_id = Some((
-                                                            session.id.clone(),
-                                                            session.preset_name.clone(),
-                                                        ));
+                                                        next_modal = Some(Modal::Confirm {
+                                                            message: format!(
+                                                                "Delete monitor session \"{}\" and all its snapshots?",
+                                                                session.name
+                                                            ),
+                                                            confirm_text: "Delete".to_string(),
+                                                            cancel_text: "Cancel".to_string(),
+                                                            action:
+                                                                ConfirmAction::DeleteMonitorSession {
+                                                                    preset_name: session
+                                                                        .preset_name
+                                                                        .clone(),
+                                                                    session_id: session.id.clone(),
+                                                                    session_name: session
+                                                                        .name
+                                                                        .clone(),
+                                                                    },
+                                                            cancel_action: None,
+                                                            dismissable: false,
+                                                        });
                                                     }
-                                                },
-                                            );
+                                            };
+                                            if modal_width < 430.0 {
+                                                ui.vertical(|ui| show_session_actions(ui));
+                                            } else {
+                                                ui.with_layout(
+                                                    egui::Layout::right_to_left(egui::Align::Center),
+                                                    |ui| show_session_actions(ui),
+                                                );
+                                            }
                                         });
                                     });
                                 ui.add_space(2.0);
@@ -823,10 +851,12 @@ fn render_restore_manager(
                         });
                 }
             }
-        });
+    });
 
     // Handle actions
-    if let Some((sid, sname)) = view_session {
+    if let Some(modal) = next_modal {
+        app.active_modal = Some(modal);
+    } else if let Some((sid, sname)) = view_session {
         // Load snapshots for this session and switch to snapshot view
         let preset = app.selected_preset.clone();
         app.load_session_snapshots_async(preset, sid.clone());
@@ -841,9 +871,6 @@ fn render_restore_manager(
             snapshots: Vec::new(),
             selected_session: None,
         });
-    } else if let Some((sid, preset)) = delete_session_id {
-        let _ = crate::core::save_monitor::delete_session_snapshots(&preset, &sid);
-        app.load_sessions_async();
     } else if let Some((preset, sid)) = open_session_dir {
         if let Ok(dir) = crate::core::save_monitor::get_session_dir_by_id(&preset, &sid) {
             let _ = crate::core::platform::open_directory(&dir);
@@ -864,12 +891,14 @@ fn render_restore_manager(
                 id: "save00".to_string(),
                 label: "save00".to_string(),
                 checked: true,
+                required: false,
             }];
             if app.settings.save_monitor_settings.include_save01 {
                 restore_items.push(crate::models::ChecklistItem {
                     id: "save01".to_string(),
                     label: "save01".to_string(),
                     checked: true,
+                    required: false,
                 });
             }
             if app.settings.save_monitor_settings.include_entangled {
@@ -877,6 +906,7 @@ fn render_restore_manager(
                     id: "entangled".to_string(),
                     label: "Entangled Worlds".to_string(),
                     checked: true,
+                    required: false,
                 });
             }
             app.active_modal = Some(Modal::Checklist {
@@ -898,6 +928,7 @@ fn render_restore_manager(
 #[cfg(test)]
 mod tests {
     const RESIZABLE_TRUE: &str = concat!(".resizable", "(true)");
+    const DIRECT_SESSION_DELETE_CALL: &str = concat!("delete_session_snapshots", "(&preset, &sid)");
 
     #[test]
     fn modal_windows_are_not_user_resizable() {
@@ -905,6 +936,28 @@ mod tests {
         assert!(
             !source.contains(RESIZABLE_TRUE),
             "modal windows should not show user resize handles"
+        );
+    }
+
+    #[test]
+    fn restore_manager_does_not_delete_sessions_directly() {
+        let source = include_str!("modals.rs");
+        assert!(
+            !source.contains(DIRECT_SESSION_DELETE_CALL),
+            "session deletion must go through ConfirmAction::DeleteMonitorSession"
+        );
+    }
+
+    #[test]
+    fn restore_manager_tracks_modal_transitions_before_reopening_itself() {
+        let source = include_str!("modals.rs");
+        assert!(
+            source.contains("let mut next_modal"),
+            "restore manager should defer input/confirm transitions until after rendering"
+        );
+        assert!(
+            source.contains("if let Some(modal) = next_modal"),
+            "deferred modal transitions must take precedence over reopening RestoreManager"
         );
     }
 }

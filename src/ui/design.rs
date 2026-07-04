@@ -31,7 +31,6 @@ pub struct Design {
     pub enabled_odd: egui::Color32,
     pub disabled_even: egui::Color32,
     pub disabled_odd: egui::Color32,
-    pub row_hover: egui::Color32,
     pub disabled_text: egui::Color32,
     // Colors: accents and indicators
     pub badge_workshop: egui::Color32,
@@ -64,13 +63,12 @@ impl Design {
 
         // Enabled rows: purple-tinted alternating stripes (Noita magical energy)
         // Disabled rows: neutral gray alternating stripes
-        let (enabled_even, enabled_odd, disabled_even, disabled_odd, row_hover) = if dark {
+        let (enabled_even, enabled_odd, disabled_even, disabled_odd) = if dark {
             (
                 egui::Color32::from_rgba_premultiplied(80, 50, 150, 65),
                 egui::Color32::from_rgba_premultiplied(70, 42, 130, 35),
                 egui::Color32::from_rgba_premultiplied(58, 52, 68, 50),
                 egui::Color32::from_rgba_premultiplied(52, 48, 60, 25),
-                egui::Color32::from_rgba_premultiplied(120, 75, 200, 55),
             )
         } else {
             (
@@ -78,7 +76,6 @@ impl Design {
                 egui::Color32::from_rgba_premultiplied(80, 50, 140, 20),
                 egui::Color32::from_rgba_premultiplied(130, 125, 145, 25),
                 egui::Color32::from_rgba_premultiplied(120, 115, 135, 12),
-                egui::Color32::from_rgba_premultiplied(100, 60, 170, 35),
             )
         };
 
@@ -114,7 +111,6 @@ impl Design {
             enabled_odd,
             disabled_even,
             disabled_odd,
-            row_hover,
             disabled_text,
             badge_workshop: egui::Color32::from_rgb(100, 80, 175),
             badge_missing: egui::Color32::from_rgb(200, 55, 55),

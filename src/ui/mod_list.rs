@@ -1,5 +1,5 @@
 use crate::app::HallintaApp;
-use crate::models::{DragState, FilterMode, SortMode};
+use crate::models::{DragState, FilterMode, SortMode, WorkshopInstallState};
 use eframe::egui;
 
 const MONITOR_EDIT_NOTICE: &str = "Monitoring active - edit mods carefully.";
@@ -84,20 +84,20 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
         name: String,
         enabled: bool,
         is_workshop: bool,
-        workshop_installed: Option<bool>,
+        workshop_state: WorkshopInstallState,
     }
     let rows: Vec<RowData> = filtered_indices
         .iter()
         .map(|&idx| {
             let m = &app.current_mods[idx];
             let is_workshop = !m.workshop_id.is_empty() && m.workshop_id != "0";
-            let workshop_installed = app.is_workshop_mod_installed(&m.workshop_id);
+            let workshop_state = app.workshop_mod_install_state(&m.workshop_id);
             RowData {
                 idx,
                 name: m.name.clone(),
                 enabled: m.enabled,
                 is_workshop,
-                workshop_installed,
+                workshop_state,
             }
         })
         .collect();
@@ -204,7 +204,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                                     }
 
                                     // ── Missing mod indicator ────────────────────────────────
-                                    if let Some(false) = row.workshop_installed {
+                                    if row.workshop_state == WorkshopInstallState::Missing {
                                         draw_badge(ui, "Missing", d.badge_missing, &d);
                                     }
 
@@ -253,11 +253,6 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
                 // Hover: tinted fill + border for clear feedback
                 if row_resp.hovered() && !is_ghost && app.drag_state.is_none() {
-                    painter.rect_filled(
-                        frame_resp.rect,
-                        4.0,
-                        d.row_hover,
-                    );
                     painter.rect_stroke(
                         frame_resp.rect,
                         4.0,
@@ -320,6 +315,21 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
                         .size(d.font_small)
                         .color(ui.visuals().weak_text_color()),
                 );
+                if app.backup_state.workshop_check_in_flight {
+                    ui.separator();
+                    ui.label(
+                        egui::RichText::new("Checking workshop...")
+                            .size(d.font_small)
+                            .color(ui.visuals().weak_text_color()),
+                    );
+                } else if let Some(diagnostic) = app.backup_state.workshop_diagnostic.as_deref() {
+                    ui.separator();
+                    ui.label(
+                        egui::RichText::new(diagnostic)
+                            .size(d.font_small)
+                            .color(ui.visuals().weak_text_color()),
+                    );
+                }
 
                 if total > 0 {
                     ui.separator();

@@ -19,16 +19,19 @@ impl HallintaApp {
                 id: "save00".to_string(),
                 label: "save00 (always included)".to_string(),
                 checked: true,
+                required: true,
             },
             ChecklistItem {
                 id: "save01".to_string(),
                 label: "save01".to_string(),
                 checked: true,
+                required: false,
             },
             ChecklistItem {
                 id: "presets".to_string(),
                 label: "presets.json".to_string(),
                 checked: true,
+                required: false,
             },
         ];
 
@@ -37,6 +40,7 @@ impl HallintaApp {
                 id: "entangled".to_string(),
                 label: "Entangled Worlds".to_string(),
                 checked: true,
+                required: false,
             });
         }
 
@@ -155,6 +159,7 @@ impl HallintaApp {
                     b.size_bytes as f64 / 1_048_576.0
                 ),
                 checked: false,
+                required: false,
             })
             .collect();
 
@@ -182,6 +187,12 @@ mod tests {
         let Some(Modal::Checklist { items, .. }) = app.active_modal else {
             panic!("expected backup checklist modal");
         };
+        let save00 = items
+            .iter()
+            .find(|item| item.id == "save00")
+            .expect("save00 item should be present");
+        assert!(save00.checked);
+        assert!(save00.required);
         assert!(items.iter().any(|item| item.id == "save01" && item.checked));
         assert!(
             items

@@ -1,5 +1,5 @@
 use super::HallintaApp;
-use crate::core::{backup, logging, presets};
+use crate::core::{backup, logging, presets, save_monitor};
 use crate::models::*;
 use crate::tasks::TaskResult;
 use std::collections::BTreeMap;
@@ -143,6 +143,7 @@ impl HallintaApp {
                             id: name.clone(),
                             label: format!("{} ({} mods)", name, count),
                             checked: true,
+                            required: false,
                         }
                     })
                     .collect();
@@ -174,6 +175,26 @@ impl HallintaApp {
             ConfirmAction::DeleteBackup(filename) => {
                 self.delete_backup_async(filename);
             }
+            ConfirmAction::DeleteMonitorSession {
+                preset_name,
+                session_id,
+                session_name,
+            } => match save_monitor::delete_session_snapshots(&preset_name, &session_id) {
+                Ok(()) => {
+                    let _ = logging::log(
+                        "INFO",
+                        &format!("Deleted monitor session: {}", session_name),
+                        "SaveMonitor",
+                    );
+                    self.load_sessions_async();
+                }
+                Err(e) => {
+                    self.active_modal = Some(Modal::Info {
+                        title: "Delete Failed".to_string(),
+                        message: e,
+                    });
+                }
+            },
             ConfirmAction::RestoreLatest(filename) => {
                 self.apply_default_restore(filename);
             }
@@ -390,6 +411,7 @@ impl HallintaApp {
                                     id: "save00".to_string(),
                                     label: "save00".to_string(),
                                     checked: true,
+                                    required: false,
                                 });
                             }
                             if info.contains_save01 {
@@ -397,6 +419,7 @@ impl HallintaApp {
                                     id: "save01".to_string(),
                                     label: "save01".to_string(),
                                     checked: true,
+                                    required: false,
                                 });
                             }
                             if info.contains_presets {
@@ -404,6 +427,7 @@ impl HallintaApp {
                                     id: "presets".to_string(),
                                     label: "presets.json".to_string(),
                                     checked: true,
+                                    required: false,
                                 });
                             }
                             if info.contains_entangled {
@@ -411,6 +435,7 @@ impl HallintaApp {
                                     id: "entangled".to_string(),
                                     label: "Entangled Worlds".to_string(),
                                     checked: true,
+                                    required: false,
                                 });
                             }
 
@@ -574,6 +599,7 @@ impl HallintaApp {
                         if exists { " - EXISTS" } else { "" }
                     ),
                     checked: true,
+                    required: false,
                 }
             })
             .collect()

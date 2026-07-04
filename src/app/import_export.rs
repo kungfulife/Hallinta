@@ -197,6 +197,7 @@ impl HallintaApp {
                     id: name.clone(),
                     label: format!("{} ({} mods)", name, count),
                     checked: true,
+                    required: false,
                 }
             })
             .collect();
@@ -352,7 +353,7 @@ impl HallintaApp {
                 .collect();
 
             if !all_workshop_ids.is_empty()
-                && let Ok(statuses) =
+                && let Ok(report) =
                     workshop::check_workshop_mods_installed(&all_workshop_ids, steam_path)
             {
                 let missing: Vec<(String, String)> = import_data
@@ -360,9 +361,9 @@ impl HallintaApp {
                     .values()
                     .flatten()
                     .filter(|m| {
-                        statuses
-                            .iter()
-                            .any(|(id, installed)| id == &m.workshop_id && !installed)
+                        report.statuses.iter().any(|(id, state)| {
+                            id == &m.workshop_id && *state == WorkshopInstallState::Missing
+                        })
                     })
                     .map(|m| (m.name.clone(), m.workshop_id.clone()))
                     .collect();

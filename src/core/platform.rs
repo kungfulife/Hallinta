@@ -204,8 +204,13 @@ pub fn log_system_info_on_startup() {
         let _ = crate::core::logging::log(
             "INFO",
             &format!(
-                "Hallinta v{} ({}) | {} {} | {}",
-                info.app_version, info.build_profile, info.os, info.arch, info.build_target
+                "Hallinta v{} ({}) [{}] | {} {} | {}",
+                info.app_version,
+                info.build_profile,
+                info.git_hash,
+                info.os,
+                info.arch,
+                info.build_target
             ),
             "SystemInfo",
         );

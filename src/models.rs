@@ -141,6 +141,21 @@ pub struct RestoreOptions {
     pub restore_entangled: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WorkshopInstallState {
+    Installed,
+    Missing,
+    Unknown,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WorkshopCheckReport {
+    pub statuses: Vec<(String, WorkshopInstallState)>,
+    pub libraries_checked: Vec<String>,
+    pub content_roots_found: usize,
+    pub diagnostic: Option<String>,
+}
+
 // ── Logging ────────────────────────────────────────────────────────────────
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -356,6 +371,11 @@ pub enum ConfirmAction {
     ExitWithSnapshot,
     ExitWithoutSnapshot,
     DeleteBackup(String),
+    DeleteMonitorSession {
+        preset_name: String,
+        session_id: String,
+        session_name: String,
+    },
     RestoreLatest(String),
     ClearMonitorData,
     ContinueMonitorSession(String), // session_id
@@ -395,6 +415,7 @@ pub struct ChecklistItem {
     pub id: String,
     pub label: String,
     pub checked: bool,
+    pub required: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -463,7 +484,10 @@ pub struct BackupState {
     pub restoring: bool,
     pub backup_list: Vec<BackupInfo>,
     pub snapshot_list: Vec<SnapshotEntry>,
-    pub workshop_status: Vec<(String, bool)>,
+    pub workshop_status: Vec<(String, WorkshopInstallState)>,
+    pub workshop_check_generation: u64,
+    pub workshop_check_in_flight: bool,
+    pub workshop_diagnostic: Option<String>,
 }
 
 impl BackupState {
@@ -474,6 +498,9 @@ impl BackupState {
             backup_list: Vec::new(),
             snapshot_list: Vec::new(),
             workshop_status: Vec::new(),
+            workshop_check_generation: 0,
+            workshop_check_in_flight: false,
+            workshop_diagnostic: None,
         }
     }
 }

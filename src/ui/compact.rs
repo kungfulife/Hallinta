@@ -7,138 +7,146 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
     // Use vertical_centered with a max width so everything aligns nicely
     let available = ui.available_size();
-    let top_pad = (available.y * 0.12).max(d.lg);
+    let top_pad = (available.y * 0.08).clamp(d.sm, d.lg);
 
-    ui.add_space(top_pad);
+    egui::ScrollArea::vertical()
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            ui.add_space(top_pad);
 
-    ui.vertical_centered(|ui| {
-        let content_width = (available.x - d.lg * 2.0).clamp(240.0, 520.0);
-        ui.set_width(content_width);
+            ui.vertical_centered(|ui| {
+                let content_width = (available.x - d.lg * 2.0).clamp(240.0, 520.0);
+                ui.set_width(content_width);
 
-        // ── Preset selector ──────────────────────────────────────────────────
-        ui.label(
-            egui::RichText::new("Preset")
-                .size(d.font_small)
-                .color(ui.visuals().weak_text_color()),
-        );
-        ui.add_space(d.xs);
-
-        let is_locked = app.save_monitor.is_running();
-        let prev_selected = app.selected_preset.clone();
-
-        let mut preset_names: Vec<String> = app.presets.keys().cloned().collect();
-        preset_names.sort_by(|a, b| {
-            if a == "Default" {
-                std::cmp::Ordering::Less
-            } else if b == "Default" {
-                std::cmp::Ordering::Greater
-            } else {
-                a.to_lowercase().cmp(&b.to_lowercase())
-            }
-        });
-
-        ui.add_enabled_ui(!is_locked, |ui| {
-            egui::ComboBox::from_id_salt("compact_preset_selector")
-                .selected_text(&app.selected_preset)
-                .width(content_width)
-                .show_ui(ui, |ui| {
-                    for name in &preset_names {
-                        if ui
-                            .selectable_label(*name == app.selected_preset, name)
-                            .clicked()
-                        {
-                            app.selected_preset = name.clone();
-                        }
-                    }
-                });
-        });
-
-        if app.selected_preset != prev_selected {
-            app.switch_preset();
-        }
-
-        ui.add_space(d.sm);
-
-        // Mod count summary
-        let total = app.current_mods.len();
-        let enabled_count = app.current_mods.iter().filter(|m| m.enabled).count();
-        ui.label(
-            egui::RichText::new(format!("{} / {} mods enabled", enabled_count, total))
-                .size(d.font_body)
-                .color(ui.visuals().weak_text_color()),
-        );
-
-        ui.add_space(d.lg);
-        ui.separator();
-        ui.add_space(d.lg);
-
-        let btn_w = content_width;
-        let btn_h = 28.0;
-
-        // ── Monitor button ───────────────────────────────────────────────────
-        if is_locked {
-            ui.colored_label(
-                d.status_ok,
-                egui::RichText::new("● MONITORING")
-                    .size(d.font_body)
-                    .strong(),
-            );
-            if let Some(ref session) = app.save_monitor.current_session {
+                // ── Preset selector ──────────────────────────────────────────────────
                 ui.label(
-                    egui::RichText::new(format!("Session: {}", session.name))
+                    egui::RichText::new("Preset")
                         .size(d.font_small)
                         .color(ui.visuals().weak_text_color()),
                 );
-            }
-            ui.add_space(d.sm);
-            if ui
-                .add_sized(
-                    [btn_w, btn_h],
-                    egui::Button::new(egui::RichText::new("Stop Monitor").size(d.font_body)),
-                )
-                .clicked()
-            {
-                app.stop_save_monitor();
-            }
-        } else {
-            if ui
-                .add_sized(
-                    [btn_w, btn_h],
-                    egui::Button::new(egui::RichText::new("Start Monitor").size(d.font_body)),
-                )
-                .clicked()
-            {
-                app.start_save_monitor();
-            }
-        }
+                ui.add_space(d.xs);
 
-        ui.add_space(d.sm);
+                let is_locked = app.save_monitor.is_running();
+                let prev_selected = app.selected_preset.clone();
 
-        // ── Secondary actions ────────────────────────────────────────────────
-        ui.add_enabled_ui(app.can_start_manual_backup(), |ui| {
-            if ui
-                .add_sized(
-                    [btn_w, btn_h],
-                    egui::Button::new(
-                        egui::RichText::new("Create Manual Backup").size(d.font_body),
-                    ),
-                )
-                .clicked()
-            {
-                app.start_backup_modal();
-            }
+                let mut preset_names: Vec<String> = app.presets.keys().cloned().collect();
+                preset_names.sort_by(|a, b| {
+                    if a == "Default" {
+                        std::cmp::Ordering::Less
+                    } else if b == "Default" {
+                        std::cmp::Ordering::Greater
+                    } else {
+                        a.to_lowercase().cmp(&b.to_lowercase())
+                    }
+                });
+
+                ui.add_enabled_ui(!is_locked, |ui| {
+                    egui::ComboBox::from_id_salt("compact_preset_selector")
+                        .selected_text(&app.selected_preset)
+                        .width(content_width)
+                        .show_ui(ui, |ui| {
+                            for name in &preset_names {
+                                if ui
+                                    .selectable_label(*name == app.selected_preset, name)
+                                    .clicked()
+                                {
+                                    app.selected_preset = name.clone();
+                                }
+                            }
+                        });
+                });
+
+                if app.selected_preset != prev_selected {
+                    app.switch_preset();
+                }
+
+                ui.add_space(d.sm);
+
+                // Mod count summary
+                let total = app.current_mods.len();
+                let enabled_count = app.current_mods.iter().filter(|m| m.enabled).count();
+                ui.label(
+                    egui::RichText::new(format!("{} / {} mods enabled", enabled_count, total))
+                        .size(d.font_body)
+                        .color(ui.visuals().weak_text_color()),
+                );
+
+                ui.add_space(d.lg);
+                ui.separator();
+                ui.add_space(d.lg);
+
+                let btn_w = content_width;
+                let btn_h = 28.0;
+
+                // ── Monitor button ───────────────────────────────────────────────────
+                if is_locked {
+                    ui.colored_label(
+                        d.status_ok,
+                        egui::RichText::new("● MONITORING")
+                            .size(d.font_body)
+                            .strong(),
+                    );
+                    if let Some(ref session) = app.save_monitor.current_session {
+                        ui.label(
+                            egui::RichText::new(format!("Session: {}", session.name))
+                                .size(d.font_small)
+                                .color(ui.visuals().weak_text_color()),
+                        );
+                    }
+                    ui.add_space(d.sm);
+                    if ui
+                        .add_sized(
+                            [btn_w, btn_h],
+                            egui::Button::new(
+                                egui::RichText::new("Stop Monitor").size(d.font_body),
+                            ),
+                        )
+                        .clicked()
+                    {
+                        app.stop_save_monitor();
+                    }
+                } else {
+                    if ui
+                        .add_sized(
+                            [btn_w, btn_h],
+                            egui::Button::new(
+                                egui::RichText::new("Start Monitor").size(d.font_body),
+                            ),
+                        )
+                        .clicked()
+                    {
+                        app.start_save_monitor();
+                    }
+                }
+
+                ui.add_space(d.sm);
+
+                // ── Secondary actions ────────────────────────────────────────────────
+                ui.add_enabled_ui(app.can_start_manual_backup(), |ui| {
+                    if ui
+                        .add_sized(
+                            [btn_w, btn_h],
+                            egui::Button::new(
+                                egui::RichText::new("Create Manual Backup").size(d.font_body),
+                            ),
+                        )
+                        .clicked()
+                    {
+                        app.start_backup_modal();
+                    }
+                });
+
+                ui.add_space(d.xs);
+
+                if ui
+                    .add_sized(
+                        [btn_w, btn_h],
+                        egui::Button::new(egui::RichText::new("View Sessions").size(d.font_body)),
+                    )
+                    .clicked()
+                {
+                    app.load_sessions_async();
+                }
+            });
         });
-
-        ui.add_space(d.xs);
-
-        if ui
-            .add_sized(
-                [btn_w, btn_h],
-                egui::Button::new(egui::RichText::new("View Sessions").size(d.font_body)),
-            )
-            .clicked()
-        {
-            app.load_sessions_async();
-        }
-    });
 }
