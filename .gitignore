@@ -29,6 +29,7 @@ dist-ssr
 # Ai directories and files
 /CLAUDE.md
 /.claude/
+/agent-tools/
 
 /target/
 /temp/
