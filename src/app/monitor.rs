@@ -122,6 +122,7 @@ impl HallintaApp {
         self.save_monitor.running = false;
         self.save_monitor.current_session = None;
         self.save_monitor.pending_change_since = None;
+        self.save_monitor.last_write_at = None;
         let _ = logging::log("INFO", "Monitor session stopped", "SaveMonitor");
         logging::write_session_marker(&format!("MONITOR_STOP:snapshots={}", count));
         if show_pending_external_mods {
@@ -157,18 +158,21 @@ impl HallintaApp {
         );
         if current_mtime > self.save_monitor.last_known_mtime {
             self.save_monitor.last_known_mtime = current_mtime;
-            let was_pending = self.save_monitor.pending_change_since.is_some();
-            self.save_monitor.pending_change_since = Some(Instant::now());
-            if !was_pending {
+            // Always track latest write for short stability debounce. Do NOT
+            // reset pending_change_since — that would starve snapshots during
+            // continuous Noita world writes (backup delay is minutes long).
+            self.save_monitor.last_write_at = Some(Instant::now());
+            if self.save_monitor.pending_change_since.is_none() {
+                self.save_monitor.pending_change_since = Some(Instant::now());
                 let _ = logging::log(
                     "DEBUG",
-                    "Save file change detected, waiting for stability...",
+                    "Save file change detected, waiting for backup delay...",
                     "SaveMonitor",
                 );
             } else {
                 let _ = logging::log(
                     "DEBUG",
-                    "Save file changed again, resetting stability timer...",
+                    "Save file changed again during backup delay window...",
                     "SaveMonitor",
                 );
             }
@@ -251,10 +255,12 @@ mod tests {
     }
 
     #[test]
-    fn save_monitor_resets_pending_timer_when_save_changes_again() {
+    fn save_monitor_keeps_backup_delay_start_when_save_changes_again() {
         let dir =
             std::env::temp_dir().join(format!("hallinta_monitor_debounce_{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("test save dir should be created");
+        // Touch a file so scan_save_dirs_mtime reports a non-zero mtime.
+        std::fs::write(dir.join("player.txt"), b"x").expect("test file should write");
 
         let (_runtime, mut app) = test_app(Vec::new());
         app.settings.noita_dir = dir.to_string_lossy().to_string();
@@ -265,14 +271,39 @@ mod tests {
 
         app.check_save_monitor_changes();
 
-        let reset_pending = app
+        let still_pending = app
             .save_monitor
             .pending_change_since
             .expect("pending change should remain set");
-        assert!(
-            reset_pending > old_pending,
-            "new save writes should reset the quiet-period timer"
+        assert_eq!(
+            still_pending, old_pending,
+            "later writes must not restart the multi-minute backup delay"
         );
+        assert!(
+            app.save_monitor.last_write_at.is_some(),
+            "latest write time should advance for short stability debounce"
+        );
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn save_monitor_starts_pending_on_first_change() {
+        let dir =
+            std::env::temp_dir().join(format!("hallinta_monitor_first_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("test save dir should be created");
+        std::fs::write(dir.join("player.txt"), b"x").expect("test file should write");
+
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.noita_dir = dir.to_string_lossy().to_string();
+        app.save_monitor.running = true;
+        app.save_monitor.last_known_mtime = 0;
+
+        app.check_save_monitor_changes();
+
+        assert!(app.save_monitor.pending_change_since.is_some());
+        assert!(app.save_monitor.last_write_at.is_some());
+        assert!(app.save_monitor.last_known_mtime > 0);
 
         std::fs::remove_dir_all(&dir).ok();
     }

@@ -45,13 +45,23 @@ impl HallintaApp {
                 self.save_monitor.last_scan = Some(now);
                 self.check_save_monitor_changes();
             }
-            // Wait long enough for Noita to finish writing before snapshotting.
-            if let Some(change_time) = self.save_monitor.pending_change_since
-                && now.duration_since(change_time)
-                    > monitor_backup_delay(self.settings.save_monitor_settings.backup_delay_minutes)
-            {
-                self.save_monitor.pending_change_since = None;
-                self.take_monitor_snapshot();
+            // Snapshot when backup delay since first change has elapsed AND
+            // writes have been stable briefly (Noita finished the latest burst).
+            if let Some(change_time) = self.save_monitor.pending_change_since {
+                let delay_elapsed = now.duration_since(change_time)
+                    > monitor_backup_delay(
+                        self.settings.save_monitor_settings.backup_delay_minutes,
+                    );
+                let writes_stable = self
+                    .save_monitor
+                    .last_write_at
+                    .map(|t| now.duration_since(t) > MONITOR_WRITE_STABILITY)
+                    .unwrap_or(true);
+                if delay_elapsed && writes_stable {
+                    self.save_monitor.pending_change_since = None;
+                    self.save_monitor.last_write_at = None;
+                    self.take_monitor_snapshot();
+                }
             }
         }
 
@@ -117,9 +127,13 @@ impl HallintaApp {
     }
 }
 
+/// Minimum time after the first change in a cycle before taking a snapshot.
 fn monitor_backup_delay(minutes: u64) -> Duration {
     Duration::from_secs(minutes.clamp(1, 120) * 60)
 }
+
+/// Quiet period after the latest write so we avoid zipping mid-save.
+const MONITOR_WRITE_STABILITY: Duration = Duration::from_secs(5);
 
 pub(crate) fn build_external_mod_change_summary(
     current: &[ModEntry],
@@ -319,9 +333,71 @@ mod tests {
         app.backup_state.in_progress = true;
         app.save_monitor.pending_change_since =
             Some(Instant::now() - monitor_backup_delay(3) - Duration::from_secs(1));
+        app.save_monitor.last_write_at =
+            Some(Instant::now() - MONITOR_WRITE_STABILITY - Duration::from_secs(1));
 
         app.check_timers(&ctx);
 
         assert!(app.save_monitor.pending_change_since.is_some());
+    }
+
+    #[test]
+    fn monitor_waits_for_write_stability_even_after_backup_delay() {
+        let ctx = egui::Context::default();
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.noita_dir = "C:/Noita/save00".to_string();
+        app.save_monitor.running = true;
+        app.save_monitor.current_session = Some(crate::models::SessionInfo {
+            id: "session-id".to_string(),
+            name: "Session".to_string(),
+            preset_name: "Default".to_string(),
+            started_at: "2026-01-01T00:00:00Z".to_string(),
+            ended_at: None,
+            status: crate::models::SessionStatus::Monitoring,
+            snapshot_count: 0,
+            locked_mods: Vec::new(),
+            folder_name: "session-id".to_string(),
+        });
+        // Delay fully elapsed, but a write just happened — must not snapshot yet.
+        app.save_monitor.pending_change_since =
+            Some(Instant::now() - monitor_backup_delay(3) - Duration::from_secs(1));
+        app.save_monitor.last_write_at = Some(Instant::now());
+
+        app.check_timers(&ctx);
+
+        assert!(
+            app.save_monitor.pending_change_since.is_some(),
+            "should wait for short write stability after delay"
+        );
+        assert!(!app.save_monitor.snapshot_in_flight);
+    }
+
+    #[test]
+    fn monitor_snapshots_when_delay_and_stability_are_met() {
+        let ctx = egui::Context::default();
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.noita_dir = "C:/Noita/save00".to_string();
+        app.save_monitor.running = true;
+        app.save_monitor.current_session = Some(crate::models::SessionInfo {
+            id: "session-id".to_string(),
+            name: "Session".to_string(),
+            preset_name: "Default".to_string(),
+            started_at: "2026-01-01T00:00:00Z".to_string(),
+            ended_at: None,
+            status: crate::models::SessionStatus::Monitoring,
+            snapshot_count: 0,
+            locked_mods: Vec::new(),
+            folder_name: "session-id".to_string(),
+        });
+        app.save_monitor.pending_change_since =
+            Some(Instant::now() - monitor_backup_delay(3) - Duration::from_secs(1));
+        app.save_monitor.last_write_at =
+            Some(Instant::now() - MONITOR_WRITE_STABILITY - Duration::from_secs(1));
+
+        app.check_timers(&ctx);
+
+        assert!(app.save_monitor.pending_change_since.is_none());
+        assert!(app.save_monitor.last_write_at.is_none());
+        assert!(app.save_monitor.snapshot_in_flight);
     }
 }

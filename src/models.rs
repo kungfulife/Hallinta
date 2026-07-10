@@ -455,7 +455,11 @@ pub struct SaveMonitorState {
     pub current_session: Option<SessionInfo>,
     pub snapshot_count: u32,
     pub last_known_mtime: u64,
+    /// When the current change cycle began (first mtime advance). Not reset by
+    /// later writes — drives the configured backup delay.
     pub pending_change_since: Option<Instant>,
+    /// Most recent mtime advance in the current cycle; used for short write-stability.
+    pub last_write_at: Option<Instant>,
     pub snapshot_in_flight: bool,
     pub last_scan: Option<Instant>,
 }
@@ -468,6 +472,7 @@ impl SaveMonitorState {
             snapshot_count: 0,
             last_known_mtime: 0,
             pending_change_since: None,
+            last_write_at: None,
             snapshot_in_flight: false,
             last_scan: None,
         }
