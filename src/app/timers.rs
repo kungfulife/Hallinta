@@ -65,6 +65,20 @@ impl HallintaApp {
             }
         }
 
+        // Keep "View Sessions" fresh while monitoring (counts + snapshot files).
+        if matches!(self.active_modal, Some(Modal::RestoreManager { .. }))
+            && self.save_monitor.is_running()
+        {
+            let should_refresh = self
+                .save_monitor
+                .last_restore_manager_refresh
+                .is_none_or(|t| now.duration_since(t) > Duration::from_secs(2));
+            if should_refresh {
+                self.save_monitor.last_restore_manager_refresh = Some(now);
+                self.refresh_restore_manager_if_open();
+            }
+        }
+
         // Request periodic repaint for timers
         ctx.request_repaint_after(Duration::from_secs(1));
     }

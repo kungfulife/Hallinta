@@ -63,6 +63,7 @@ impl HallintaApp {
                     "MONITOR_START:preset={},session={}",
                     preset, name
                 ));
+                self.refresh_restore_manager_if_open();
                 self.take_monitor_snapshot();
             }
             Err(e) => {

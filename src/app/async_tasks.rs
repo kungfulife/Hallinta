@@ -16,13 +16,20 @@ impl HallintaApp {
     }
 
     pub fn load_sessions_async(&self) {
+        self.load_sessions_async_inner(true);
+    }
+
+    fn load_sessions_async_inner(&self, open_if_missing: bool) {
         let preset = self.selected_preset.clone();
         let tx = self.task_tx.clone();
         self.async_runtime.spawn(async move {
             let result = tokio::task::spawn_blocking(move || save_monitor::list_sessions(&preset))
                 .await
                 .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
-            let _ = tx.send(TaskResult::SessionListLoaded(result));
+            let _ = tx.send(TaskResult::SessionListLoaded {
+                result,
+                open_if_missing,
+            });
         });
     }
 
@@ -36,6 +43,28 @@ impl HallintaApp {
             .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
             let _ = tx.send(TaskResult::SessionSnapshotsLoaded(result));
         });
+    }
+
+    /// Reload open Restore Manager data (session list + open snapshot view).
+    pub fn refresh_restore_manager_if_open(&self) {
+        let Some(crate::models::Modal::RestoreManager {
+            ref selected_session,
+            ref sessions,
+            ..
+        }) = self.active_modal
+        else {
+            return;
+        };
+
+        if let Some((session_id, _)) = selected_session {
+            let preset = sessions
+                .iter()
+                .find(|s| s.id == *session_id)
+                .map(|s| s.preset_name.clone())
+                .unwrap_or_else(|| self.selected_preset.clone());
+            self.load_session_snapshots_async(preset, session_id.clone());
+        }
+        self.load_sessions_async_inner(false);
     }
 
     pub fn check_workshop_mods_async(&mut self) {

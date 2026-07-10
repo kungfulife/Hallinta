@@ -9,7 +9,11 @@ pub enum TaskResult {
     UpgradeBackupComplete(Result<(), String>),
     BackupListLoaded(Result<Vec<BackupInfo>, String>),
     SessionCheckComplete(Result<Vec<crate::models::SessionInfo>, String>),
-    SessionListLoaded(Result<Vec<crate::models::SessionInfo>, String>),
+    SessionListLoaded {
+        result: Result<Vec<crate::models::SessionInfo>, String>,
+        /// When false, only update an already-open RestoreManager (live refresh).
+        open_if_missing: bool,
+    },
     SessionSnapshotsLoaded(Result<Vec<crate::models::SnapshotEntry>, String>),
     WorkshopModsChecked {
         generation: u64,

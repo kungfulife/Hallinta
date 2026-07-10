@@ -770,9 +770,16 @@ fn render_restore_manager(
                                                     &session.started_at
                                                         [..19.min(session.started_at.len())]
                                                 ));
+                                                // Live session uses in-memory count so the list
+                                                // updates immediately while monitoring is open.
+                                                let snapshot_count = if is_live {
+                                                    app.save_monitor.snapshot_count
+                                                } else {
+                                                    session.snapshot_count
+                                                };
                                                 ui.label(format!(
                                                     "{} snapshot(s)",
-                                                    session.snapshot_count
+                                                    snapshot_count
                                                 ));
                                             });
                                             let mut show_session_actions = |ui: &mut egui::Ui| {

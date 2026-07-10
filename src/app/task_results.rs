@@ -117,6 +117,7 @@ impl HallintaApp {
                                 &format!("Snapshot created: {}", filename),
                                 "SaveMonitor",
                             );
+                            self.sync_restore_manager_after_snapshot();
                             // Session-scoped cleanup
                             if let Some(ref session) = self.save_monitor.current_session {
                                 let preset = session.preset_name.clone();
@@ -182,13 +183,39 @@ impl HallintaApp {
                         self.prompt_new_monitor_session();
                     }
                 },
-                TaskResult::SessionListLoaded(res) => {
-                    if let Ok(sessions) = res {
-                        self.active_modal = Some(Modal::RestoreManager {
-                            sessions,
-                            snapshots: Vec::new(),
-                            selected_session: None,
-                        });
+                TaskResult::SessionListLoaded {
+                    result,
+                    open_if_missing,
+                } => {
+                    if let Ok(sessions) = result {
+                        match self.active_modal.take() {
+                            Some(Modal::RestoreManager {
+                                selected_session,
+                                snapshots,
+                                ..
+                            }) => {
+                                let selected = selected_session
+                                    .filter(|(id, _)| sessions.iter().any(|s| s.id == *id));
+                                let snapshots =
+                                    if selected.is_some() { snapshots } else { Vec::new() };
+                                self.active_modal = Some(Modal::RestoreManager {
+                                    sessions,
+                                    snapshots,
+                                    selected_session: selected,
+                                });
+                            }
+                            None if open_if_missing => {
+                                self.active_modal = Some(Modal::RestoreManager {
+                                    sessions,
+                                    snapshots: Vec::new(),
+                                    selected_session: None,
+                                });
+                            }
+                            other => {
+                                // Keep whatever modal is open; drop stale list refresh.
+                                self.active_modal = other;
+                            }
+                        }
                     }
                 }
                 TaskResult::SessionSnapshotsLoaded(res) => {
@@ -275,6 +302,8 @@ impl HallintaApp {
                             &format!("Cleaned up {} old snapshot(s)", count),
                             "SaveMonitor",
                         );
+                        // File list may have dropped oldest zips — refresh open view.
+                        self.refresh_restore_manager_if_open();
                     }
                 }
                 TaskResult::BackupDeleted(res) => match res {
@@ -308,12 +337,52 @@ impl HallintaApp {
             }
         }
     }
+
+    /// Keep open "View Sessions" UI in sync when a new monitor snapshot lands.
+    fn sync_restore_manager_after_snapshot(&mut self) {
+        let Some(live) = self.save_monitor.current_session.clone() else {
+            return;
+        };
+
+        let (found_in_list, viewing_live) = match &mut self.active_modal {
+            Some(Modal::RestoreManager {
+                sessions,
+                selected_session,
+                ..
+            }) => {
+                let found = if let Some(entry) = sessions.iter_mut().find(|s| s.id == live.id) {
+                    entry.snapshot_count = live.snapshot_count;
+                    entry.status = live.status.clone();
+                    true
+                } else {
+                    false
+                };
+                let viewing = selected_session
+                    .as_ref()
+                    .is_some_and(|(id, _)| id == &live.id);
+                (found, viewing)
+            }
+            _ => return,
+        };
+
+        if !found_in_list {
+            // Live session not in the cached list yet — full refresh.
+            self.refresh_restore_manager_if_open();
+            return;
+        }
+
+        if viewing_live {
+            self.load_session_snapshots_async(live.preset_name, live.id);
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::super::test_support::test_app;
-    use crate::models::{WorkshopCheckReport, WorkshopInstallState};
+    use crate::models::{
+        Modal, SessionInfo, SessionStatus, WorkshopCheckReport, WorkshopInstallState,
+    };
     use crate::tasks::TaskResult;
 
     fn workshop_report(id: &str, state: WorkshopInstallState) -> WorkshopCheckReport {
@@ -384,5 +453,104 @@ mod tests {
             vec![("123".to_string(), WorkshopInstallState::Missing)]
         );
         assert!(!app.backup_state.workshop_check_in_flight);
+    }
+
+    fn sample_session(id: &str, count: u32) -> SessionInfo {
+        SessionInfo {
+            id: id.to_string(),
+            name: format!("Session {id}"),
+            preset_name: "Default".to_string(),
+            started_at: "2026-01-01T00:00:00Z".to_string(),
+            ended_at: None,
+            status: SessionStatus::Monitoring,
+            snapshot_count: count,
+            locked_mods: Vec::new(),
+            folder_name: id.to_string(),
+        }
+    }
+
+    #[test]
+    fn session_list_refresh_preserves_selected_session() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.active_modal = Some(Modal::RestoreManager {
+            sessions: vec![sample_session("a", 1)],
+            snapshots: vec![],
+            selected_session: Some(("a".to_string(), "Session a".to_string())),
+        });
+
+        app.task_tx
+            .send(TaskResult::SessionListLoaded {
+                result: Ok(vec![sample_session("a", 3), sample_session("b", 0)]),
+                open_if_missing: false,
+            })
+            .expect("test task result should send");
+
+        app.poll_task_results();
+
+        match app.active_modal {
+            Some(Modal::RestoreManager {
+                ref sessions,
+                ref selected_session,
+                ..
+            }) => {
+                assert_eq!(sessions.len(), 2);
+                assert_eq!(sessions[0].snapshot_count, 3);
+                assert_eq!(
+                    selected_session.as_ref().map(|(id, _)| id.as_str()),
+                    Some("a")
+                );
+            }
+            other => panic!("expected RestoreManager, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn session_list_refresh_does_not_reopen_closed_modal() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.active_modal = None;
+
+        app.task_tx
+            .send(TaskResult::SessionListLoaded {
+                result: Ok(vec![sample_session("a", 1)]),
+                open_if_missing: false,
+            })
+            .expect("test task result should send");
+
+        app.poll_task_results();
+
+        assert!(app.active_modal.is_none());
+    }
+
+    #[test]
+    fn snapshot_complete_updates_open_session_list_count() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+        app.save_monitor.snapshot_count = 2;
+        app.save_monitor.current_session = Some(sample_session("live", 2));
+        app.active_modal = Some(Modal::RestoreManager {
+            sessions: vec![sample_session("live", 2), sample_session("old", 5)],
+            snapshots: Vec::new(),
+            selected_session: None,
+        });
+
+        app.task_tx
+            .send(TaskResult::SnapshotComplete(Ok(
+                "snapshot_20260101_000000.zip".to_string()
+            )))
+            .expect("test task result should send");
+
+        app.poll_task_results();
+
+        match app.active_modal {
+            Some(Modal::RestoreManager { ref sessions, .. }) => {
+                let live = sessions
+                    .iter()
+                    .find(|s| s.id == "live")
+                    .expect("live session should remain listed");
+                assert_eq!(live.snapshot_count, 3);
+                assert_eq!(app.save_monitor.snapshot_count, 3);
+            }
+            other => panic!("expected RestoreManager, got {other:?}"),
+        }
     }
 }

@@ -462,6 +462,8 @@ pub struct SaveMonitorState {
     pub last_write_at: Option<Instant>,
     pub snapshot_in_flight: bool,
     pub last_scan: Option<Instant>,
+    /// Throttle for live Restore Manager refreshes while monitoring.
+    pub last_restore_manager_refresh: Option<Instant>,
 }
 
 impl SaveMonitorState {
@@ -475,6 +477,7 @@ impl SaveMonitorState {
             last_write_at: None,
             snapshot_in_flight: false,
             last_scan: None,
+            last_restore_manager_refresh: None,
         }
     }
 
