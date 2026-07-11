@@ -6,28 +6,6 @@ use crate::tasks::TaskResult;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-#[derive(Debug, PartialEq, Eq)]
-enum RestoreChecklistStep {
-    ChooseBackup(String),
-    RestoreBackup(String),
-}
-
-fn restore_checklist_step(
-    action_filename: &str,
-    selected: &[String],
-) -> Option<RestoreChecklistStep> {
-    if action_filename.is_empty() {
-        selected
-            .first()
-            .cloned()
-            .map(RestoreChecklistStep::ChooseBackup)
-    } else {
-        Some(RestoreChecklistStep::RestoreBackup(
-            action_filename.to_string(),
-        ))
-    }
-}
-
 fn selected_has(selected: &[String], id: &str) -> bool {
     selected.iter().any(|item| item == id)
 }
@@ -374,135 +352,65 @@ impl HallintaApp {
                     });
                 }
             }
-            ChecklistAction::Backup => {
-                if !self.can_start_manual_backup() {
+            ChecklistAction::Restore(filename) => {
+                if filename.is_empty() {
                     self.active_modal = Some(Modal::Info {
-                        title: "Backup Busy".to_string(),
-                        message: "Wait for the current backup or monitor snapshot to finish before creating a manual backup.".to_string(),
+                        title: "Restore".to_string(),
+                        message: "No backup was selected.".to_string(),
+                    });
+                    return;
+                }
+                if selected.is_empty() {
+                    self.active_modal = Some(Modal::Info {
+                        title: "Restore".to_string(),
+                        message: "Select at least one component to restore.".to_string(),
                     });
                     return;
                 }
 
-                let include_save01 = selected.contains(&"save01".to_string());
-                let include_presets = selected.contains(&"presets".to_string());
-                let include_entangled = selected.contains(&"entangled".to_string());
-
                 let noita_dir = PathBuf::from(self.settings.noita_dir.clone());
-                let entangled_dir = if include_entangled {
+                let entangled_dir = if selected_has(&selected, "entangled") {
                     self.configured_entangled_dir().map(PathBuf::from)
                 } else {
                     None
                 };
+                let options = RestoreOptions {
+                    restore_save00: selected_has(&selected, "save00"),
+                    restore_save01: selected_has(&selected, "save01"),
+                    restore_presets: selected_has(&selected, "presets"),
+                    restore_entangled: selected_has(&selected, "entangled"),
+                };
                 let tx = self.task_tx.clone();
 
-                self.backup_state.in_progress = true;
+                self.backup_state.restoring = true;
                 self.active_modal = Some(Modal::Progress {
-                    message: "Creating manual backup...".to_string(),
+                    message: "Restoring backup...".to_string(),
                     progress: 0.5,
                 });
 
-                logging::write_session_marker("MANUAL_BACKUP_START");
+                logging::write_session_marker("RESTORE_START");
                 self.async_runtime.spawn(async move {
                     let result = tokio::task::spawn_blocking(move || {
-                        backup::create_backup(
+                        backup::restore_backup(
+                            &filename,
                             &noita_dir,
-                            include_save01,
-                            include_presets,
-                            include_entangled,
+                            &options,
                             entangled_dir.as_deref(),
                         )
                     })
                     .await
-                    .unwrap_or_else(|e| Err(format!("Backup task failed: {}", e)));
-                    let _ = tx.send(TaskResult::BackupComplete(result));
+                    .unwrap_or_else(|e| Err(format!("Restore task failed: {}", e)));
+                    let _ = tx.send(TaskResult::RestoreComplete(result));
                 });
             }
-            ChecklistAction::Restore(ref _filename) => {
-                match restore_checklist_step(_filename, &selected) {
-                    Some(RestoreChecklistStep::ChooseBackup(filename)) => {
-                        if let Ok(info) = backup::get_backup_contents(&filename) {
-                            let mut restore_items = Vec::new();
-                            if info.contains_save00 {
-                                restore_items.push(ChecklistItem {
-                                    id: "save00".to_string(),
-                                    label: "save00".to_string(),
-                                    checked: true,
-                                    required: false,
-                                });
-                            }
-                            if info.contains_save01 {
-                                restore_items.push(ChecklistItem {
-                                    id: "save01".to_string(),
-                                    label: "save01".to_string(),
-                                    checked: true,
-                                    required: false,
-                                });
-                            }
-                            if info.contains_presets {
-                                restore_items.push(ChecklistItem {
-                                    id: "presets".to_string(),
-                                    label: "presets.json".to_string(),
-                                    checked: true,
-                                    required: false,
-                                });
-                            }
-                            if info.contains_entangled {
-                                restore_items.push(ChecklistItem {
-                                    id: "entangled".to_string(),
-                                    label: "Entangled Worlds".to_string(),
-                                    checked: true,
-                                    required: false,
-                                });
-                            }
-
-                            self.active_modal = Some(Modal::Checklist {
-                                title: format!("Restore {}", filename),
-                                message: "Select components to restore:".to_string(),
-                                items: restore_items,
-                                action: ChecklistAction::Restore(filename.clone()),
-                            });
-                        }
-                    }
-                    Some(RestoreChecklistStep::RestoreBackup(filename)) => {
-                        let noita_dir = PathBuf::from(self.settings.noita_dir.clone());
-                        let entangled_dir = if selected_has(&selected, "entangled") {
-                            self.configured_entangled_dir().map(PathBuf::from)
-                        } else {
-                            None
-                        };
-                        let options = RestoreOptions {
-                            restore_save00: selected_has(&selected, "save00"),
-                            restore_save01: selected_has(&selected, "save01"),
-                            restore_presets: selected_has(&selected, "presets"),
-                            restore_entangled: selected_has(&selected, "entangled"),
-                        };
-                        let tx = self.task_tx.clone();
-
-                        self.backup_state.restoring = true;
-                        self.active_modal = Some(Modal::Progress {
-                            message: "Restoring backup...".to_string(),
-                            progress: 0.5,
-                        });
-
-                        logging::write_session_marker("RESTORE_START");
-                        self.async_runtime.spawn(async move {
-                            let result = tokio::task::spawn_blocking(move || {
-                                backup::restore_backup(
-                                    &filename,
-                                    &noita_dir,
-                                    &options,
-                                    entangled_dir.as_deref(),
-                                )
-                            })
-                            .await
-                            .unwrap_or_else(|e| Err(format!("Restore task failed: {}", e)));
-                            let _ = tx.send(TaskResult::RestoreComplete(result));
-                        });
-                    }
-                    None => {}
-                }
-            }
             ChecklistAction::RestoreSnapshot(zip_path) => {
+                if selected.is_empty() {
+                    self.active_modal = Some(Modal::Info {
+                        title: "Restore Snapshot".to_string(),
+                        message: "Select at least one component to restore.".to_string(),
+                    });
+                    return;
+                }
                 let noita_dir = PathBuf::from(self.settings.noita_dir.clone());
                 let entangled_dir = if selected_has(&selected, "entangled") {
                     self.configured_entangled_dir().map(PathBuf::from)
@@ -662,21 +570,37 @@ mod tests {
     }
 
     #[test]
-    fn restore_checklist_chooses_backup_on_first_step() {
-        assert_eq!(
-            restore_checklist_step("", &ids(&["backup.zip"])),
-            Some(RestoreChecklistStep::ChooseBackup("backup.zip".to_string()))
+    fn restore_requires_at_least_one_component() {
+        let (_runtime, mut app) = test_app(Vec::new());
+
+        app.handle_checklist_action(
+            ChecklistAction::Restore("backup.zip".to_string()),
+            Vec::new(),
         );
+
+        assert!(!app.backup_state.restoring);
+        assert!(matches!(
+            app.active_modal,
+            Some(Modal::Info { ref message, .. })
+                if message.contains("Select at least one component")
+        ));
     }
 
     #[test]
-    fn restore_checklist_restores_components_when_filename_is_already_known() {
-        assert_eq!(
-            restore_checklist_step("backup.zip", &ids(&["save00", "presets"])),
-            Some(RestoreChecklistStep::RestoreBackup(
-                "backup.zip".to_string()
-            ))
+    fn snapshot_restore_requires_at_least_one_component() {
+        let (_runtime, mut app) = test_app(Vec::new());
+
+        app.handle_checklist_action(
+            ChecklistAction::RestoreSnapshot(PathBuf::from("snapshot.zip")),
+            Vec::new(),
         );
+
+        assert!(!app.backup_state.restoring);
+        assert!(matches!(
+            app.active_modal,
+            Some(Modal::Info { ref message, .. })
+                if message.contains("Select at least one component")
+        ));
     }
 
     #[test]
@@ -718,11 +642,14 @@ mod tests {
     }
 
     #[test]
-    fn backup_checklist_waits_for_monitor_snapshot_in_flight() {
+    fn named_backup_waits_for_monitor_snapshot_in_flight() {
         let (_runtime, mut app) = test_app(Vec::new());
         app.save_monitor.snapshot_in_flight = true;
 
-        app.handle_checklist_action(ChecklistAction::Backup, ids(&["save01", "presets"]));
+        app.submit_manual_backup(
+            "Test backup".to_string(),
+            ids(&["save00", "save01", "presets"]),
+        );
 
         assert!(!app.backup_state.in_progress);
         assert!(matches!(

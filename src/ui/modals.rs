@@ -53,6 +53,9 @@ pub fn render_modals(app: &mut HallintaApp, ctx: &egui::Context) {
         } => {
             render_checklist(app, ctx, &title, &message, &mut items, action);
         }
+        Modal::ManualBackup { name, items, error } => {
+            render_manual_backup(app, ctx, name, items, error);
+        }
         Modal::Info { title, message } => {
             render_info(app, ctx, &title, &message);
         }
@@ -277,6 +280,94 @@ fn render_checklist(
             action,
         });
     }
+}
+
+fn render_manual_backup(
+    app: &mut HallintaApp,
+    ctx: &egui::Context,
+    mut name: String,
+    mut items: Vec<ChecklistItem>,
+    error: Option<String>,
+) {
+    let d = crate::ui::design::Design::new(ctx, &app.settings);
+    let mut submitted = false;
+    let mut cancelled = false;
+
+    egui::Window::new("Create Backup")
+        .collapsible(false)
+        .resizable(false)
+        .default_width(420.0)
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            render_manual_backup_contents(
+                ui,
+                &d,
+                &mut name,
+                &mut items,
+                error.as_deref(),
+                &mut submitted,
+                &mut cancelled,
+            );
+        });
+
+    if submitted {
+        let selected = items
+            .iter()
+            .filter(|item| item.checked || item.required)
+            .map(|item| item.id.clone())
+            .collect();
+        app.submit_manual_backup(name, selected);
+    } else if !cancelled {
+        app.active_modal = Some(Modal::ManualBackup { name, items, error });
+    }
+}
+
+fn render_manual_backup_contents(
+    ui: &mut egui::Ui,
+    d: &crate::ui::design::Design,
+    name: &mut String,
+    items: &mut [ChecklistItem],
+    error: Option<&str>,
+    submitted: &mut bool,
+    cancelled: &mut bool,
+) {
+    ui.label(egui::RichText::new("Backup name").strong());
+    let response = ui.add(
+        egui::TextEdit::singleline(name)
+            .desired_width(380.0)
+            .hint_text("Backup name"),
+    );
+    if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
+        *submitted = true;
+    }
+
+    if let Some(message) = error {
+        ui.colored_label(egui::Color32::from_rgb(220, 60, 60), message);
+    }
+
+    ui.add_space(d.md);
+    ui.label(egui::RichText::new("Include").strong());
+    for item in items {
+        if item.required {
+            item.checked = true;
+            ui.add_enabled_ui(false, |ui| {
+                ui.checkbox(&mut item.checked, &item.label);
+            });
+        } else {
+            ui.checkbox(&mut item.checked, &item.label);
+        }
+    }
+
+    ui.add_space(d.md);
+    ui.horizontal(|ui| {
+        if ui.button("Create Backup").clicked() {
+            *submitted = true;
+        }
+        if ui.button("Cancel").clicked() {
+            *cancelled = true;
+        }
+    });
 }
 
 fn render_info(app: &mut HallintaApp, ctx: &egui::Context, title: &str, message: &str) {
@@ -530,10 +621,25 @@ fn render_open_source(app: &mut HallintaApp, ctx: &egui::Context) {
     }
 }
 
+#[derive(Clone, Copy)]
+struct BackupManagerActionAvailability {
+    restore: bool,
+    delete: bool,
+}
+
+fn backup_manager_action_availability(app: &HallintaApp) -> BackupManagerActionAvailability {
+    let busy = app.backup_state.in_progress || app.backup_state.restoring;
+    BackupManagerActionAvailability {
+        restore: !app.save_monitor.is_running() && !busy,
+        delete: !busy,
+    }
+}
+
 fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
-    let d = crate::ui::design::Design::new(ctx, &app.settings);
     let mut open = true;
-    let mut delete_filename: Option<String> = None;
+    let mut restore_latest = false;
+    let mut restore_filename = None;
+    let mut delete_filename = None;
 
     egui::Window::new("Manage Backups")
         .collapsible(false)
@@ -543,81 +649,20 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
         .order(egui::Order::Foreground)
         .open(&mut open)
         .show(ctx, |ui| {
-            if app.backup_state.backup_list.is_empty() {
-                ui.label("No backups found.");
-            } else {
-                ui.label(
-                    egui::RichText::new(format!(
-                        "{} backup(s)",
-                        app.backup_state.backup_list.len()
-                    ))
-                    .strong(),
-                );
-                ui.add_space(d.sm);
-
-                egui::ScrollArea::vertical()
-                    .max_height(400.0)
-                    .show(ui, |ui| {
-                        // Clone for iteration
-                        let backups = app.backup_state.backup_list.clone();
-                        for backup in &backups {
-                            egui::Frame::group(ui.style())
-                                .inner_margin(egui::Margin::same(d.sm as i8))
-                                .show(ui, |ui| {
-                                    ui.horizontal(|ui| {
-                                        ui.vertical(|ui| {
-                                            ui.label(
-                                                egui::RichText::new(&backup.filename).strong(),
-                                            );
-                                            ui.label(format!(
-                                                "{:.1} MB | {}",
-                                                backup.size_bytes as f64 / 1_048_576.0,
-                                                &backup.timestamp[..19.min(backup.timestamp.len())]
-                                            ));
-                                            let mut contents = Vec::new();
-                                            if backup.contains_save00 {
-                                                contents.push("save00");
-                                            }
-                                            if backup.contains_save01 {
-                                                contents.push("save01");
-                                            }
-                                            if backup.contains_presets {
-                                                contents.push("presets");
-                                            }
-                                            if backup.contains_entangled {
-                                                contents.push("entangled");
-                                            }
-                                            ui.label(
-                                                egui::RichText::new(format!(
-                                                    "Contains: {}",
-                                                    contents.join(", ")
-                                                ))
-                                                .small()
-                                                .color(ui.visuals().weak_text_color()),
-                                            );
-                                        });
-                                        ui.with_layout(
-                                            egui::Layout::right_to_left(egui::Align::Center),
-                                            |ui| {
-                                                if ui
-                                                    .button(egui::RichText::new("Delete").color(
-                                                        egui::Color32::from_rgb(220, 60, 60),
-                                                    ))
-                                                    .clicked()
-                                                {
-                                                    delete_filename = Some(backup.filename.clone());
-                                                }
-                                            },
-                                        );
-                                    });
-                                });
-                            ui.add_space(2.0);
-                        }
-                    });
-            }
+            render_backup_manager_contents(
+                app,
+                ui,
+                &mut restore_latest,
+                &mut restore_filename,
+                &mut delete_filename,
+            );
         });
 
-    if let Some(filename) = delete_filename {
+    if restore_latest {
+        app.restore_last_backup();
+    } else if let Some(filename) = restore_filename {
+        app.start_restore_components(filename);
+    } else if let Some(filename) = delete_filename {
         app.active_modal = Some(Modal::Confirm {
             message: format!("Delete backup \"{}\"?", filename),
             confirm_text: "Delete".to_string(),
@@ -629,6 +674,109 @@ fn render_backup_manager(app: &mut HallintaApp, ctx: &egui::Context) {
     } else if open {
         app.active_modal = Some(Modal::BackupManager);
     }
+}
+
+fn render_backup_manager_contents(
+    app: &mut HallintaApp,
+    ui: &mut egui::Ui,
+    restore_latest: &mut bool,
+    restore_filename: &mut Option<String>,
+    delete_filename: &mut Option<String>,
+) {
+    let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
+    let availability = backup_manager_action_availability(app);
+    ui.horizontal(|ui| {
+        ui.label(
+            egui::RichText::new(format!("{} backup(s)", app.backup_state.backup_list.len()))
+                .strong(),
+        );
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if ui
+                .add_enabled(
+                    availability.restore && !app.backup_state.backup_list.is_empty(),
+                    egui::Button::new("Restore Latest"),
+                )
+                .clicked()
+            {
+                *restore_latest = true;
+            }
+        });
+    });
+    ui.add_space(d.sm);
+
+    if app.backup_state.backup_list.is_empty() {
+        ui.label("No backups found.");
+        return;
+    }
+
+    egui::ScrollArea::vertical()
+        .max_height(400.0)
+        .show(ui, |ui| {
+            for backup in app.backup_state.backup_list.clone() {
+                egui::Frame::group(ui.style())
+                    .inner_margin(egui::Margin::same(d.sm as i8))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.vertical(|ui| {
+                                ui.label(egui::RichText::new(&backup.filename).strong());
+                                ui.label(format!(
+                                    "{:.1} MB | {}",
+                                    backup.size_bytes as f64 / 1_048_576.0,
+                                    &backup.timestamp[..19.min(backup.timestamp.len())]
+                                ));
+                                let mut contents = Vec::new();
+                                if backup.contains_save00 {
+                                    contents.push("save00");
+                                }
+                                if backup.contains_save01 {
+                                    contents.push("save01");
+                                }
+                                if backup.contains_presets {
+                                    contents.push("presets");
+                                }
+                                if backup.contains_entangled {
+                                    contents.push("entangled");
+                                }
+                                ui.label(
+                                    egui::RichText::new(format!(
+                                        "Contains: {}",
+                                        contents.join(", ")
+                                    ))
+                                    .small()
+                                    .color(ui.visuals().weak_text_color()),
+                                );
+                            });
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if ui
+                                        .add_enabled(
+                                            availability.delete,
+                                            egui::Button::new(
+                                                egui::RichText::new("Delete")
+                                                    .color(egui::Color32::from_rgb(220, 60, 60)),
+                                            ),
+                                        )
+                                        .clicked()
+                                    {
+                                        *delete_filename = Some(backup.filename.clone());
+                                    }
+                                    if ui
+                                        .add_enabled(
+                                            availability.restore,
+                                            egui::Button::new("Restore"),
+                                        )
+                                        .clicked()
+                                    {
+                                        *restore_filename = Some(backup.filename.clone());
+                                    }
+                                },
+                            );
+                        });
+                    });
+                ui.add_space(2.0);
+            }
+        });
 }
 
 fn render_restore_manager(
@@ -649,7 +797,7 @@ fn render_restore_manager(
     let title = if let Some((_, ref name)) = selected_session {
         format!("Session: {}", name)
     } else {
-        "Monitor Sessions".to_string()
+        "Manage Sessions".to_string()
     };
 
     let viewport = ctx.content_rect();
@@ -857,6 +1005,10 @@ fn render_restore_manager(
                             }
                         });
                 }
+                ui.add_space(d.md);
+                ui.separator();
+                ui.add_space(d.sm);
+                render_session_manager_footer(app, ui, &mut next_modal);
             }
     });
 
@@ -929,5 +1081,172 @@ fn render_restore_manager(
             snapshots,
             selected_session,
         });
+    }
+}
+
+fn can_clear_session_data(app: &HallintaApp) -> bool {
+    !app.save_monitor.is_running()
+}
+
+fn render_session_manager_footer(
+    app: &HallintaApp,
+    ui: &mut egui::Ui,
+    next_modal: &mut Option<Modal>,
+) {
+    if ui
+        .add_enabled(
+            can_clear_session_data(app),
+            egui::Button::new(
+                egui::RichText::new("Clear All Session Data")
+                    .color(egui::Color32::from_rgb(220, 60, 60)),
+            ),
+        )
+        .on_hover_text("Delete every monitor session and snapshot for every preset")
+        .clicked()
+    {
+        *next_modal = Some(Modal::Confirm {
+            message: "Delete ALL monitor sessions and snapshots for ALL presets?".to_string(),
+            confirm_text: "Delete All".to_string(),
+            cancel_text: "Cancel".to_string(),
+            action: ConfirmAction::ClearMonitorData,
+            cancel_action: None,
+            dismissable: false,
+        });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::test_support::test_app;
+
+    fn text_from_shape(shape: &egui::epaint::Shape) -> Vec<String> {
+        match shape {
+            egui::epaint::Shape::Text(text) => vec![text.galley.text().to_string()],
+            egui::epaint::Shape::Vec(shapes) => shapes.iter().flat_map(text_from_shape).collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    #[test]
+    fn manual_backup_modal_renders_name_and_component_controls() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.start_backup_modal();
+        let Some(Modal::ManualBackup {
+            mut name,
+            mut items,
+            error,
+        }) = app.active_modal.take()
+        else {
+            panic!("expected manual backup modal");
+        };
+        let ctx = egui::Context::default();
+
+        let output = ctx.run_ui(Default::default(), |ui| {
+            let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
+            let mut submitted = false;
+            let mut cancelled = false;
+            render_manual_backup_contents(
+                ui,
+                &d,
+                &mut name,
+                &mut items,
+                error.as_deref(),
+                &mut submitted,
+                &mut cancelled,
+            );
+        });
+        let labels: Vec<String> = output
+            .shapes
+            .iter()
+            .flat_map(|shape| text_from_shape(&shape.shape))
+            .collect();
+
+        for expected in ["Backup name", "save00 (always included)", "Create Backup"] {
+            assert!(
+                labels.iter().any(|label| label == expected),
+                "missing {expected}; labels: {labels:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn backup_manager_renders_restore_and_delete_controls() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.backup_state.backup_list = vec![BackupInfo {
+            filename: "hallinta_manual_night_run_20260711_013000.zip".to_string(),
+            timestamp: "2026-07-11T01:30:00Z".to_string(),
+            size_bytes: 1_048_576,
+            contains_save00: true,
+            contains_save01: false,
+            contains_presets: true,
+            contains_entangled: false,
+        }];
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(Default::default(), |ui| {
+            let mut restore_latest = false;
+            let mut restore_filename = None;
+            let mut delete_filename = None;
+            render_backup_manager_contents(
+                &mut app,
+                ui,
+                &mut restore_latest,
+                &mut restore_filename,
+                &mut delete_filename,
+            );
+        });
+        let labels: Vec<String> = output
+            .shapes
+            .iter()
+            .flat_map(|shape| text_from_shape(&shape.shape))
+            .collect();
+
+        for expected in ["Restore Latest", "Restore", "Delete"] {
+            assert!(
+                labels.iter().any(|label| label == expected),
+                "missing {expected}; labels: {labels:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn backup_manager_guards_restore_and_delete_independently() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        let idle = backup_manager_action_availability(&app);
+        assert!(idle.restore);
+        assert!(idle.delete);
+
+        app.save_monitor.running = true;
+        let monitoring = backup_manager_action_availability(&app);
+        assert!(!monitoring.restore);
+        assert!(monitoring.delete);
+
+        app.backup_state.in_progress = true;
+        let busy = backup_manager_action_availability(&app);
+        assert!(!busy.restore);
+        assert!(!busy.delete);
+    }
+
+    #[test]
+    fn session_manager_footer_exposes_guarded_clear_all_action() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(Default::default(), |ui| {
+            let mut next_modal = None;
+            render_session_manager_footer(&app, ui, &mut next_modal);
+        });
+        let labels: Vec<String> = output
+            .shapes
+            .iter()
+            .flat_map(|shape| text_from_shape(&shape.shape))
+            .collect();
+        assert!(
+            labels.iter().any(|label| label == "Clear All Session Data"),
+            "labels: {labels:?}"
+        );
+        assert!(can_clear_session_data(&app));
+
+        app.save_monitor.running = true;
+        assert!(!can_clear_session_data(&app));
     }
 }

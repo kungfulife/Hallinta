@@ -1,21 +1,6 @@
 use crate::app::HallintaApp;
-use crate::models::Modal;
 use crate::ui::design::Design;
 use eframe::egui;
-
-#[derive(Clone, Copy)]
-struct CompactBackupActionAvailability {
-    restore: bool,
-    manage: bool,
-}
-
-fn compact_backup_action_availability(app: &HallintaApp) -> CompactBackupActionAvailability {
-    let backup_busy = app.backup_state.in_progress || app.backup_state.restoring;
-    CompactBackupActionAvailability {
-        restore: !app.save_monitor.is_running() && !backup_busy,
-        manage: !backup_busy,
-    }
-}
 
 pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let d = Design::new(ui.ctx(), &app.settings);
@@ -142,7 +127,7 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
                         .add_sized(
                             [btn_w, btn_h],
                             egui::Button::new(
-                                egui::RichText::new("Create Manual Backup").size(d.font_body),
+                                egui::RichText::new("Create Backup").size(d.font_body),
                             ),
                         )
                         .clicked()
@@ -153,57 +138,26 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
                 ui.add_space(d.xs);
 
-                let backup_actions = compact_backup_action_availability(app);
-                ui.add_enabled_ui(backup_actions.restore, |ui| {
-                    if ui
-                        .add_sized(
-                            [btn_w, btn_h],
-                            egui::Button::new(
-                                egui::RichText::new("Restore Latest").size(d.font_body),
-                            ),
-                        )
-                        .clicked()
-                    {
-                        app.restore_last_backup();
-                    }
-                    if ui
-                        .add_sized(
-                            [btn_w, btn_h],
-                            egui::Button::new(
-                                egui::RichText::new("Restore Backup").size(d.font_body),
-                            ),
-                        )
-                        .clicked()
-                    {
-                        app.start_restore_modal();
-                    }
-                });
-
-                ui.add_enabled_ui(backup_actions.manage, |ui| {
-                    if ui
-                        .add_sized(
-                            [btn_w, btn_h],
-                            egui::Button::new(
-                                egui::RichText::new("Manage Backups").size(d.font_body),
-                            ),
-                        )
-                        .clicked()
-                    {
-                        app.load_backup_list_async();
-                        app.active_modal = Some(Modal::BackupManager);
-                    }
-                });
+                if ui
+                    .add_sized(
+                        [btn_w, btn_h],
+                        egui::Button::new(egui::RichText::new("Manage Backups").size(d.font_body)),
+                    )
+                    .clicked()
+                {
+                    app.open_backup_manager();
+                }
 
                 ui.add_space(d.xs);
 
                 if ui
                     .add_sized(
                         [btn_w, btn_h],
-                        egui::Button::new(egui::RichText::new("View Sessions").size(d.font_body)),
+                        egui::Button::new(egui::RichText::new("Manage Sessions").size(d.font_body)),
                     )
                     .clicked()
                 {
-                    app.load_sessions_async();
+                    app.open_sessions_manager();
                 }
             });
         });
@@ -223,7 +177,7 @@ mod tests {
     }
 
     #[test]
-    fn compact_mode_exposes_manual_backup_restore_actions() {
+    fn compact_mode_exposes_four_approved_actions() {
         let (_runtime, mut app) = test_app(Vec::new());
         let ctx = egui::Context::default();
         let output = ctx.run_ui(Default::default(), |ui| {
@@ -235,29 +189,22 @@ mod tests {
             .flat_map(|shape| text_from_shape(&shape.shape))
             .collect();
 
-        for expected in ["Restore Latest", "Restore Backup", "Manage Backups"] {
+        for expected in [
+            "Start Monitor",
+            "Create Backup",
+            "Manage Backups",
+            "Manage Sessions",
+        ] {
             assert!(
                 labels.iter().any(|label| label == expected),
                 "missing {expected}"
             );
         }
-    }
-
-    #[test]
-    fn compact_restore_guards_match_monitor_and_backup_state() {
-        let (_runtime, mut app) = test_app(Vec::new());
-        let available = compact_backup_action_availability(&app);
-        assert!(available.restore);
-        assert!(available.manage);
-
-        app.save_monitor.running = true;
-        let monitoring = compact_backup_action_availability(&app);
-        assert!(!monitoring.restore);
-        assert!(monitoring.manage);
-
-        app.backup_state.in_progress = true;
-        let busy = compact_backup_action_availability(&app);
-        assert!(!busy.restore);
-        assert!(!busy.manage);
+        for removed in ["Restore Latest", "Restore Backup", "View Sessions"] {
+            assert!(
+                labels.iter().all(|label| label != removed),
+                "old action still rendered: {removed}"
+            );
+        }
     }
 }

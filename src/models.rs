@@ -321,6 +321,11 @@ pub enum Modal {
         items: Vec<ChecklistItem>,
         action: ChecklistAction,
     },
+    ManualBackup {
+        name: String,
+        items: Vec<ChecklistItem>,
+        error: Option<String>,
+    },
     Info {
         title: String,
         message: String,
@@ -389,7 +394,6 @@ pub enum InputAction {
 pub enum ChecklistAction {
     ExportPresets,
     ImportPresets(PresetImportData),
-    Backup,
     Restore(String), // filename
     RestoreSnapshot(std::path::PathBuf),
 }

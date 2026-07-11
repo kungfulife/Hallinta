@@ -15,7 +15,7 @@ Fast navigation notes for agents and maintainers.
 
 - `actions.rs`: preset switching, mod config writes, settings reactions, filter/sort state, open `mod_config.xml`.
 - `async_tasks.rs`: fire-and-forget task dispatchers for backups, monitor session lists, snapshots, workshop checks, and data clearing.
-- `backup_actions.rs`: backup and restore entry points shown from UI controls.
+- `backup_actions.rs`: named backup creation plus centralized backup/session manager and restore entry points.
 - `import_export.rs`: mod list import/export and preset import/export preparation.
 - `input.rs`: keyboard shortcuts, close-request handling, bulk enable/disable.
 - `lifecycle.rs`: `eframe::App` update loop and shutdown cleanup.
@@ -40,9 +40,9 @@ Fast navigation notes for agents and maintainers.
 ## UI Modules
 
 - `src/ui/header.rs`: top navigation, search, preset controls, global buttons.
-- `src/ui/sidebar.rs`: backup/restore/monitor/settings actions outside compact mode.
+- `src/ui/sidebar.rs`: dense normal-mode Session & Safety, Mod Files, and Presets action console.
 - `src/ui/mod_list.rs`: main mod list, filters, sorting controls, monitor edit notice.
-- `src/ui/compact.rs`: compact monitor-focused layout.
+- `src/ui/compact.rs`: compact four-action monitor/backup/session layout.
 - `src/ui/settings.rs`: settings view and path/appearance/logging/save-monitor controls.
 - `src/ui/modals.rs`: modal rendering; behavior lives in `src/app/modal_actions.rs`.
 - `src/ui/context_menu.rs`: mod row context actions.

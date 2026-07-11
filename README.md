@@ -35,12 +35,12 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - In-app guide for self-hosting a preset catalog
 
 ### Backup & Restore
-- Manual and automatic backups of Noita save data (save00, save01) and presets
+- Named manual backups of Noita save data (save00, save01), presets, and optional Entangled Worlds data
 - Save monitoring with per-preset snapshots for crash recovery
 - Save Monitor keeps the mod list editable and defers external change prompts until monitoring pauses
-- Configurable auto-backup interval (silent quick backups: save00 + presets)
-- Auto-deletion of old backups (configurable retention period; runs every 6h)
-- One-click "Restore Latest" from the sidebar
+- Configurable Save Monitor snapshot delay and per-session snapshot limit
+- Manage Backups workspace with Restore Latest, selective restore, and delete controls
+- Manage Sessions workspace for browsing and restoring monitor snapshots
 - Selective restore with per-component options
 - Upgrade backups created automatically on version change (keeps last 5)
 - Zip Slip protection: malicious archives can't write outside the target directory
@@ -64,8 +64,9 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 ### User Interface
 - Native desktop GUI powered by egui/eframe
 - Dark and light mode (quick toggle in header)
-- Compact Mode: independent toggle that shrinks the window and hides the mod list for a monitoring-focused layout
-- Resizable sidebar with hover tooltips on every action
+- Compact Mode: monitoring-focused layout with Create Backup, Manage Backups, and Manage Sessions
+- Dense normal-mode Actions console with grouped save, mod-file, and preset controls
+- Hover tooltips on every action
 - Quick reload button (`⟳`) and theme toggle in the header
 - Context menus for mod operations (toggle, delete, reorder, workshop links, copy ID/URL/name)
 - Search and filter functionality (filter + sort persist across sessions)
@@ -83,7 +84,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 - Persistent settings stored in system data directories
 - User-configurable preset catalog URL
 - Optional startup system diagnostics collection (disabled by default)
-- Backup scheduling and retention settings
+- Save Monitor snapshot timing and per-session retention settings
 - Steam path auto-detection during initial setup
 - Version upgrade detection with automatic backups
 - Settings validation and error recovery
@@ -106,6 +107,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 ## Interface Overview
 
 - **Header**: `Mod List` / `Modpacks` tabs, search bar, preset controls, settings access
+- **Actions**: Dense Session & Safety, Mod Files, and Presets controls
 - **Mod List View**: Main mod list with drag-and-drop reordering
 - **Modpacks**: Browse, search, and download presets from a configured catalog
 - **Settings**: Directory configuration, appearance, backup, logging, catalog URL, Steam path

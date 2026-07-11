@@ -4,6 +4,7 @@ use crate::models::{AppSettings, BackupInfo, ModEntry, RestoreOptions};
 use chrono::Utc;
 use std::collections::BTreeMap;
 use std::fs;
+use std::fs::OpenOptions;
 use std::io::{Read as IoRead, Write};
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
@@ -113,6 +114,7 @@ pub fn create_backup(
     include_presets: bool,
     include_entangled: bool,
     entangled_dir: Option<&Path>,
+    backup_name: &str,
 ) -> Result<String, String> {
     validate_save00_source(noita_dir)?;
 
@@ -132,52 +134,69 @@ pub fn create_backup(
         "Backup",
     );
 
+    let name = normalize_manual_backup_name(backup_name, "Backup")?;
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S").to_string();
-    let filename = manual_backup_filename(&timestamp);
-    let zip_path = backups_dir.join(&filename);
-
-    let file =
-        fs::File::create(&zip_path).map_err(|e| format!("Failed to create backup zip: {}", e))?;
+    let (filename, zip_path, file) = (1..)
+        .find_map(|suffix| {
+            let filename = manual_backup_filename(&name, &timestamp, suffix);
+            let zip_path = backups_dir.join(&filename);
+            match OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&zip_path)
+            {
+                Ok(file) => Some(Ok((filename, zip_path, file))),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => None,
+                Err(error) => Some(Err(format!("Failed to create backup zip: {error}"))),
+            }
+        })
+        .expect("unbounded suffix iterator must return")?;
     let mut zip = ZipWriter::new(file);
 
-    // Always include save00
-    if noita_dir.exists() {
+    let result = (|| {
+        // Always include save00
         add_directory_to_zip(&mut zip, noita_dir, "save00")?;
-    }
 
-    // Optionally include save01
-    if include_save01 && let Some(parent) = noita_dir.parent() {
-        let save01_path = parent.join("save01");
-        if save01_path.exists() {
-            add_directory_to_zip(&mut zip, &save01_path, "save01")?;
+        // Optionally include save01
+        if include_save01 && let Some(parent) = noita_dir.parent() {
+            let save01_path = parent.join("save01");
+            if save01_path.exists() {
+                add_directory_to_zip(&mut zip, &save01_path, "save01")?;
+            }
         }
-    }
 
-    // Optionally include presets
-    if include_presets {
-        let presets_path = data_dir.join("presets.json");
-        if presets_path.exists() {
-            let options: FileOptions<()> =
-                FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-            zip.start_file("presets.json", options)
-                .map_err(|e| format!("Failed to add presets to zip: {}", e))?;
-            let data =
-                fs::read(&presets_path).map_err(|e| format!("Failed to read presets: {}", e))?;
-            zip.write_all(&data)
-                .map_err(|e| format!("Failed to write presets to zip: {}", e))?;
+        // Optionally include presets
+        if include_presets {
+            let presets_path = data_dir.join("presets.json");
+            if presets_path.exists() {
+                let options: FileOptions<()> =
+                    FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+                zip.start_file("presets.json", options)
+                    .map_err(|e| format!("Failed to add presets to zip: {}", e))?;
+                let data = fs::read(&presets_path)
+                    .map_err(|e| format!("Failed to read presets: {}", e))?;
+                zip.write_all(&data)
+                    .map_err(|e| format!("Failed to write presets to zip: {}", e))?;
+            }
         }
-    }
 
-    // Optionally include Entangled Worlds
-    if include_entangled
-        && let Some(ew_path) = entangled_dir
-        && ew_path.exists()
-    {
-        add_directory_to_zip(&mut zip, ew_path, "entangled_worlds")?;
-    }
+        // Optionally include Entangled Worlds
+        if include_entangled
+            && let Some(ew_path) = entangled_dir
+            && ew_path.exists()
+        {
+            add_directory_to_zip(&mut zip, ew_path, "entangled_worlds")?;
+        }
 
-    zip.finish()
-        .map_err(|e| format!("Failed to finish backup zip: {}", e))?;
+        zip.finish()
+            .map_err(|e| format!("Failed to finish backup zip: {}", e))?;
+        Ok::<(), String>(())
+    })();
+
+    if let Err(error) = result {
+        fs::remove_file(&zip_path).ok();
+        return Err(error);
+    }
 
     Ok(filename)
 }
@@ -199,8 +218,61 @@ fn validate_backup_filename(filename: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn manual_backup_filename(timestamp: &str) -> String {
-    format!("hallinta_manual_backup_{}.zip", timestamp)
+pub(crate) fn normalize_manual_backup_name(name: &str, fallback: &str) -> Result<String, String> {
+    let normalized = if name.trim().is_empty() {
+        fallback.trim()
+    } else {
+        name.trim()
+    };
+    if normalized.is_empty() {
+        return Err("Backup name cannot be empty".to_string());
+    }
+    if normalized.chars().count() > 80 {
+        return Err("Backup name must be 80 characters or fewer".to_string());
+    }
+    if normalized
+        .chars()
+        .any(|character| character.is_control() || "/\\:*?\"<>|".contains(character))
+    {
+        return Err("Backup name contains an invalid character".to_string());
+    }
+    Ok(normalized.to_string())
+}
+
+fn manual_backup_filename(name: &str, timestamp: &str, suffix: usize) -> String {
+    let mut slug = String::new();
+    let mut previous_was_separator = true;
+    let mut count = 0;
+
+    'characters: for character in name.chars() {
+        if character.is_alphanumeric() {
+            for lowercase in character.to_lowercase() {
+                if count == 40 {
+                    break 'characters;
+                }
+                slug.push(lowercase);
+                count += 1;
+            }
+            previous_was_separator = false;
+        } else if !previous_was_separator && count < 40 {
+            slug.push('_');
+            count += 1;
+            previous_was_separator = true;
+        }
+    }
+    while slug.ends_with('_') {
+        slug.pop();
+    }
+    if slug.is_empty() {
+        slug.push_str("backup");
+    }
+
+    let collision_suffix = if suffix > 1 {
+        format!("_{suffix}")
+    } else {
+        String::new()
+    };
+    format!("hallinta_manual_{slug}_{timestamp}{collision_suffix}.zip")
 }
 
 pub fn list_backups() -> Result<Vec<BackupInfo>, String> {
@@ -645,10 +717,26 @@ mod tests {
     use super::{is_safe_relative, validate_backup_filename};
 
     #[test]
-    fn manual_backup_filename_is_explicit() {
-        let filename = super::manual_backup_filename("20260102_030405");
-
-        assert_eq!(filename, "hallinta_manual_backup_20260102_030405.zip");
+    fn manual_backup_names_are_validated_and_slugged() {
+        assert_eq!(
+            super::normalize_manual_backup_name("  Night run  ", "Fallback").unwrap(),
+            "Night run"
+        );
+        assert_eq!(
+            super::normalize_manual_backup_name("   ", "Backup 2026-07-11 01-30").unwrap(),
+            "Backup 2026-07-11 01-30"
+        );
+        assert!(super::normalize_manual_backup_name("bad/name", "Fallback").is_err());
+        assert!(super::normalize_manual_backup_name("bad\u{7}name", "Fallback").is_err());
+        assert!(super::normalize_manual_backup_name(&"x".repeat(81), "Fallback").is_err());
+        assert_eq!(
+            super::manual_backup_filename("Night run", "20260711_013000", 1),
+            "hallinta_manual_night_run_20260711_013000.zip"
+        );
+        assert_eq!(
+            super::manual_backup_filename("Night run", "20260711_013000", 2),
+            "hallinta_manual_night_run_20260711_013000_2.zip"
+        );
     }
 
     #[test]
@@ -682,7 +770,7 @@ mod tests {
         ));
         std::fs::remove_dir_all(&missing).ok();
 
-        let err = super::create_backup(&missing, false, false, false, None)
+        let err = super::create_backup(&missing, false, false, false, None, "Test backup")
             .expect_err("missing save00 source should fail backup creation");
 
         assert!(

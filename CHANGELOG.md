@@ -2,7 +2,24 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
-## 0.8.0 (Work In Progress)
+## 0.8.0 (2026-07-11)
+- **Official egui release**: Hallinta 0.8.0 completes the move from Tauri to a
+  native Rust egui/eframe desktop application.
+- **Actions console**: Replaced the tall normal-mode button stack with the dense
+  Session & Safety, Mod Files, and Presets control console. Compact mode now
+  keeps four focused actions: monitor, create backup, manage backups, and manage
+  sessions.
+- **Named manual backups**: Manual backups now ask for a readable name alongside
+  component selection. Filenames retain a sortable timestamp, validate unsafe
+  characters, and avoid collisions without overwriting existing archives.
+- **Unified recovery**: Manage Backups now owns Restore Latest plus selective
+  restore/delete controls for each archive. Manage Sessions owns monitor-session
+  cleanup and snapshot restore workflows.
+- **Reliability**: Imports and preset updates roll back partial disk writes;
+  logging preserves ordered pending lines across transient write failures and
+  rotates/retains files predictably.
+- **Test isolation**: Unit tests use a process-specific temporary Hallinta data
+  directory and can no longer overwrite live settings or presets.
 - **Developer workflow**: Removed repo-local debug runtime data. Debug builds
   now use the same OS-local Hallinta data directory as release builds. Noita
   and Entangled Worlds operations continue to use the paths configured in
@@ -22,13 +39,14 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 - **Security**: Fixed Zip Slip vulnerability in `restore_backup` and `restore_from_path`
   — crafted backups can no longer write outside their target directory. Added
   `is_safe_relative()` guard with unit tests
-- **Backups**: Exposed automatic-backup interval settings and retired the old
-  hidden backup cleanup path; backups are no longer deleted by a hidden default
+- **Backups**: Exposed Save Monitor snapshot delay and per-session retention
+  settings. Manual backups are kept separately and are not deleted by a hidden
+  cleanup default.
 - **Backups**: Backup creation now fails with a clear error when the configured
   Noita save directory is missing or invalid, instead of producing a zip without
   `save00` data
-- **Quick Restore**: Added "Restore Latest" sidebar button — one-click restore of
-  the most recent backup with default options
+- **Quick Restore**: Restore Latest is available from Manage Backups alongside
+  selective archive restore and delete controls.
 - **Search/Filter/Sort**:
   - Search now matches mod name *and* workshop_id
   - New Sort dropdown (A→Z, Z→A, Enabled first, Disabled first) with optional
@@ -40,7 +58,7 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
   `Ctrl+B` (open backup modal), `Ctrl+E` (enable all), `Ctrl+D` (disable all),
   `Ctrl+,` (toggle Settings)
 - **Mod list footer** now shows "N enabled / M total" (and "K shown" when filtered)
-- **Sidebar**: now resizable, every button has a tooltip explaining its action
+- **Sidebar**: Added concise action grouping and explanatory tooltips.
 - **Context menu**: Added "Copy Workshop ID", "Copy Workshop URL", "Copy Mod Name".
   Workshop URL/ID actions log the operation
 - **Mod list edit bug fixes**:
