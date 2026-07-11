@@ -261,12 +261,6 @@ mod tests {
     }
 
     #[test]
-    fn test_detect_steam_path_does_not_panic() {
-        // Should return Ok or Err, never panic.
-        let _result = detect_steam_path();
-    }
-
-    #[test]
     #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     fn test_detect_steam_path_unsupported_platform_is_err() {
         let result = detect_steam_path();

@@ -521,7 +521,14 @@ mod tests {
 
     #[test]
     fn unique_folder_name_avoids_collisions() {
-        let monitor_dir = PathBuf::from("monitor");
+        let monitor_dir = std::env::temp_dir().join(format!(
+            "hallinta-monitor-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock should follow epoch")
+                .as_nanos()
+        ));
         let preset_dir = monitor_dir.join("Default");
         std::fs::create_dir_all(preset_dir.join("Run A")).unwrap();
 

@@ -3,9 +3,20 @@ use crate::models::{AppSettings, LogSettings, SaveMonitorSettings};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[cfg(test)]
+static TEST_DATA_DIR: std::sync::LazyLock<PathBuf> = std::sync::LazyLock::new(|| {
+    std::env::temp_dir().join(format!("hallinta-tests-{}", std::process::id()))
+});
+
 pub fn get_data_dir() -> Result<PathBuf, String> {
-    let local_data_dir = dirs::data_local_dir();
-    let data_dir = choose_app_data_dir(local_data_dir.as_deref())?;
+    #[cfg(test)]
+    let data_dir = TEST_DATA_DIR.clone();
+
+    #[cfg(not(test))]
+    let data_dir = {
+        let local_data_dir = dirs::data_local_dir();
+        choose_app_data_dir(local_data_dir.as_deref())?
+    };
 
     if !data_dir.exists() {
         fs::create_dir_all(&data_dir)
@@ -151,13 +162,18 @@ mod tests {
     }
 
     #[test]
+    fn unit_tests_use_isolated_app_data() {
+        let test_data_dir = get_data_dir().expect("test data directory should resolve");
+        let production_data_dir = choose_app_data_dir(dirs::data_local_dir().as_deref())
+            .expect("production data directory should resolve on the test machine");
+
+        assert!(test_data_dir.starts_with(std::env::temp_dir()));
+        assert_ne!(test_data_dir, production_data_dir);
+    }
+
+    #[test]
     fn test_save_and_load_settings_roundtrip() {
         use crate::models::{LogSettings, SaveMonitorSettings};
-
-        let dir = std::env::temp_dir().join("hallinta_settings_test");
-        std::fs::create_dir_all(&dir).unwrap();
-        let settings_path = dir.join("settings.json");
-        let _ = std::fs::remove_file(&settings_path);
 
         let original = AppSettings {
             noita_dir: "/test/noita".to_string(),
@@ -174,11 +190,7 @@ mod tests {
             last_sort_mode: "default".to_string(),
         };
 
-        // Serialize to file manually (bypass get_data_dir to use temp dir)
         let json = serde_json::to_string_pretty(&original).unwrap();
-        std::fs::write(&settings_path, &json).unwrap();
-
-        // Deserialize back
         let loaded: AppSettings = serde_json::from_str(&json).unwrap();
         assert_eq!(loaded.noita_dir, original.noita_dir);
         assert_eq!(loaded.entangled_dir, original.entangled_dir);
@@ -186,8 +198,18 @@ mod tests {
         assert_eq!(loaded.selected_preset, original.selected_preset);
         assert_eq!(loaded.compact_mode, original.compact_mode);
         assert_eq!(loaded.steam_path, original.steam_path);
-
-        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(loaded.version, original.version);
+        assert_eq!(loaded.ui_scale, original.ui_scale);
+        assert_eq!(loaded.last_filter_mode, original.last_filter_mode);
+        assert_eq!(loaded.last_sort_mode, original.last_sort_mode);
+        assert_eq!(
+            loaded.log_settings.log_level,
+            original.log_settings.log_level
+        );
+        assert_eq!(
+            loaded.save_monitor_settings.backup_delay_minutes,
+            original.save_monitor_settings.backup_delay_minutes
+        );
     }
 
     #[test]

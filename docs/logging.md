@@ -18,6 +18,9 @@ Each app launch writes to a per-session log file:
 
 `hallinta_v<version><_dev?>_<YYYYMMDD_HHMMSS>.log`
 
+If a session reaches `max_log_size_mb`, logging continues in
+`..._part2.log`, `..._part3.log`, and so on.
+
 Examples:
 - `hallinta_v0.8.0_dev_20260307_004210.log` (debug)
 - `hallinta_v0.8.0_20260307_004210.log` (release)
@@ -41,14 +44,16 @@ Markers are written directly to the session file.
 
 1. `main()` installs the panic hook via `install_panic_logging_hook()`.
 2. `main()` starts the session via `init_log_session()` (`SESSION BEGIN` marker).
-3. During runtime, `log()` appends entries to an in-memory queue and flushes them to disk immediately.
+3. During runtime, `log()` appends formatted lines to one ordered writer queue and flushes them through the session's open file immediately.
 4. On normal exit, `cleanup_on_exit()` in `src/app/lifecycle.rs` writes `APP_SHUTDOWN`, flushes synchronously, writes `SESSION END`, and flushes again.
 5. On panic, the panic hook logs panic details, flushes synchronously, and writes `SESSION CRASH`.
 
-## In-Memory Buffers
+## Writer Reliability
 
-- UI/event buffer (`LOG_BUFFER`) keeps up to `MAX_BUFFER_SIZE = 1000` entries.
-- File buffer (`LOG_FILE_BUFFER`) queues entries waiting to be flushed to disk.
+- Regular entries and session markers share one mutex-protected queue, preserving order across threads.
+- A queued line is removed only after `write_all` succeeds. Open/write failures retain the failed line for a later flush and emit a stderr diagnostic.
+- The active file handle stays open for the session part instead of reopening for every entry.
+- File-count retention is enforced after logger initialization and whenever logging settings change.
 
 ## Session Markers Currently Used
 
@@ -106,8 +111,8 @@ The `module` field categorizes events. Key modules:
 Current runtime behavior:
 - `collect_system_info` is active and controls startup system-information logging.
 - `log_level` filters entries before they enter the in-memory/file buffers.
-- `max_log_files` is persisted but currently not enforced in `core::logging`.
-- `max_log_size_mb` is kept at 10 MB default and not exposed in the settings UI.
+- `max_log_files` removes the oldest Hallinta log files after the configured limit is exceeded.
+- `max_log_size_mb` rotates a long session into numbered part files. It remains at a 10 MB default and is not exposed in the settings UI.
 
 ## Privacy Notes
 
@@ -121,5 +126,5 @@ Hallinta currently does not upload logs or telemetry.
 
 ## Operational Tips
 
-- Open the data directory from the app with `Settings > Open Settings Folder`.
+- Use `Settings > Open Current Log` or `Settings > Open Logs Folder`.
 - For crash investigations, include the most recent session log and keep marker lines intact.

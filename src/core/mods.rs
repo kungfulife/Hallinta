@@ -74,11 +74,11 @@ fn escape_xml_attr(s: &str) -> String {
 
 /// Unescape XML attribute values when reading.
 fn unescape_xml_attr(s: &str) -> String {
-    s.replace("&amp;", "&")
-        .replace("&quot;", "\"")
+    s.replace("&quot;", "\"")
         .replace("&lt;", "<")
         .replace("&gt;", ">")
         .replace("&apos;", "'")
+        .replace("&amp;", "&")
 }
 
 fn extract_xml_attr(tag: &str, attr_name: &str) -> Option<String> {
@@ -249,11 +249,33 @@ mod tests {
         assert_eq!(parsed[0].name, mods[0].name);
     }
 
+    #[test]
+    fn xml_roundtrip_decodes_exactly_one_entity_layer() {
+        let original = ModEntry {
+            name: "literal &quot; &amp; &#123; text".to_string(),
+            enabled: true,
+            workshop_id: "0".to_string(),
+            settings_fold_open: false,
+        };
+
+        let parsed = parse_mods_from_xml(&mods_to_xml(std::slice::from_ref(&original)))
+            .expect("escaped XML should parse");
+
+        assert_eq!(parsed[0].name, original.name);
+    }
+
     // ── mods_equal ────────────────────────────────────────────────────
 
     #[test]
     fn test_write_and_read_mod_config() {
-        let dir = std::env::temp_dir().join("hallinta_test_mods");
+        let dir = std::env::temp_dir().join(format!(
+            "hallinta-test-mods-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock should follow epoch")
+                .as_nanos()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
 
         let mods = vec![

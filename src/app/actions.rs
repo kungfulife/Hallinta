@@ -38,6 +38,11 @@ impl HallintaApp {
     }
 
     pub fn save_mod_config_and_preset(&mut self) {
+        let _ = self.try_save_mod_config_and_preset();
+    }
+
+    pub(crate) fn try_save_mod_config_and_preset(&mut self) -> Result<(), String> {
+        let mut errors = Vec::new();
         self.presets
             .insert(self.selected_preset.clone(), self.current_mods.clone());
 
@@ -47,19 +52,16 @@ impl HallintaApp {
             match mods::write_mod_config(&PathBuf::from(&noita_dir), &xml) {
                 Ok(()) => {
                     self.file_watcher.pending_external_mods = None;
+                    let config_path = PathBuf::from(&noita_dir).join("mod_config.xml");
+                    if let Ok(mtime) = mods::get_file_modified_time(&config_path) {
+                        self.file_watcher.last_modified_time = mtime;
+                    }
                 }
                 Err(e) => {
-                    let _ = logging::log(
-                        "ERROR",
-                        &format!("Failed to write mod_config.xml at {}: {}", noita_dir, e),
-                        "ModManager",
-                    );
+                    let message = format!("Failed to write mod_config.xml at {noita_dir}: {e}");
+                    let _ = logging::log("ERROR", &message, "ModManager");
+                    errors.push(message);
                 }
-            }
-
-            let config_path = PathBuf::from(&noita_dir).join("mod_config.xml");
-            if let Ok(mtime) = mods::get_file_modified_time(&config_path) {
-                self.file_watcher.last_modified_time = mtime;
             }
         } else {
             let _ = logging::log(
@@ -70,19 +72,21 @@ impl HallintaApp {
         }
 
         if let Err(e) = presets::save_presets(&self.presets) {
-            let _ = logging::log(
-                "ERROR",
-                &format!("Failed to save presets.json: {}", e),
-                "PresetManager",
-            );
+            let message = format!("Failed to save presets.json: {e}");
+            let _ = logging::log("ERROR", &message, "PresetManager");
+            errors.push(message);
         }
         self.settings.selected_preset = self.selected_preset.clone();
         if let Err(e) = settings::save_settings(&self.settings) {
-            let _ = logging::log(
-                "ERROR",
-                &format!("Failed to save settings.json: {}", e),
-                "Settings",
-            );
+            let message = format!("Failed to save settings.json: {e}");
+            let _ = logging::log("ERROR", &message, "Settings");
+            errors.push(message);
+        }
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors.join("\n"))
         }
     }
 
@@ -422,5 +426,23 @@ mod tests {
         assert_eq!(app.current_mods[0].name, "Alpha");
         assert_eq!(app.current_mods[1].name, "Beta");
         assert_eq!(app.sort_mode, SortMode::Default);
+    }
+
+    #[test]
+    fn mod_config_failure_still_updates_other_persistence_state() {
+        let (_runtime, mut app) = test_app(vec![mod_entry("Alpha", true, "1")]);
+        app.selected_preset = "Changed".to_string();
+        app.settings.selected_preset = "Default".to_string();
+        app.settings.noita_dir = std::env::temp_dir()
+            .join(format!("hallinta-missing-save-dir-{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+
+        let error = app
+            .try_save_mod_config_and_preset()
+            .expect_err("missing mod directory should fail one persistence sink");
+
+        assert!(error.contains("mod_config.xml"));
+        assert_eq!(app.settings.selected_preset, "Changed");
     }
 }

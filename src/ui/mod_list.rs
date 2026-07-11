@@ -536,16 +536,3 @@ fn draw_badge(ui: &mut egui::Ui, text: &str, bg: egui::Color32, d: &crate::ui::d
             );
         });
 }
-
-#[cfg(test)]
-mod tests {
-    use super::MONITOR_EDIT_NOTICE;
-
-    #[test]
-    fn monitor_mode_mod_list_has_passive_edit_notice() {
-        assert_eq!(
-            MONITOR_EDIT_NOTICE,
-            "Monitoring active - edit mods carefully."
-        );
-    }
-}

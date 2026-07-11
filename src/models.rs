@@ -156,16 +156,6 @@ pub struct WorkshopCheckReport {
     pub diagnostic: Option<String>,
 }
 
-// ── Logging ────────────────────────────────────────────────────────────────
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct LogEntry {
-    pub timestamp: String,
-    pub level: String,
-    pub message: String,
-    pub module: String,
-}
-
 // ── System Info ────────────────────────────────────────────────────────────
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

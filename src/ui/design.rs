@@ -233,35 +233,21 @@ pub fn apply_zoom(ctx: &egui::Context, settings: &AppSettings) {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn base_sizes_are_constant() {
-        // With zoom-based scaling, Design values are fixed base sizes
-        assert_eq!(2.0_f32, 2.0);
-        assert_eq!(4.0_f32, 4.0);
-        assert_eq!(11.0_f32, 11.0);
-        assert_eq!(13.0_f32, 13.0);
-        assert_eq!(30.0_f32, 30.0);
-        assert_eq!(160.0_f32, 160.0);
-    }
+    fn scaled_sizes_use_clamped_ui_scale() {
+        let base = (10.0, 20.0);
 
-    #[test]
-    fn scale_clamped_to_valid_range() {
-        let clamp = |v: f32| v.clamp(super::SCALE_INTERNAL_MIN, super::SCALE_INTERNAL_MAX);
-        assert_eq!(clamp(0.5), 1.0);
-        assert_eq!(clamp(5.0), 2.25);
-        assert_eq!(clamp(1.25), 1.25);
-        assert_eq!(clamp(1.0), 1.0);
-        assert_eq!(clamp(2.25), 2.25);
-    }
-
-    #[test]
-    fn row_margin_fits_i8_at_max_zoom() {
-        // At max zoom (2.0), egui multiplies logical pixels by zoom_factor.
-        // Margin::symmetric takes i8 — verify base values fit even if
-        // someone later raises the max.
-        let pad_x = 8i8;
-        let pad_y = 5i8;
-        assert!(pad_x < i8::MAX);
-        assert!(pad_y < i8::MAX);
+        assert_eq!(
+            super::scaled_size(base, 0.5),
+            eframe::egui::vec2(10.0, 20.0)
+        );
+        assert_eq!(
+            super::scaled_min_size(base, 5.0),
+            eframe::egui::vec2(22.5, 45.0)
+        );
+        assert_eq!(
+            super::scaled_size(base, 1.25),
+            eframe::egui::vec2(12.5, 25.0)
+        );
     }
 
     #[test]

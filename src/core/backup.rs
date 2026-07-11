@@ -182,6 +182,23 @@ pub fn create_backup(
     Ok(filename)
 }
 
+fn validate_backup_filename(filename: &str) -> Result<(), String> {
+    if filename.contains(['/', '\\']) {
+        return Err("Invalid backup filename".to_string());
+    }
+    let mut components = Path::new(filename).components();
+    if !matches!(components.next(), Some(Component::Normal(_))) || components.next().is_some() {
+        return Err("Invalid backup filename".to_string());
+    }
+    if !Path::new(filename)
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("zip"))
+    {
+        return Err("Backup filename must end in .zip".to_string());
+    }
+    Ok(())
+}
+
 fn manual_backup_filename(timestamp: &str) -> String {
     format!("hallinta_manual_backup_{}.zip", timestamp)
 }
@@ -272,6 +289,7 @@ fn peek_zip_contents(path: &Path) -> (bool, bool, bool, bool) {
 }
 
 pub fn delete_backup(filename: &str) -> Result<(), String> {
+    validate_backup_filename(filename)?;
     let data_dir = get_data_dir()?;
     let backup_path = data_dir.join("backups").join(filename);
     let backups_dir = data_dir.join("backups");
@@ -286,6 +304,7 @@ pub fn delete_backup(filename: &str) -> Result<(), String> {
 }
 
 pub fn get_backup_contents(filename: &str) -> Result<BackupInfo, String> {
+    validate_backup_filename(filename)?;
     let data_dir = get_data_dir()?;
     let backup_path = data_dir.join("backups").join(filename);
     if !backup_path.exists() {
@@ -321,6 +340,7 @@ pub fn restore_backup(
     options: &RestoreOptions,
     entangled_dir: Option<&Path>,
 ) -> Result<(), String> {
+    validate_backup_filename(filename)?;
     let data_dir = get_data_dir()?;
     let backup_path = data_dir.join("backups").join(filename);
     if !backup_path.exists() {
@@ -622,7 +642,7 @@ fn cleanup_old_upgrade_backups(upgrade_backup_dir: &Path, keep_count: usize) -> 
 
 #[cfg(test)]
 mod tests {
-    use super::is_safe_relative;
+    use super::{is_safe_relative, validate_backup_filename};
 
     #[test]
     fn manual_backup_filename_is_explicit() {
@@ -669,5 +689,24 @@ mod tests {
             err.contains("Noita save directory does not exist"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn backup_filename_must_be_one_zip_component() {
+        assert!(validate_backup_filename("backup.zip").is_ok());
+        for invalid in [
+            "../backup.zip",
+            "folder/backup.zip",
+            "folder\\backup.zip",
+            "/tmp/backup.zip",
+            "C:\\Temp\\backup.zip",
+            "backup.txt",
+            "..",
+        ] {
+            assert!(
+                validate_backup_filename(invalid).is_err(),
+                "accepted unsafe backup filename: {invalid}"
+            );
+        }
     }
 }

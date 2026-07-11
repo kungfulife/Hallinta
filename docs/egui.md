@@ -2,13 +2,13 @@
 
 Version-specific notes for the egui stack used in Hallinta. These are things that caused bugs or required non-obvious API usage.
 
-**Versions:** eframe 0.33.3, egui 0.33.3, wgpu renderer (DirectX 12 on Windows).
+**Versions:** eframe 0.35.0, egui 0.35.0, wgpu renderer (DirectX 12 on Windows).
 
 ---
 
 ## Theme / Dark Mode
 
-egui 0.33 manages themes through `ThemePreference` (Dark | Light | System). The default preference is `System`, which reads the OS theme via winit each frame in `Options::begin_pass()`.
+egui 0.35 manages themes through `ThemePreference` (Dark | Light | System). The default preference is `System`, which reads the OS theme via winit each frame in `Options::begin_pass()`.
 
 **Pitfall:** Calling `ctx.set_visuals(dark_visuals())` alone does NOT persist across frames — the next `begin_pass()` resolves the theme preference back to the OS theme and picks the corresponding style, overriding your visuals. This means dark mode appears to work in-session (because `set_visuals` applies immediately) but fails on startup if the OS is in light mode.
 
@@ -50,9 +50,9 @@ This feedback loop applies to ANY slider that controls zoom, font size, or layou
 
 ---
 
-## Stroke API (0.33 breaking change)
+## Stroke API (current 0.35 behavior)
 
-`rect_stroke` requires a 4th parameter in 0.33:
+`rect_stroke` requires a fourth `StrokeKind` parameter:
 
 ```rust
 painter.rect_stroke(rect, rounding, stroke, egui::StrokeKind::Outside);
@@ -98,7 +98,7 @@ See `src/ui/mod_list.rs` and `DragState` in `src/models.rs`.
 
 ---
 
-## NativeOptions (eframe 0.33)
+## NativeOptions (eframe 0.35)
 
 The `follow_system_theme` field was **removed** in eframe 0.33 (it existed in 0.30). Theme following is now always on at the egui level via `ThemePreference::System`. Override it with `ctx.set_theme()` as described above.
 

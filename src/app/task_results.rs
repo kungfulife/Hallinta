@@ -105,6 +105,7 @@ impl HallintaApp {
                 }
                 TaskResult::SnapshotComplete(res) => {
                     self.save_monitor.snapshot_in_flight = false;
+                    let close_was_pending = self.close_after_snapshot;
                     match res {
                         Ok(filename) => {
                             self.save_monitor.snapshot_count += 1;
@@ -137,6 +138,10 @@ impl HallintaApp {
                                         .send(TaskResult::SnapshotCleanupComplete(result));
                                 });
                             }
+                            if close_was_pending {
+                                self.close_after_snapshot = false;
+                                self.stop_monitor_for_close();
+                            }
                         }
                         Err(e) => {
                             let _ = logging::log(
@@ -144,11 +149,17 @@ impl HallintaApp {
                                 &format!("Snapshot failed: {}", e),
                                 "SaveMonitor",
                             );
+                            if close_was_pending {
+                                self.close_requested = false;
+                                self.close_after_snapshot = false;
+                                self.active_modal = Some(Modal::Info {
+                                    title: "Snapshot Failed".to_string(),
+                                    message: format!(
+                                        "Hallinta stayed open because the final snapshot failed:\n{e}"
+                                    ),
+                                });
+                            }
                         }
-                    }
-                    if self.close_after_snapshot {
-                        self.close_after_snapshot = false;
-                        self.stop_monitor_for_close();
                     }
                 }
                 TaskResult::UpgradeBackupComplete(res) => {
@@ -196,8 +207,11 @@ impl HallintaApp {
                             }) => {
                                 let selected = selected_session
                                     .filter(|(id, _)| sessions.iter().any(|s| s.id == *id));
-                                let snapshots =
-                                    if selected.is_some() { snapshots } else { Vec::new() };
+                                let snapshots = if selected.is_some() {
+                                    snapshots
+                                } else {
+                                    Vec::new()
+                                };
                                 self.active_modal = Some(Modal::RestoreManager {
                                     sessions,
                                     snapshots,
@@ -415,6 +429,31 @@ mod tests {
     }
 
     #[test]
+    fn snapshot_failure_cancels_pending_close_and_keeps_monitor_running() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+        app.save_monitor.snapshot_in_flight = true;
+        app.close_after_snapshot = true;
+        app.close_requested = true;
+
+        app.task_tx
+            .send(TaskResult::SnapshotComplete(Err("disk full".to_string())))
+            .expect("test task result should send");
+
+        app.poll_task_results();
+
+        assert!(app.save_monitor.running);
+        assert!(!app.save_monitor.snapshot_in_flight);
+        assert!(!app.close_after_snapshot);
+        assert!(!app.close_requested);
+        assert!(matches!(
+            app.active_modal,
+            Some(Modal::Info { ref title, ref message })
+                if title == "Snapshot Failed" && message.contains("disk full")
+        ));
+    }
+
+    #[test]
     fn stale_workshop_check_result_is_ignored() {
         let (_runtime, mut app) = test_app(Vec::new());
         app.backup_state.workshop_check_generation = 2;
@@ -535,7 +574,7 @@ mod tests {
 
         app.task_tx
             .send(TaskResult::SnapshotComplete(Ok(
-                "snapshot_20260101_000000.zip".to_string()
+                "snapshot_20260101_000000.zip".to_string(),
             )))
             .expect("test task result should send");
 

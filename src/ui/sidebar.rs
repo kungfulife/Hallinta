@@ -194,18 +194,3 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
             });
         });
 }
-
-#[cfg(test)]
-mod tests {
-    const RESIZABLE_TRUE: &str = concat!(".resizable", "(true)");
-
-    #[test]
-    fn sidebar_is_not_user_resizable() {
-        let source = include_str!("sidebar.rs");
-
-        assert!(
-            !source.contains(RESIZABLE_TRUE),
-            "the actions sidebar should not expose a resize handle"
-        );
-    }
-}

@@ -1,7 +1,139 @@
 use super::HallintaApp;
-use crate::core::{gallery, logging, mods, platform, presets, workshop};
+use crate::core::{gallery, logging, mods, platform, presets, settings, workshop};
 use crate::models::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::PathBuf;
+
+struct FileSnapshot {
+    path: PathBuf,
+    contents: Option<Vec<u8>>,
+}
+
+pub(super) fn with_file_rollback<T>(
+    paths: &[PathBuf],
+    operation: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    let snapshots: Vec<FileSnapshot> = paths
+        .iter()
+        .map(|path| {
+            let contents = if path.exists() {
+                Some(
+                    std::fs::read(path)
+                        .map_err(|e| format!("Failed to snapshot {}: {e}", path.display()))?,
+                )
+            } else {
+                None
+            };
+            Ok(FileSnapshot {
+                path: path.clone(),
+                contents,
+            })
+        })
+        .collect::<Result<_, String>>()?;
+
+    match operation() {
+        Ok(value) => Ok(value),
+        Err(operation_error) => {
+            let mut rollback_errors = Vec::new();
+            for snapshot in snapshots.into_iter().rev() {
+                let result = match snapshot.contents {
+                    Some(contents) => std::fs::write(&snapshot.path, contents),
+                    None if snapshot.path.exists() => std::fs::remove_file(&snapshot.path),
+                    None => Ok(()),
+                };
+                if let Err(e) = result {
+                    rollback_errors.push(format!("{}: {e}", snapshot.path.display()));
+                }
+            }
+
+            if rollback_errors.is_empty() {
+                Err(operation_error)
+            } else {
+                Err(format!(
+                    "{operation_error}\nRollback incomplete: {}",
+                    rollback_errors.join("; ")
+                ))
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct PreparedModImport {
+    new_mods: Vec<ModEntry>,
+    missing: Vec<(String, String)>,
+    matched_count: usize,
+}
+
+fn mod_import_identity(name: &str, workshop_id: &str) -> Result<String, String> {
+    let workshop_id = workshop_id.trim();
+    if !workshop_id.is_empty() && workshop_id != "0" {
+        return Ok(format!("workshop:{workshop_id}"));
+    }
+
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("Mod list contains a local mod with no name.".to_string());
+    }
+    Ok(format!("local:{name}"))
+}
+
+fn prepare_mod_import(current: &[ModEntry], content: &str) -> Result<PreparedModImport, String> {
+    let imported: Vec<ModListEntry> =
+        serde_json::from_str(content).map_err(|e| format!("Invalid mod list format: {e}"))?;
+    if imported.is_empty() {
+        return Err("The selected mod list contains no mods.".to_string());
+    }
+    if imported.len() > 500 {
+        return Err("The selected mod list has too many mods (max 500).".to_string());
+    }
+
+    let mut current_by_identity = BTreeMap::new();
+    for (index, mod_entry) in current.iter().enumerate() {
+        let identity = mod_import_identity(&mod_entry.name, &mod_entry.workshop_id)?;
+        current_by_identity.entry(identity).or_insert(index);
+    }
+
+    let mut imported_identities = BTreeSet::new();
+    let mut matched_indices = Vec::new();
+    let mut missing = Vec::new();
+    for imported_mod in imported {
+        let identity = mod_import_identity(&imported_mod.name, &imported_mod.workshop_id)?;
+        if !imported_identities.insert(identity.clone()) {
+            return Err(format!(
+                "The selected mod list contains a duplicate mod: {}.",
+                imported_mod.name
+            ));
+        }
+
+        if let Some(index) = current_by_identity.get(&identity) {
+            matched_indices.push(*index);
+        } else {
+            missing.push((imported_mod.name, imported_mod.workshop_id));
+        }
+    }
+
+    let matched_set: BTreeSet<usize> = matched_indices.iter().copied().collect();
+    let mut new_mods = Vec::with_capacity(current.len());
+    for index in &matched_indices {
+        let mut mod_entry = current[*index].clone();
+        mod_entry.enabled = true;
+        new_mods.push(mod_entry);
+    }
+    for (index, mod_entry) in current.iter().enumerate() {
+        if !matched_set.contains(&index) {
+            let mut mod_entry = mod_entry.clone();
+            mod_entry.enabled = false;
+            new_mods.push(mod_entry);
+        }
+    }
+
+    Ok(PreparedModImport {
+        new_mods,
+        missing,
+        matched_count: matched_indices.len(),
+    })
+}
 
 impl HallintaApp {
     // ── Import / Export ────────────────────────────────────────────────
@@ -37,63 +169,24 @@ impl HallintaApp {
             }
         };
 
-        let imported: Vec<ModListEntry> = match serde_json::from_str(&content) {
-            Ok(m) => m,
+        let prepared = match prepare_mod_import(&self.current_mods, &content) {
+            Ok(prepared) => prepared,
             Err(e) => {
                 self.active_modal = Some(Modal::Info {
                     title: "Import Failed".to_string(),
-                    message: format!("Invalid mod list format: {}", e),
+                    message: e,
                 });
                 return;
             }
         };
 
-        let mut found_in_order = Vec::new();
-        let mut missing = Vec::new();
-
-        for imp in &imported {
-            let key = if imp.workshop_id != "0" && !imp.workshop_id.is_empty() {
-                &imp.workshop_id
-            } else {
-                &imp.name
-            };
-
-            if let Some(pos) = self.current_mods.iter().position(|m| {
-                if m.workshop_id != "0" && !m.workshop_id.is_empty() {
-                    &m.workshop_id == key
-                } else {
-                    &m.name == key
-                }
-            }) {
-                found_in_order.push(pos);
-            } else {
-                missing.push((imp.name.clone(), imp.workshop_id.clone()));
-            }
-        }
-
-        if !missing.is_empty() {
-            let mut new_mods = Vec::new();
-            for &idx in &found_in_order {
-                let mut m = self.current_mods[idx].clone();
-                m.enabled = true;
-                new_mods.push(m);
-            }
-            let found_set: std::collections::HashSet<usize> =
-                found_in_order.iter().copied().collect();
-            for (i, m) in self.current_mods.iter().enumerate() {
-                if !found_set.contains(&i) {
-                    let mut m = m.clone();
-                    m.enabled = false;
-                    new_mods.push(m);
-                }
-            }
-
+        if !prepared.missing.is_empty() {
             self.active_modal = Some(Modal::MissingMods {
-                mods: missing,
-                action: MissingModsAction::ModImport(new_mods),
+                mods: prepared.missing,
+                action: MissingModsAction::ModImport(prepared.new_mods),
             });
         } else {
-            self.apply_mod_import(&found_in_order);
+            self.apply_mod_import(prepared.new_mods, prepared.matched_count);
         }
     }
 
@@ -101,28 +194,55 @@ impl HallintaApp {
         !self.save_monitor.is_running()
     }
 
-    fn apply_mod_import(&mut self, found_indices: &[usize]) {
-        let found_set: std::collections::HashSet<usize> = found_indices.iter().copied().collect();
-        let mut new_mods = Vec::new();
-        for &idx in found_indices {
-            let mut m = self.current_mods[idx].clone();
-            m.enabled = true;
-            new_mods.push(m);
+    pub(super) fn apply_mod_import(&mut self, new_mods: Vec<ModEntry>, matched_count: usize) {
+        let previous_mods = self.current_mods.clone();
+        let previous_preset = self.presets.get(&self.selected_preset).cloned();
+        let previous_settings = self.settings.clone();
+        let data_dir = match settings::get_data_dir() {
+            Ok(data_dir) => data_dir,
+            Err(e) => {
+                self.active_modal = Some(Modal::Info {
+                    title: "Import Failed".to_string(),
+                    message: e,
+                });
+                return;
+            }
+        };
+        let mut persistence_paths = vec![
+            data_dir.join("presets.json"),
+            data_dir.join("settings.json"),
+        ];
+        if !self.settings.noita_dir.is_empty() {
+            persistence_paths.push(PathBuf::from(&self.settings.noita_dir).join("mod_config.xml"));
         }
-        for (i, m) in self.current_mods.iter().enumerate() {
-            if !found_set.contains(&i) {
-                let mut m = m.clone();
-                m.enabled = false;
-                new_mods.push(m);
+
+        self.current_mods = new_mods;
+        let result =
+            with_file_rollback(&persistence_paths, || self.try_save_mod_config_and_preset());
+        match result {
+            Ok(()) => {
+                let _ = logging::log(
+                    "INFO",
+                    &format!("Imported mod list ({} mods matched)", matched_count),
+                    "ModManager",
+                );
+            }
+            Err(e) => {
+                self.current_mods = previous_mods;
+                self.settings = previous_settings;
+                if let Some(previous_preset) = previous_preset {
+                    self.presets
+                        .insert(self.selected_preset.clone(), previous_preset);
+                } else {
+                    self.presets.remove(&self.selected_preset);
+                }
+                let _ = logging::log("ERROR", &format!("Import failed: {e}"), "ModManager");
+                self.active_modal = Some(Modal::Info {
+                    title: "Import Failed".to_string(),
+                    message: e,
+                });
             }
         }
-        self.current_mods = new_mods;
-        self.save_mod_config_and_preset();
-        let _ = logging::log(
-            "INFO",
-            &format!("Imported mod list ({} mods matched)", found_indices.len()),
-            "ModManager",
-        );
     }
 
     pub fn export_mod_list(&mut self) {
@@ -155,26 +275,28 @@ impl HallintaApp {
             .save_file();
 
         if let Some(path) = path {
-            match serde_json::to_string_pretty(&enabled) {
-                Ok(content) => {
-                    if let Err(e) = mods::write_file(&path, &content) {
-                        let _ =
-                            logging::log("ERROR", &format!("Export failed: {}", e), "ModManager");
-                    } else {
-                        let _ = logging::log(
-                            "INFO",
-                            &format!("Exported {} mods", enabled.len()),
-                            "ModManager",
-                        );
-                    }
-                }
-                Err(e) => {
-                    let _ = logging::log(
-                        "ERROR",
-                        &format!("Serialization failed: {}", e),
-                        "ModManager",
-                    );
-                }
+            let result = serde_json::to_string_pretty(&enabled)
+                .map_err(|e| format!("Serialization failed: {e}"))
+                .and_then(|content| mods::write_file(&path, &content));
+            self.finish_export(
+                result,
+                format!("Exported {} mods", enabled.len()),
+                "ModManager",
+            );
+        }
+    }
+
+    fn finish_export(&mut self, result: Result<(), String>, success: String, module: &str) {
+        match result {
+            Ok(()) => {
+                let _ = logging::log("INFO", &success, module);
+            }
+            Err(e) => {
+                let _ = logging::log("ERROR", &format!("Export failed: {e}"), module);
+                self.active_modal = Some(Modal::Info {
+                    title: "Export Failed".to_string(),
+                    message: e,
+                });
             }
         }
     }
@@ -256,13 +378,13 @@ impl HallintaApp {
             .add_filter("JSON", &["json"])
             .save_file();
 
-        if let Some(path) = path
-            && let Ok(content) = serde_json::to_string_pretty(&export)
-        {
-            let _ = mods::write_file(&path, &content);
-            let _ = logging::log(
-                "INFO",
-                &format!("Exported {} preset(s)", selected.len()),
+        if let Some(path) = path {
+            let result = serde_json::to_string_pretty(&export)
+                .map_err(|e| format!("Serialization failed: {e}"))
+                .and_then(|content| mods::write_file(&path, &content));
+            self.finish_export(
+                result,
+                format!("Exported {} preset(s)", selected.len()),
                 "PresetManager",
             );
         }
@@ -322,23 +444,20 @@ impl HallintaApp {
             && let Ok(canonical) = serde_json::to_string(&import_data.presets)
             && !gallery::verify_checksum(&canonical, checksum)
         {
-            let raw_presets_str = serde_json::to_string(&import_data.presets).unwrap_or_default();
-            if !gallery::verify_checksum(&raw_presets_str, checksum) {
-                let import = PresetImportData {
-                    presets: import_data.presets.clone(),
-                    selected_names: import_data.presets.keys().cloned().collect(),
-                };
-                self.active_modal = Some(Modal::Confirm {
-                    message: "Checksum mismatch: the preset file may have been modified. Continue?"
-                        .to_string(),
-                    confirm_text: "Continue".to_string(),
-                    cancel_text: "Cancel".to_string(),
-                    action: ConfirmAction::ChecksumMismatchContinue(import),
-                    cancel_action: None,
-                    dismissable: false,
-                });
-                return;
-            }
+            let import = PresetImportData {
+                presets: import_data.presets.clone(),
+                selected_names: import_data.presets.keys().cloned().collect(),
+            };
+            self.active_modal = Some(Modal::Confirm {
+                message: "Checksum mismatch: the preset file may have been modified. Continue?"
+                    .to_string(),
+                confirm_text: "Continue".to_string(),
+                cancel_text: "Cancel".to_string(),
+                action: ConfirmAction::ChecksumMismatchContinue(import),
+                cancel_action: None,
+                dismissable: false,
+            });
+            return;
         }
 
         // Check for missing workshop mods across all presets
@@ -400,6 +519,151 @@ impl HallintaApp {
 #[cfg(test)]
 mod tests {
     use super::super::test_support::test_app;
+    use super::*;
+
+    fn current_mods() -> Vec<ModEntry> {
+        vec![
+            super::super::test_support::mod_entry("Local", false, "0"),
+            super::super::test_support::mod_entry("Workshop", false, "123"),
+            super::super::test_support::mod_entry("Other", true, "456"),
+        ]
+    }
+
+    #[test]
+    fn empty_mod_list_import_is_rejected() {
+        let err = prepare_mod_import(&current_mods(), "[]")
+            .expect_err("empty import must not disable every mod");
+
+        assert!(err.contains("no mods"));
+    }
+
+    #[test]
+    fn duplicate_mod_list_identity_is_rejected() {
+        let content = r#"[
+            {"name":"Workshop","workshop_id":"123"},
+            {"name":"Duplicate label","workshop_id":"123"}
+        ]"#;
+
+        let err = prepare_mod_import(&current_mods(), content)
+            .expect_err("duplicate identity must not duplicate mod_config entries");
+
+        assert!(err.contains("duplicate"));
+    }
+
+    #[test]
+    fn local_numeric_name_does_not_match_workshop_id() {
+        let current = vec![
+            super::super::test_support::mod_entry("123", false, "0"),
+            super::super::test_support::mod_entry("Remote", false, "123"),
+        ];
+
+        let prepared = prepare_mod_import(&current, r#"[{"name":" 123 ","workshop_id":"0"}]"#)
+            .expect("local import should prepare");
+
+        assert_eq!(prepared.new_mods[0].name, "123");
+        assert!(prepared.new_mods[0].enabled);
+        assert_eq!(prepared.new_mods[1].name, "Remote");
+        assert!(!prepared.new_mods[1].enabled);
+    }
+
+    #[test]
+    fn import_preparation_orders_matches_then_disables_remainder() {
+        let content = r#"[
+            {"name":"Workshop","workshop_id":"123"},
+            {"name":"Missing","workshop_id":"999"},
+            {"name":"Local","workshop_id":"0"}
+        ]"#;
+
+        let prepared = prepare_mod_import(&current_mods(), content).expect("import should prepare");
+
+        assert_eq!(prepared.matched_count, 2);
+        assert_eq!(
+            prepared.missing,
+            vec![("Missing".to_string(), "999".to_string())]
+        );
+        assert_eq!(
+            prepared
+                .new_mods
+                .iter()
+                .map(|m| m.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Workshop", "Local", "Other"]
+        );
+        assert!(prepared.new_mods[0].enabled);
+        assert!(prepared.new_mods[1].enabled);
+        assert!(!prepared.new_mods[2].enabled);
+    }
+
+    #[test]
+    fn mod_import_write_failure_keeps_previous_state_and_shows_error() {
+        let original = current_mods();
+        let (_runtime, mut app) = test_app(original.clone());
+        app.settings.noita_dir = std::env::temp_dir()
+            .join(format!(
+                "hallinta-missing-import-dir-{}",
+                std::process::id()
+            ))
+            .to_string_lossy()
+            .to_string();
+        let imported = vec![super::super::test_support::mod_entry(
+            "Workshop", true, "123",
+        )];
+
+        app.apply_mod_import(imported, 1);
+
+        assert_eq!(
+            app.current_mods
+                .iter()
+                .map(|m| m.name.as_str())
+                .collect::<Vec<_>>(),
+            original.iter().map(|m| m.name.as_str()).collect::<Vec<_>>()
+        );
+        assert!(matches!(
+            app.active_modal,
+            Some(Modal::Info { ref title, .. }) if title == "Import Failed"
+        ));
+    }
+
+    #[test]
+    fn failed_import_operation_restores_previous_disk_bytes() {
+        let root = std::env::temp_dir().join(format!(
+            "hallinta-import-rollback-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock should follow epoch")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).expect("rollback test directory should exist");
+        let path = root.join("state.json");
+        std::fs::write(&path, b"before").expect("original state should write");
+
+        let result = with_file_rollback(std::slice::from_ref(&path), || {
+            std::fs::write(&path, b"after").map_err(|e| e.to_string())?;
+            Err::<(), _>("later sink failed".to_string())
+        });
+
+        assert!(result.is_err());
+        assert_eq!(std::fs::read(&path).expect("state should read"), b"before");
+        std::fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn export_failure_is_shown_to_user() {
+        let (_runtime, mut app) = test_app(Vec::new());
+
+        app.finish_export(
+            Err("disk full".to_string()),
+            "unused success".to_string(),
+            "ModManager",
+        );
+
+        assert!(matches!(
+            app.active_modal,
+            Some(Modal::Info { ref title, ref message })
+                if title == "Export Failed" && message.contains("disk full")
+        ));
+    }
 
     #[test]
     fn import_mod_list_has_app_layer_monitor_guard() {

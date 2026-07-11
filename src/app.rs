@@ -17,7 +17,7 @@ mod monitor;
 mod sorting;
 mod task_results;
 #[cfg(test)]
-mod test_support;
+pub(crate) mod test_support;
 mod timers;
 
 pub use sorting::sort_mods;

@@ -113,7 +113,7 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 ## Technical Details
 
 - **Language**: Rust
-- **GUI Framework**: eframe/egui 0.33
+- **GUI Framework**: eframe/egui 0.35
 - **Data Storage**: JSON files in platform data directories
 - **File Monitoring**: Real-time mod_config.xml watching
 - **Logging**: Structured session logging with file rotation

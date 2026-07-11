@@ -93,6 +93,13 @@ fn render_appearance_settings(
     });
 }
 
+fn save_directory_availability(settings: &AppSettings) -> (bool, bool) {
+    (
+        crate::core::platform::save01_usable(&settings.noita_dir),
+        crate::core::platform::entangled_dir_usable(&settings.entangled_dir),
+    )
+}
+
 pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let d = crate::ui::design::Design::new(ui.ctx(), &app.settings);
 
@@ -110,6 +117,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
     let mut entangled_dir_lost_focus = false;
     let mut show_noita_warning = false;
     let mut scale_changed = false;
+    let mut logging_open_error = None;
 
     egui::ScrollArea::vertical()
         .auto_shrink([false, false])
@@ -248,6 +256,22 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     &d,
                     "Log entries are written when events occur (startup, shutdown, crashes).",
                 );
+                ui.horizontal(|ui| {
+                    if ui.button("Open Current Log").clicked() {
+                        let result = crate::core::logging::get_current_log_file_path()
+                            .and_then(|path| crate::core::platform::open_file(&path));
+                        if let Err(e) = result {
+                            logging_open_error = Some(e);
+                        }
+                    }
+                    if ui.button("Open Logs Folder").clicked() {
+                        let result = crate::core::logging::get_logs_dir()
+                            .and_then(|path| crate::core::platform::open_directory(&path));
+                        if let Err(e) = result {
+                            logging_open_error = Some(e);
+                        }
+                    }
+                });
             });
 
             ui.add_space(d.md);
@@ -294,8 +318,8 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     &d,
                     "Oldest automatic snapshots are removed when the limit is reached. Manual backups are kept separately.",
                 );
-                let save01_available =
-                    crate::core::platform::save01_usable(&app.settings.noita_dir);
+                let (save01_available, entangled_available) =
+                    save_directory_availability(&app.settings);
                 ui.add_enabled_ui(save01_available, |ui| {
                     if ui
                         .checkbox(
@@ -315,8 +339,6 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     );
                 }
 
-                let entangled_available =
-                    crate::core::platform::entangled_dir_usable(&app.settings.entangled_dir);
                 ui.add_enabled_ui(entangled_available, |ui| {
                     if ui
                         .checkbox(
@@ -444,6 +466,13 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
     // ── Handle side-effects after the scroll area ──────────────────────
 
+    if let Some(message) = logging_open_error {
+        app.active_modal = Some(Modal::Info {
+            title: "Could Not Open Logs".to_string(),
+            message,
+        });
+    }
+
     // Noita directory changed (via blur, Browse, or Auto-detect)
     if noita_dir_lost_focus {
         // Validate: check for mod_config.xml
@@ -469,14 +498,6 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
     // Entangled dir changed
     if entangled_dir_lost_focus {
-        if !crate::core::platform::entangled_dir_usable(&app.settings.entangled_dir) {
-            app.settings.save_monitor_settings.include_entangled = false;
-        }
-        app.save_current_settings();
-    }
-
-    if noita_dir_lost_focus && !crate::core::platform::save01_usable(&app.settings.noita_dir) {
-        app.settings.save_monitor_settings.include_save01 = false;
         app.save_current_settings();
     }
 
@@ -521,6 +542,7 @@ fn default_settings() -> AppSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::test_support::test_app;
 
     fn rendered_appearance_labels(settings: &mut AppSettings) -> Vec<String> {
         let ctx = egui::Context::default();
@@ -565,5 +587,22 @@ mod tests {
             labels.iter().any(|label| label == "UI Scale:"),
             "appearance settings should still expose UI scale"
         );
+    }
+
+    #[test]
+    fn logging_settings_expose_file_and_folder_actions() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(Default::default(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| render_settings(&mut app, ui));
+        });
+        let labels: Vec<String> = output
+            .shapes
+            .iter()
+            .flat_map(|shape| text_from_shape(&shape.shape))
+            .collect();
+
+        assert!(labels.iter().any(|label| label == "Open Current Log"));
+        assert!(labels.iter().any(|label| label == "Open Logs Folder"));
     }
 }

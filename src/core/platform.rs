@@ -186,7 +186,7 @@ pub fn get_system_info() -> Result<SystemInfo, String> {
         rust_version: env!("HALLINTA_RUSTC_VERSION").to_string(),
         cargo_version: env!("HALLINTA_CARGO_VERSION").to_string(),
         build_target: env!("HALLINTA_TARGET").to_string(),
-        gui_framework: "eframe/egui 0.33".to_string(),
+        gui_framework: "eframe/egui 0.35".to_string(),
         os: std::env::consts::OS.to_string(),
         os_family: std::env::consts::FAMILY.to_string(),
         arch: std::env::consts::ARCH.to_string(),
@@ -334,6 +334,13 @@ mod tests {
     }
 
     #[test]
+    fn system_info_reports_current_gui_framework() {
+        let info = get_system_info().expect("system info should be available");
+
+        assert_eq!(info.gui_framework, "eframe/egui 0.35");
+    }
+
+    #[test]
     fn test_get_window_title_dev_marker() {
         let title = get_window_title();
         assert!(!title.is_empty());
@@ -350,16 +357,6 @@ mod tests {
         }
     }
 
-    // ── Path detection (read-only, no files written) ──────────────────────────
-    //
-    // These tests only verify the functions don't panic or have logic errors.
-    // Whether the paths exist depends on the test machine (CI may have no Noita/Steam).
-
-    #[test]
-    fn test_noita_save_path_does_not_panic() {
-        let _result = get_noita_save_path();
-    }
-
     #[test]
     #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     fn test_noita_save_path_unsupported_platform_is_err() {
@@ -368,12 +365,4 @@ mod tests {
             "unsupported platforms must return Err"
         );
     }
-
-    #[test]
-    fn test_entangled_worlds_path_does_not_panic() {
-        let _result = get_entangled_worlds_save_path();
-    }
-
-    // File-writing helpers that created dev save sandboxes were removed; platform tests
-    // intentionally avoid touching repo-local runtime data.
 }

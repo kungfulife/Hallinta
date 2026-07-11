@@ -1,5 +1,6 @@
 use super::HallintaApp;
-use crate::core::{backup, logging, presets, save_monitor};
+use super::import_export::with_file_rollback;
+use crate::core::{backup, logging, presets, save_monitor, settings};
 use crate::models::*;
 use crate::tasks::TaskResult;
 use std::collections::BTreeMap;
@@ -156,14 +157,29 @@ impl HallintaApp {
             }
             ConfirmAction::ExitWithSnapshot => {
                 let _ = logging::log("INFO", "Exit chosen: save snapshot and close", "App");
+                if !self.save_monitor.snapshot_in_flight && !self.can_start_monitor_snapshot() {
+                    self.close_requested = false;
+                    self.close_after_snapshot = false;
+                    self.active_modal = Some(Modal::Info {
+                        title: "Snapshot Not Saved".to_string(),
+                        message: "Wait for the active backup or restore to finish, then try closing again."
+                            .to_string(),
+                    });
+                    return;
+                }
                 self.close_requested = true;
                 self.close_after_snapshot = true;
                 if !self.save_monitor.snapshot_in_flight {
                     self.take_monitor_snapshot();
                 }
                 if !self.save_monitor.snapshot_in_flight {
+                    self.close_requested = false;
                     self.close_after_snapshot = false;
-                    self.stop_monitor_for_close();
+                    self.active_modal = Some(Modal::Info {
+                        title: "Snapshot Not Saved".to_string(),
+                        message: "A snapshot could not be started. Check the configured save directory and active monitor session."
+                            .to_string(),
+                    });
                 }
             }
             ConfirmAction::ExitWithoutSnapshot => {
@@ -528,8 +544,11 @@ impl HallintaApp {
     pub fn handle_missing_mods_action(&mut self, action: MissingModsAction) {
         match action {
             MissingModsAction::ModImport(new_mods) => {
-                self.current_mods = new_mods;
-                self.save_mod_config_and_preset();
+                let matched_count = new_mods
+                    .iter()
+                    .filter(|mod_entry| mod_entry.enabled)
+                    .count();
+                self.apply_mod_import(new_mods, matched_count);
             }
             MissingModsAction::PresetImport(import) => {
                 // Show the preset selection checklist after acknowledging missing mods
@@ -545,6 +564,7 @@ impl HallintaApp {
     }
 
     fn do_import_presets(&mut self, import: &PresetImportData, overwrite: bool) {
+        let previous_presets = self.presets.clone();
         let mut imported = 0;
         for name in &import.selected_names {
             if let Some(mods_list) = import.presets.get(name) {
@@ -557,12 +577,38 @@ impl HallintaApp {
             }
         }
 
-        let _ = presets::save_presets(&self.presets);
-        let _ = logging::log(
-            "INFO",
-            &format!("Imported {} preset(s)", imported),
-            "PresetManager",
-        );
+        let result = settings::get_data_dir().and_then(|data_dir| {
+            with_file_rollback(&[data_dir.join("presets.json")], || {
+                presets::save_presets(&self.presets)
+            })
+        });
+        if result.is_err() {
+            self.presets = previous_presets;
+        }
+        self.finish_preset_import(result, imported);
+    }
+
+    fn finish_preset_import(&mut self, result: Result<(), String>, imported: usize) {
+        match result {
+            Ok(()) => {
+                let _ = logging::log(
+                    "INFO",
+                    &format!("Imported {} preset(s)", imported),
+                    "PresetManager",
+                );
+            }
+            Err(e) => {
+                let _ = logging::log(
+                    "ERROR",
+                    &format!("Preset import failed: {e}"),
+                    "PresetManager",
+                );
+                self.active_modal = Some(Modal::Info {
+                    title: "Import Failed".to_string(),
+                    message: format!("Failed to save imported presets: {e}"),
+                });
+            }
+        }
     }
 
     // ── Helpers ────────────────────────────────────────────────────────
@@ -645,6 +691,23 @@ mod tests {
     }
 
     #[test]
+    fn exit_with_snapshot_does_not_close_when_snapshot_cannot_start() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+        app.backup_state.in_progress = true;
+
+        app.handle_confirm_action(ConfirmAction::ExitWithSnapshot);
+
+        assert!(app.save_monitor.running);
+        assert!(!app.close_requested);
+        assert!(!app.close_after_snapshot);
+        assert!(matches!(
+            app.active_modal,
+            Some(Modal::Info { ref title, .. }) if title == "Snapshot Not Saved"
+        ));
+    }
+
+    #[test]
     fn preset_export_checklist_defers_native_file_dialog() {
         let (_runtime, mut app) = test_app(Vec::new());
         app.presets.insert("Default".to_string(), Vec::new());
@@ -665,6 +728,42 @@ mod tests {
         assert!(matches!(
             app.active_modal,
             Some(Modal::Info { ref title, .. }) if title == "Backup Busy"
+        ));
+    }
+
+    #[test]
+    fn preset_import_save_failure_is_shown_to_user() {
+        let (_runtime, mut app) = test_app(Vec::new());
+
+        app.finish_preset_import(Err("disk full".to_string()), 2);
+
+        assert!(matches!(
+            app.active_modal,
+            Some(Modal::Info { ref title, ref message })
+                if title == "Import Failed" && message.contains("disk full")
+        ));
+    }
+
+    #[test]
+    fn acknowledged_missing_mod_import_still_reports_write_failure() {
+        let original = vec![super::super::test_support::mod_entry("Original", true, "1")];
+        let (_runtime, mut app) = test_app(original.clone());
+        app.settings.noita_dir = std::env::temp_dir()
+            .join(format!(
+                "hallinta-missing-modal-import-{}",
+                std::process::id()
+            ))
+            .to_string_lossy()
+            .to_string();
+
+        app.handle_missing_mods_action(MissingModsAction::ModImport(vec![
+            super::super::test_support::mod_entry("Imported", true, "2"),
+        ]));
+
+        assert_eq!(app.current_mods[0].name, "Original");
+        assert!(matches!(
+            app.active_modal,
+            Some(Modal::Info { ref title, .. }) if title == "Import Failed"
         ));
     }
 }
