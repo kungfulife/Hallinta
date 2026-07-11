@@ -33,6 +33,7 @@ Fast navigation notes for agents and maintainers.
 - `src/core/backup.rs`: backup archive creation, restore, delete, content inspection.
 - `src/core/save_monitor.rs`: monitor sessions and snapshot file management.
 - `src/core/platform.rs`: OS paths, Noita/Steam/Entangled detection, build metadata, and system info.
+- `src/core/process_probe.rs`: image-name process presence for Noita / `noita_proxy` (auto-monitor).
 - `src/core/settings.rs`: app data directory choice, settings load/save, and version upgrade checks.
 - `src/core/logging.rs`: session logs, markers, panic-flush support.
 - `src/core/updater.rs`: thin stable-release policy and signed `self_update` adapter.

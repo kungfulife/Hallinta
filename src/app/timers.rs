@@ -79,6 +79,8 @@ impl HallintaApp {
             }
         }
 
+        self.poll_auto_monitor_from_processes(now);
+
         // Request periodic repaint for timers
         ctx.request_repaint_after(Duration::from_secs(1));
     }

@@ -82,6 +82,30 @@ impl Default for LogSettings {
     }
 }
 
+/// How Hallinta reacts when watched game processes appear.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AutoMonitorMode {
+    /// Do not react to game process presence.
+    #[default]
+    Off,
+    /// Start Save Monitor automatically when the watched processes appear.
+    Always,
+    /// Legacy continuous-prompt value from earlier builds; folded into Off.
+    Ask,
+}
+
+/// Which processes must be present before auto-monitor reacts.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AutoMonitorWhen {
+    /// `noita.exe` or `noita_dev.exe`.
+    #[default]
+    Noita,
+    /// Noita plus the Entangled Worlds `noita_proxy` process.
+    NoitaAndEntangled,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SaveMonitorSettings {
     #[serde(default = "default_max_snapshots_per_session")]
@@ -94,8 +118,21 @@ pub struct SaveMonitorSettings {
     pub include_entangled: bool,
     #[serde(default = "default_include_save01")]
     pub include_save01: bool,
+    /// Start Save Monitor when Hallinta itself launches (no process detection).
     #[serde(default)]
     pub start_in_monitor_mode: bool,
+    /// React when Noita / Entangled Worlds processes appear (separate from launch-start).
+    #[serde(default)]
+    pub auto_monitor_mode: AutoMonitorMode,
+    #[serde(default)]
+    pub auto_monitor_when: AutoMonitorWhen,
+    /// One-time offer to enable always-on process auto-monitor. Reset to Defaults restores this.
+    #[serde(default = "default_auto_monitor_intro_pending")]
+    pub auto_monitor_intro_pending: bool,
+}
+
+fn default_auto_monitor_intro_pending() -> bool {
+    true
 }
 
 fn default_max_snapshots_per_session() -> usize {
@@ -122,6 +159,9 @@ impl Default for SaveMonitorSettings {
             include_entangled: false,
             include_save01: true,
             start_in_monitor_mode: false,
+            auto_monitor_mode: AutoMonitorMode::Off,
+            auto_monitor_when: AutoMonitorWhen::Noita,
+            auto_monitor_intro_pending: true,
         }
     }
 }
@@ -376,6 +416,11 @@ pub enum Modal {
         /// Which view: None = session list, Some(session_id) = snapshot list for that session
         selected_session: Option<(String, String)>, // (session_id, session_name)
     },
+    /// One-time process auto-monitor setup (Always vs Off).
+    AutoMonitorIntro {
+        /// e.g. "Noita is running."
+        detection: String,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -485,6 +530,10 @@ pub struct SaveMonitorState {
     pub last_scan: Option<Instant>,
     /// Throttle for live Restore Manager refreshes while monitoring.
     pub last_restore_manager_refresh: Option<Instant>,
+    /// Last process-probe poll time for auto-start Save Monitor.
+    pub last_process_probe: Option<Instant>,
+    /// Previous match of auto-monitor process conditions (rising-edge gate).
+    pub auto_monitor_match_active: bool,
 }
 
 impl SaveMonitorState {
@@ -501,6 +550,8 @@ impl SaveMonitorState {
             next_snapshot_request_id: 0,
             last_scan: None,
             last_restore_manager_refresh: None,
+            last_process_probe: None,
+            auto_monitor_match_active: false,
         }
     }
 

@@ -302,7 +302,7 @@ impl HallintaApp {
             app.show_noita_reconciliation(file_mods);
         }
 
-        // Start monitor if configured
+        // Start monitor on Hallinta launch if configured (process detection is separate).
         if let Some(resume) = startup_monitor_resume.filter(|_| app.is_noita_sync_live()) {
             app.resume_monitor_session_for(&resume.preset_name, &resume.session_id);
         } else if app.settings.save_monitor_settings.start_in_monitor_mode

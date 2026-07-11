@@ -1,8 +1,10 @@
 use super::HallintaApp;
-use crate::core::{logging, platform, save_monitor};
-use crate::models::{InputAction, Modal, SessionStatus};
+use crate::core::{logging, platform, process_probe, save_monitor};
+use crate::models::{AutoMonitorMode, InputAction, Modal, SessionStatus};
 use crate::tasks::TaskResult;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
+const AUTO_MONITOR_PROBE_INTERVAL: Duration = Duration::from_secs(3);
 
 impl HallintaApp {
     // ── Save Monitor ───────────────────────────────────────────────────
@@ -23,6 +25,8 @@ impl HallintaApp {
             });
             return;
         }
+        // Latch process auto-monitor so launch-start / manual start do not double-prompt.
+        self.save_monitor.auto_monitor_match_active = true;
         let preset = self.selected_preset.clone();
         let tx = self.task_tx.clone();
         self.async_runtime.spawn(async move {
@@ -32,6 +36,96 @@ impl HallintaApp {
                     .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
             let _ = tx.send(TaskResult::SessionCheckComplete(result));
         });
+    }
+
+    /// Rising-edge process detection for optional auto-start only.
+    /// Never stops a session. Never prompts or starts while a session is already running.
+    /// Independent of "Start Save Monitor on Hallinta launch".
+    pub(super) fn poll_auto_monitor_from_processes(&mut self, now: Instant) {
+        // Fold legacy continuous-Ask into Off + one-time intro when still pending.
+        if self.settings.save_monitor_settings.auto_monitor_mode == AutoMonitorMode::Ask {
+            self.settings.save_monitor_settings.auto_monitor_mode = AutoMonitorMode::Off;
+        }
+
+        // Active session owns monitoring — no intro, no auto-start, no auto-stop.
+        if self.save_monitor.is_running() {
+            self.save_monitor.auto_monitor_match_active = true;
+            return;
+        }
+
+        let intro_pending = self.settings.save_monitor_settings.auto_monitor_intro_pending;
+        let mode = self.settings.save_monitor_settings.auto_monitor_mode;
+        if !intro_pending && mode != AutoMonitorMode::Always {
+            self.save_monitor.auto_monitor_match_active = false;
+            return;
+        }
+
+        let should_probe = self
+            .save_monitor
+            .last_process_probe
+            .is_none_or(|t| now.duration_since(t) >= AUTO_MONITOR_PROBE_INTERVAL);
+        if !should_probe {
+            return;
+        }
+        self.save_monitor.last_process_probe = Some(now);
+
+        let when = self.settings.save_monitor_settings.auto_monitor_when;
+        let presence = process_probe::detect_game_processes();
+        let is_match = presence.matches(when);
+        if !is_match {
+            self.save_monitor.auto_monitor_match_active = false;
+            return;
+        }
+
+        // Already handled this continuous process presence (e.g. user declined, or stopped mid-run).
+        if self.save_monitor.auto_monitor_match_active {
+            return;
+        }
+        if !self.is_noita_sync_live() {
+            return;
+        }
+        // Wait for a clear UI; do not latch yet so the offer still arrives after.
+        if self.active_modal.is_some() {
+            return;
+        }
+
+        self.save_monitor.auto_monitor_match_active = true;
+
+        if intro_pending {
+            self.active_modal = Some(Modal::AutoMonitorIntro {
+                detection: presence.describe(when),
+            });
+            return;
+        }
+
+        if mode == AutoMonitorMode::Always {
+            let _ = logging::log(
+                "INFO",
+                "Auto-starting Save Monitor after game process detection",
+                "SaveMonitor",
+            );
+            self.start_save_monitor();
+        }
+    }
+
+    pub fn finish_auto_monitor_intro(&mut self, enable_always: bool) {
+        self.settings.save_monitor_settings.auto_monitor_intro_pending = false;
+        self.settings.save_monitor_settings.auto_monitor_mode = if enable_always {
+            AutoMonitorMode::Always
+        } else {
+            AutoMonitorMode::Off
+        };
+        if let Err(error) = crate::core::settings::save_settings(&self.settings) {
+            let _ = logging::log(
+                "ERROR",
+                &format!("Could not save auto-monitor intro choice: {error}"),
+                "SaveMonitor",
+            );
+        }
+        // Never stack a second start on top of an already-running session.
+        if enable_always && !self.save_monitor.is_running() {
+            self.start_save_monitor();
+        }
     }
 
     pub fn prompt_new_monitor_session(&mut self) {
@@ -281,7 +375,7 @@ impl HallintaApp {
 #[cfg(test)]
 mod tests {
     use super::super::test_support::test_app;
-    use crate::models::{SessionInfo, SessionStatus};
+    use crate::models::{AutoMonitorMode, SessionInfo, SessionStatus};
     use std::time::{Duration, Instant};
 
     fn test_session() -> SessionInfo {
@@ -378,5 +472,108 @@ mod tests {
         assert!(app.save_monitor.last_known_mtime > 0);
 
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn process_auto_monitor_off_clears_match_latch() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.save_monitor_settings.auto_monitor_mode = AutoMonitorMode::Off;
+        app.settings.save_monitor_settings.auto_monitor_intro_pending = false;
+        app.save_monitor.auto_monitor_match_active = true;
+
+        app.poll_auto_monitor_from_processes(Instant::now());
+
+        assert!(!app.save_monitor.auto_monitor_match_active);
+    }
+
+    #[test]
+    fn auto_monitor_intro_enable_sets_always_and_consumes_intro() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.noita_dir = "C:/Noita/save00".to_string();
+        app.settings.save_monitor_settings.auto_monitor_intro_pending = true;
+        app.settings.save_monitor_settings.auto_monitor_mode = AutoMonitorMode::Off;
+
+        app.finish_auto_monitor_intro(true);
+
+        assert!(!app.settings.save_monitor_settings.auto_monitor_intro_pending);
+        assert_eq!(
+            app.settings.save_monitor_settings.auto_monitor_mode,
+            AutoMonitorMode::Always
+        );
+        assert!(app.save_monitor.auto_monitor_match_active);
+    }
+
+    #[test]
+    fn auto_monitor_intro_decline_leaves_off_without_starting() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.save_monitor_settings.auto_monitor_intro_pending = true;
+        app.settings.save_monitor_settings.auto_monitor_mode = AutoMonitorMode::Off;
+
+        app.finish_auto_monitor_intro(false);
+
+        assert!(!app.settings.save_monitor_settings.auto_monitor_intro_pending);
+        assert_eq!(
+            app.settings.save_monitor_settings.auto_monitor_mode,
+            AutoMonitorMode::Off
+        );
+        assert!(!app.save_monitor.is_running());
+    }
+
+    #[test]
+    fn manual_start_latches_process_auto_monitor() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.noita_dir = "C:/Noita/save00".to_string();
+        app.noita_sync_state = crate::models::NoitaSyncState::Live;
+        // Directory need not exist for the async list; we only check latch side-effect.
+        assert!(!app.save_monitor.auto_monitor_match_active);
+        app.start_save_monitor();
+        assert!(app.save_monitor.auto_monitor_match_active);
+    }
+
+    #[test]
+    fn running_session_blocks_auto_monitor_intro_and_start() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.save_monitor_settings.auto_monitor_intro_pending = true;
+        app.settings.save_monitor_settings.auto_monitor_mode = AutoMonitorMode::Always;
+        app.save_monitor.running = true;
+        app.save_monitor.current_session = Some(test_session());
+        app.save_monitor.auto_monitor_match_active = false;
+        app.save_monitor.last_process_probe = None;
+        app.active_modal = None;
+
+        app.poll_auto_monitor_from_processes(Instant::now());
+
+        assert!(app.active_modal.is_none(), "must not re-ask while a session runs");
+        assert!(
+            app.save_monitor.auto_monitor_match_active,
+            "running session should latch match so we do not fire again immediately after stop mid-game"
+        );
+        // Still only one logical session — poll must not try to start another.
+        assert!(app.save_monitor.is_running());
+        assert!(matches!(
+            app.save_monitor.current_session.as_ref().map(|s| s.id.as_str()),
+            Some("session-id")
+        ));
+    }
+
+    #[test]
+    fn finish_intro_enable_skips_start_when_already_running() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+        app.save_monitor.current_session = Some(test_session());
+        app.settings.save_monitor_settings.auto_monitor_intro_pending = true;
+
+        app.finish_auto_monitor_intro(true);
+
+        assert!(!app.settings.save_monitor_settings.auto_monitor_intro_pending);
+        assert_eq!(
+            app.settings.save_monitor_settings.auto_monitor_mode,
+            AutoMonitorMode::Always
+        );
+        assert_eq!(
+            app.save_monitor.current_session.as_ref().map(|s| s.id.as_str()),
+            Some("session-id"),
+            "must not replace the active session"
+        );
     }
 }

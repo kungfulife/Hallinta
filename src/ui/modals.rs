@@ -97,6 +97,49 @@ pub fn render_modals(app: &mut HallintaApp, ctx: &egui::Context) {
         } => {
             render_restore_manager(app, ctx, sessions, snapshots, selected_session);
         }
+        Modal::AutoMonitorIntro { detection } => {
+            render_auto_monitor_intro(app, ctx, &detection);
+        }
+    }
+}
+
+fn render_auto_monitor_intro(app: &mut HallintaApp, ctx: &egui::Context, detection: &str) {
+    let d = crate::ui::design::Design::new(ctx, &app.settings);
+    let mut enable = false;
+    let mut decline = false;
+
+    egui::Window::new("Save Monitor")
+        .collapsible(false)
+        .resizable(false)
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            ui.label(egui::RichText::new(detection).strong());
+            ui.add_space(d.sm);
+            ui.label("Always start monitoring when detected?");
+            ui.label(
+                egui::RichText::new("You can change this later in Settings.")
+                    .color(ui.visuals().weak_text_color()),
+            );
+            ui.add_space(d.md);
+            ui.horizontal(|ui| {
+                if ui.button("Always").clicked() {
+                    enable = true;
+                }
+                if ui.button("Not now").clicked() {
+                    decline = true;
+                }
+            });
+        });
+
+    if enable {
+        app.finish_auto_monitor_intro(true);
+    } else if decline {
+        app.finish_auto_monitor_intro(false);
+    } else {
+        app.active_modal = Some(Modal::AutoMonitorIntro {
+            detection: detection.to_string(),
+        });
     }
 }
 

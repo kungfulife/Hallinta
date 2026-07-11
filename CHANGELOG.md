@@ -2,6 +2,13 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.8.5 (2026-07-11)
+- **Process auto-monitor**: Optionally start Save Monitor when Noita is running (and optionally the Entangled Worlds proxy), detected by process name only.
+- **One-time setup**: First match asks Always or Not now; afterward Auto-start is Off or Always only. Change anytime in Settings; Reset to Defaults restores the prompt.
+- **Separate launch start**: "Start on Hallinta launch" stays independent and manual.
+- **No double-start / no auto-stop**: An active session is never re-asked or re-started; Hallinta does not stop monitoring when the game exits.
+- **Reset fix**: Reset to Defaults no longer opens "Noita Configuration Detected" when the Noita path did not actually change.
+
 ## 0.8.4 (2026-07-11)
 - **Upgrade backup recovery**: Version-upgrade backups now show in Manage Backups with the same restore and delete controls as manual backups. New upgrade archives land in the shared `backups/` folder; legacy `upgrade_backups/` files remain restorable.
 - **Update dismiss**: Dismiss remembers the exact offered version so automatic prompts stay quiet. A newer release asks again; Settings → Check for Updates always re-offers the current candidate. Accepting an update clears the dismiss.

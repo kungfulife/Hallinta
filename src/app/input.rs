@@ -154,6 +154,7 @@ fn modal_can_be_dismissed_with_escape(modal: &Modal) -> bool {
             | Modal::ExternalModChanges { .. }
             | Modal::NoitaReconciliation { .. }
             | Modal::DetectedNoitaPresetName { .. }
+            | Modal::AutoMonitorIntro { .. }
     )
 }
 

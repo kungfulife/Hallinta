@@ -364,10 +364,68 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 if ui
                     .checkbox(
                         &mut app.settings.save_monitor_settings.start_in_monitor_mode,
-                        "Start Save Monitor on launch",
+                        "Start on Hallinta launch",
                     )
                     .changed()
                 {
+                    needs_save = true;
+                }
+
+                let mode = &mut app.settings.save_monitor_settings.auto_monitor_mode;
+                if *mode == crate::models::AutoMonitorMode::Ask {
+                    *mode = crate::models::AutoMonitorMode::Off;
+                    needs_save = true;
+                }
+                let previous_mode = *mode;
+                ui.horizontal(|ui| {
+                    ui.label("Start when game runs:");
+                    egui::ComboBox::from_id_salt("auto_monitor_mode")
+                        .selected_text(match *mode {
+                            crate::models::AutoMonitorMode::Off
+                            | crate::models::AutoMonitorMode::Ask => "Off",
+                            crate::models::AutoMonitorMode::Always => "Always",
+                        })
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(mode, crate::models::AutoMonitorMode::Off, "Off");
+                            ui.selectable_value(
+                                mode,
+                                crate::models::AutoMonitorMode::Always,
+                                "Always",
+                            );
+                        });
+                });
+                if *mode != previous_mode {
+                    app.settings
+                        .save_monitor_settings
+                        .auto_monitor_intro_pending = false;
+                    needs_save = true;
+                }
+
+                let when = &mut app.settings.save_monitor_settings.auto_monitor_when;
+                let previous_when = *when;
+                ui.horizontal(|ui| {
+                    ui.label("Detect:");
+                    egui::ComboBox::from_id_salt("auto_monitor_when")
+                        .selected_text(match *when {
+                            crate::models::AutoMonitorWhen::Noita => "Noita",
+                            crate::models::AutoMonitorWhen::NoitaAndEntangled => "Noita + proxy",
+                        })
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                when,
+                                crate::models::AutoMonitorWhen::Noita,
+                                "Noita",
+                            );
+                            ui.selectable_value(
+                                when,
+                                crate::models::AutoMonitorWhen::NoitaAndEntangled,
+                                "Noita + proxy",
+                            );
+                        })
+                        .response
+                        .on_hover_text("noita / noita_dev, optional noita_proxy");
+                });
+                if *when != previous_when {
                     needs_save = true;
                 }
             });
@@ -454,13 +512,25 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     if let Ok(path) = crate::core::workshop::detect_steam_path() {
                         defaults.steam_path = path.to_string_lossy().to_string();
                     }
+                    let rebind_noita =
+                        should_rebind_noita_after_reset(&prev_noita_dir, &defaults.noita_dir);
+                    let rebind_entangled =
+                        !same_configured_path(&prev_entangled_dir, &defaults.entangled_dir);
                     app.settings = defaults;
                     // All side-effects (theme, compact, scale) are picked up below
                     // via the prev_ snapshot comparisons and scale_changed flag
                     if app.settings.ui_scale != prev_ui_scale {
                         scale_changed = true;
                     }
-                    noita_dir_lost_focus = true;
+                    // Only re-bind Noita when the resolved path actually changed.
+                    // Forcing on_noita_dir_changed on every reset falsely opens
+                    // "Noita Configuration Detected" even when nothing moved.
+                    if rebind_noita {
+                        noita_dir_lost_focus = true;
+                    }
+                    if rebind_entangled {
+                        entangled_dir_lost_focus = true;
+                    }
                     needs_save = true;
                 }
             });
@@ -542,10 +612,53 @@ fn default_settings() -> AppSettings {
     }
 }
 
+/// True when two directory settings refer to the same place (trim + path equality).
+fn same_configured_path(left: &str, right: &str) -> bool {
+    let left = left.trim();
+    let right = right.trim();
+    if left == right {
+        return true;
+    }
+    if left.is_empty() || right.is_empty() {
+        return false;
+    }
+    std::path::Path::new(left) == std::path::Path::new(right)
+}
+
+fn should_rebind_noita_after_reset(previous: &str, reset_to: &str) -> bool {
+    !same_configured_path(previous, reset_to)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::app::test_support::test_app;
+
+    #[test]
+    fn same_configured_path_ignores_trivial_string_differences() {
+        assert!(same_configured_path(
+            "C:\\Users\\a\\AppData\\LocalLow\\Nolla_Games_Noita\\save00",
+            "C:\\Users\\a\\AppData\\LocalLow\\Nolla_Games_Noita\\save00"
+        ));
+        assert!(same_configured_path("  /tmp/save00  ", "/tmp/save00"));
+        assert!(!same_configured_path("/tmp/save00", "/tmp/save01"));
+        assert!(!same_configured_path("", "/tmp/save00"));
+    }
+
+    #[test]
+    fn reset_rebinds_noita_only_when_path_changes() {
+        let previous = "C:/Noita/save00";
+        let same_after_autodetect = "C:/Noita/save00";
+        let different = "D:/Other/save00";
+        assert!(
+            !should_rebind_noita_after_reset(previous, same_after_autodetect),
+            "identical path must not force reconciliation"
+        );
+        assert!(
+            should_rebind_noita_after_reset(previous, different),
+            "real path change must still rebind Noita"
+        );
+    }
 
     fn rendered_appearance_labels(settings: &mut AppSettings) -> Vec<String> {
         let ctx = egui::Context::default();
