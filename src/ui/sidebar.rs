@@ -49,7 +49,7 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     .on_hover_text(format!("Current session: {}", session.name));
                 }
             } else {
-                ui.add_enabled_ui(!backup_busy, |ui| {
+                ui.add_enabled_ui(app.can_start_save_monitor(), |ui| {
                     if ui
                         .add_sized(button_size, egui::Button::new("Start Monitor"))
                         .on_hover_text("Start auto-snapshotting Noita saves")
@@ -113,7 +113,7 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 });
             });
             pair_row(ui, d.xs, pair_size, |ui, size| {
-                ui.add_enabled_ui(!backup_busy, |ui| {
+                ui.add_enabled_ui(!backup_busy && app.is_noita_sync_live(), |ui| {
                     if ui
                         .add_sized(size, egui::Button::new("Open XML"))
                         .on_hover_text("Open the live mod_config.xml in the default editor")

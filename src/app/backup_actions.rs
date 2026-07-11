@@ -12,12 +12,17 @@ impl HallintaApp {
     // ── Backup ─────────────────────────────────────────────────────────
 
     pub(crate) fn can_start_manual_backup(&self) -> bool {
-        !self.backup_state.in_progress
+        self.is_noita_sync_live()
+            && !self.backup_state.in_progress
             && !self.backup_state.restoring
             && !self.save_monitor.snapshot_in_flight
     }
 
     pub fn start_backup_modal(&mut self) {
+        if !self.can_start_manual_backup() {
+            self.show_manual_backup_blocker();
+            return;
+        }
         self.active_modal = Some(Modal::ManualBackup {
             name: default_manual_backup_name(),
             items: self.manual_backup_items(),
@@ -69,6 +74,11 @@ impl HallintaApp {
     }
 
     pub fn submit_manual_backup(&mut self, name: String, selected: Vec<String>) {
+        if !self.is_noita_sync_live() {
+            self.show_manual_backup_blocker();
+            return;
+        }
+
         let fallback = default_manual_backup_name();
         let name = match backup::normalize_manual_backup_name(&name, &fallback) {
             Ok(name) => name,
@@ -89,10 +99,7 @@ impl HallintaApp {
         };
 
         if !self.can_start_manual_backup() {
-            self.active_modal = Some(Modal::Info {
-                title: "Backup Busy".to_string(),
-                message: "Wait for the current backup or monitor snapshot to finish before creating a manual backup.".to_string(),
-            });
+            self.show_manual_backup_blocker();
             return;
         }
 
@@ -128,6 +135,24 @@ impl HallintaApp {
             .await
             .unwrap_or_else(|error| Err(format!("Backup task failed: {error}")));
             let _ = tx.send(TaskResult::BackupComplete(result));
+        });
+    }
+
+    fn show_manual_backup_blocker(&mut self) {
+        let (title, message) = if !self.is_noita_sync_live() {
+            (
+                "Backup Unavailable",
+                "Resolve the Noita configuration before creating a manual backup.",
+            )
+        } else {
+            (
+                "Backup Busy",
+                "Wait for the current backup or monitor snapshot to finish before creating a manual backup.",
+            )
+        };
+        self.active_modal = Some(Modal::Info {
+            title: title.to_string(),
+            message: message.to_string(),
         });
     }
 
@@ -192,6 +217,14 @@ impl HallintaApp {
             restore_presets: info.contains_presets,
             restore_entangled: info.contains_entangled,
         };
+        if !self.is_noita_sync_live() && (options.restore_save00 || options.restore_save01) {
+            self.active_modal = Some(Modal::Info {
+                title: "Restore Unavailable".to_string(),
+                message: "Resolve the Noita configuration before restoring Noita save data."
+                    .to_string(),
+            });
+            return;
+        }
         let noita_dir = PathBuf::from(self.settings.noita_dir.clone());
         let entangled_dir = if options.restore_entangled {
             self.configured_entangled_dir().map(PathBuf::from)
@@ -368,6 +401,42 @@ mod tests {
         app.save_monitor.running = true;
 
         assert!(app.can_start_manual_backup());
+    }
+
+    #[test]
+    fn configuration_only_mode_disables_manual_backup() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.noita_sync_state = NoitaSyncState::ConfigurationOnly;
+
+        assert!(!app.can_start_manual_backup());
+    }
+
+    #[test]
+    fn configuration_only_mode_blocks_backup_modal_with_accurate_message() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.noita_sync_state = NoitaSyncState::ConfigurationOnly;
+
+        app.start_backup_modal();
+
+        assert!(matches!(
+            app.active_modal,
+            Some(Modal::Info { ref title, ref message })
+                if title == "Backup Unavailable" && message.contains("Resolve the Noita configuration")
+        ));
+    }
+
+    #[test]
+    fn configuration_only_submit_does_not_report_backup_busy() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.noita_sync_state = NoitaSyncState::ConfigurationOnly;
+
+        app.submit_manual_backup("Safety Copy".to_string(), vec!["save00".to_string()]);
+
+        assert!(matches!(
+            app.active_modal,
+            Some(Modal::Info { ref title, ref message })
+                if title == "Backup Unavailable" && message.contains("Resolve the Noita configuration")
+        ));
     }
 
     #[test]

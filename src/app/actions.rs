@@ -47,7 +47,8 @@ impl HallintaApp {
             .insert(self.selected_preset.clone(), self.current_mods.clone());
 
         let noita_dir = self.settings.noita_dir.clone();
-        if platform::is_configured_path(&noita_dir) {
+        if self.noita_sync_state == NoitaSyncState::Live && platform::is_configured_path(&noita_dir)
+        {
             let xml = mods::mods_to_xml(&self.current_mods);
             match mods::write_mod_config(&PathBuf::from(&noita_dir), &xml) {
                 Ok(()) => {
@@ -60,10 +61,13 @@ impl HallintaApp {
                 Err(e) => {
                     let message = format!("Failed to write mod_config.xml at {noita_dir}: {e}");
                     let _ = logging::log("ERROR", &message, "ModManager");
+                    self.enter_configuration_only(super::noita_directory_error_message(
+                        &noita_dir, &e,
+                    ));
                     errors.push(message);
                 }
             }
-        } else {
+        } else if self.noita_sync_state == NoitaSyncState::Live {
             let _ = logging::log(
                 "WARN",
                 "save_mod_config_and_preset called with empty noita_dir — preset still saved",
@@ -163,6 +167,8 @@ impl HallintaApp {
             "Settings",
         );
         self.cancel_drag_if_active();
+        self.settings.needs_noita_reconciliation = true;
+        self.noita_sync_state = NoitaSyncState::ConfigurationOnly;
         self.reload_mods();
         self.check_workshop_mods_async();
         self.save_current_settings();
@@ -266,12 +272,18 @@ impl HallintaApp {
     pub fn reload_mods(&mut self) {
         let noita_dir = self.settings.noita_dir.clone();
         if !platform::is_configured_path(&noita_dir) {
-            self.noita_directory_error = Some(super::noita_directory_error_message(&noita_dir, ""));
+            self.enter_configuration_only(super::noita_directory_error_message(&noita_dir, ""));
             return;
         }
         let dir = PathBuf::from(&noita_dir);
         match mods::load_mod_config(&dir) {
             Ok(file_mods) => {
+                if self.noita_sync_state != NoitaSyncState::Live
+                    || self.settings.needs_noita_reconciliation
+                {
+                    self.show_noita_reconciliation(file_mods);
+                    return;
+                }
                 self.noita_directory_error = None;
                 self.current_mods = file_mods;
                 self.file_watcher.pending_external_mods = None;
@@ -280,8 +292,9 @@ impl HallintaApp {
                 let _ = presets::save_presets(&self.presets);
             }
             Err(error) => {
-                self.noita_directory_error =
-                    Some(super::noita_directory_error_message(&noita_dir, &error));
+                self.enter_configuration_only(super::noita_directory_error_message(
+                    &noita_dir, &error,
+                ));
                 return;
             }
         }
@@ -306,6 +319,9 @@ impl HallintaApp {
     }
 
     pub fn visible_noita_directory_error(&self) -> Option<&str> {
+        if self.noita_sync_state == NoitaSyncState::ConfigurationOnly {
+            return self.noita_directory_error.as_deref();
+        }
         #[cfg(debug_assertions)]
         if self.preview_noita_directory_warning {
             return Some(super::NOITA_WARNING_PREVIEW_MESSAGE);
@@ -389,6 +405,9 @@ impl HallintaApp {
     // ── Open mod_config.xml ───────────────────────────────────────────
 
     pub fn open_mod_config_file(&self) {
+        if !self.is_noita_sync_live() {
+            return;
+        }
         let noita_dir = self.settings.noita_dir.clone();
         if !platform::is_configured_path(&noita_dir) {
             return;

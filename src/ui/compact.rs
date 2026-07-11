@@ -106,17 +106,19 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
                         app.stop_save_monitor();
                     }
                 } else {
-                    if ui
-                        .add_sized(
-                            [btn_w, btn_h],
-                            egui::Button::new(
-                                egui::RichText::new("Start Monitor").size(d.font_body),
-                            ),
-                        )
-                        .clicked()
-                    {
-                        app.start_save_monitor();
-                    }
+                    ui.add_enabled_ui(app.can_start_save_monitor(), |ui| {
+                        if ui
+                            .add_sized(
+                                [btn_w, btn_h],
+                                egui::Button::new(
+                                    egui::RichText::new("Start Monitor").size(d.font_body),
+                                ),
+                            )
+                            .clicked()
+                        {
+                            app.start_save_monitor();
+                        }
+                    });
                 }
 
                 ui.add_space(d.sm);

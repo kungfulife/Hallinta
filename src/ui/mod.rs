@@ -4,6 +4,7 @@ pub mod design;
 pub mod header;
 pub mod mod_list;
 pub mod modals;
+mod noita_reconciliation;
 pub mod noita_warning;
 pub mod preset_bar;
 pub mod settings;

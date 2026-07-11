@@ -150,7 +150,10 @@ impl HallintaApp {
 fn modal_can_be_dismissed_with_escape(modal: &Modal) -> bool {
     !matches!(
         modal,
-        Modal::Progress { .. } | Modal::ExternalModChanges { .. }
+        Modal::Progress { .. }
+            | Modal::ExternalModChanges { .. }
+            | Modal::NoitaReconciliation { .. }
+            | Modal::DetectedNoitaPresetName { .. }
     )
 }
 
@@ -171,6 +174,23 @@ mod tests {
             !modal_can_be_dismissed_with_escape(&modal),
             "deferred external changes should require Use Disk List or Keep Current"
         );
+    }
+
+    #[test]
+    fn noita_reconciliation_requires_button_choice() {
+        let modal = Modal::NoitaReconciliation {
+            file_mods: Vec::new(),
+            summary: ExternalModChangeSummary::default(),
+            error: None,
+        };
+        assert!(!modal_can_be_dismissed_with_escape(&modal));
+
+        let naming_modal = Modal::DetectedNoitaPresetName {
+            file_mods: Vec::new(),
+            value: "Detected Noita Setup".to_string(),
+            error: None,
+        };
+        assert!(!modal_can_be_dismissed_with_escape(&naming_modal));
     }
 
     #[test]

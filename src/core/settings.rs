@@ -4,6 +4,21 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 #[cfg(test)]
+thread_local! {
+    static SAVE_SETTINGS_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn reset_save_settings_call_count() {
+    SAVE_SETTINGS_CALLS.with(|calls| calls.set(0));
+}
+
+#[cfg(test)]
+pub(crate) fn save_settings_call_count() -> usize {
+    SAVE_SETTINGS_CALLS.with(std::cell::Cell::get)
+}
+
+#[cfg(test)]
 static TEST_DATA_DIR: std::sync::LazyLock<PathBuf> = std::sync::LazyLock::new(|| {
     std::env::temp_dir().join(format!("hallinta-tests-{}", std::process::id()))
 });
@@ -66,6 +81,7 @@ pub fn load_settings() -> Result<AppSettings, String> {
             ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
             last_filter_mode: String::new(),
             last_sort_mode: String::new(),
+            needs_noita_reconciliation: false,
         };
         save_settings(&default_settings)?;
         return Ok(default_settings);
@@ -105,6 +121,9 @@ pub fn load_settings() -> Result<AppSettings, String> {
 }
 
 pub fn save_settings(settings: &AppSettings) -> Result<(), String> {
+    #[cfg(test)]
+    SAVE_SETTINGS_CALLS.with(|calls| calls.set(calls.get() + 1));
+
     let data_dir = get_data_dir()?;
     let settings_path = data_dir.join("settings.json");
 
@@ -188,6 +207,7 @@ mod tests {
             ui_scale: 1.0,
             last_filter_mode: "all".to_string(),
             last_sort_mode: "default".to_string(),
+            needs_noita_reconciliation: true,
         };
 
         let json = serde_json::to_string_pretty(&original).unwrap();
@@ -202,6 +222,10 @@ mod tests {
         assert_eq!(loaded.ui_scale, original.ui_scale);
         assert_eq!(loaded.last_filter_mode, original.last_filter_mode);
         assert_eq!(loaded.last_sort_mode, original.last_sort_mode);
+        assert_eq!(
+            loaded.needs_noita_reconciliation,
+            original.needs_noita_reconciliation
+        );
         assert_eq!(
             loaded.log_settings.log_level,
             original.log_settings.log_level
@@ -246,6 +270,7 @@ mod tests {
             "missing compact_mode should default to false"
         );
         assert_eq!(settings.save_monitor_settings.backup_delay_minutes, 3);
+        assert!(!settings.needs_noita_reconciliation);
     }
 
     #[test]

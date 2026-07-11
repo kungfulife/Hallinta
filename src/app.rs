@@ -14,6 +14,7 @@ mod input;
 mod lifecycle;
 mod modal_actions;
 mod monitor;
+mod noita_sync;
 mod sorting;
 mod task_results;
 #[cfg(test)]
@@ -38,6 +39,7 @@ pub struct HallintaApp {
     pub compact_mode: bool,
     pub dark_mode: bool,
     pub noita_directory_error: Option<String>,
+    pub noita_sync_state: NoitaSyncState,
     #[cfg(debug_assertions)]
     pub preview_noita_directory_warning: bool,
 
@@ -111,6 +113,7 @@ impl HallintaApp {
                 ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
                 last_filter_mode: String::new(),
                 last_sort_mode: String::new(),
+                needs_noita_reconciliation: false,
             }
         });
         logging::configure(&app_settings.log_settings);
@@ -151,6 +154,8 @@ impl HallintaApp {
             .unwrap_or_default();
 
         let mut noita_directory_error = None;
+        let mut noita_sync_state = NoitaSyncState::Live;
+        let mut startup_reconciliation = None;
         if platform::is_configured_path(&noita_dir) {
             let noita_path = PathBuf::from(&noita_dir);
             match mods::load_mod_config(&noita_path) {
@@ -164,9 +169,16 @@ impl HallintaApp {
                         ),
                         "Mods",
                     );
-                    current_mods = file_mods;
+                    if app_settings.needs_noita_reconciliation {
+                        noita_sync_state = NoitaSyncState::ReconciliationPending;
+                        startup_reconciliation = Some(file_mods);
+                    } else {
+                        current_mods = file_mods;
+                    }
                 }
                 Err(e) => {
+                    noita_sync_state = NoitaSyncState::ConfigurationOnly;
+                    app_settings.needs_noita_reconciliation = true;
                     noita_directory_error = Some(noita_directory_error_message(&noita_dir, &e));
                     let _ = logging::log(
                         "WARN",
@@ -176,6 +188,8 @@ impl HallintaApp {
                 }
             }
         } else {
+            noita_sync_state = NoitaSyncState::ConfigurationOnly;
+            app_settings.needs_noita_reconciliation = true;
             noita_directory_error = Some(noita_directory_error_message(&noita_dir, ""));
             let _ = logging::log(
                 "WARN",
@@ -257,6 +271,7 @@ impl HallintaApp {
             compact_mode,
             dark_mode,
             noita_directory_error,
+            noita_sync_state,
             #[cfg(debug_assertions)]
             preview_noita_directory_warning: false,
             active_modal: None,
@@ -282,10 +297,19 @@ impl HallintaApp {
             was_focused: true,
         };
 
+        if app.settings.needs_noita_reconciliation {
+            app.save_current_settings();
+        }
+        if let Some(file_mods) = startup_reconciliation {
+            app.show_noita_reconciliation(file_mods);
+        }
+
         // Start monitor if configured
-        if let Some(resume) = startup_monitor_resume {
+        if let Some(resume) = startup_monitor_resume.filter(|_| app.is_noita_sync_live()) {
             app.resume_monitor_session_for(&resume.preset_name, &resume.session_id);
-        } else if app.settings.save_monitor_settings.start_in_monitor_mode {
+        } else if app.settings.save_monitor_settings.start_in_monitor_mode
+            && app.is_noita_sync_live()
+        {
             app.start_save_monitor();
         }
 

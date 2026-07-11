@@ -37,6 +37,9 @@ pub struct AppSettings {
     pub last_filter_mode: String,
     #[serde(default)]
     pub last_sort_mode: String,
+    /// True after Hallinta operated without a usable Noita configuration.
+    #[serde(default)]
+    pub needs_noita_reconciliation: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -228,6 +231,13 @@ pub enum View {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoitaSyncState {
+    Live,
+    ConfigurationOnly,
+    ReconciliationPending,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FilterMode {
     All,
     Enabled,
@@ -341,6 +351,16 @@ pub enum Modal {
     ExternalModChanges {
         file_mods: Vec<ModEntry>,
         summary: ExternalModChangeSummary,
+    },
+    NoitaReconciliation {
+        file_mods: Vec<ModEntry>,
+        summary: ExternalModChangeSummary,
+        error: Option<String>,
+    },
+    DetectedNoitaPresetName {
+        file_mods: Vec<ModEntry>,
+        value: String,
+        error: Option<String>,
     },
     SystemInfo,
     OpenSourceLibraries,

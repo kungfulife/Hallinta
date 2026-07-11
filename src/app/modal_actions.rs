@@ -370,6 +370,17 @@ impl HallintaApp {
                     });
                     return;
                 }
+                if !self.is_noita_sync_live()
+                    && (selected_has(&selected, "save00") || selected_has(&selected, "save01"))
+                {
+                    self.active_modal = Some(Modal::Info {
+                        title: "Restore Unavailable".to_string(),
+                        message:
+                            "Resolve the Noita configuration before restoring Noita save data."
+                                .to_string(),
+                    });
+                    return;
+                }
 
                 let noita_dir = PathBuf::from(self.settings.noita_dir.clone());
                 let entangled_dir = if selected_has(&selected, "entangled") {
@@ -411,6 +422,17 @@ impl HallintaApp {
                     self.active_modal = Some(Modal::Info {
                         title: "Restore Snapshot".to_string(),
                         message: "Select at least one component to restore.".to_string(),
+                    });
+                    return;
+                }
+                if !self.is_noita_sync_live()
+                    && (selected_has(&selected, "save00") || selected_has(&selected, "save01"))
+                {
+                    self.active_modal = Some(Modal::Info {
+                        title: "Restore Unavailable".to_string(),
+                        message:
+                            "Resolve the Noita configuration before restoring Noita save data."
+                                .to_string(),
                     });
                     return;
                 }

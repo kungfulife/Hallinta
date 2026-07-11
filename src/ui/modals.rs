@@ -69,6 +69,18 @@ pub fn render_modals(app: &mut HallintaApp, ctx: &egui::Context) {
         Modal::ExternalModChanges { file_mods, summary } => {
             render_external_mod_changes(app, ctx, file_mods, &summary);
         }
+        Modal::NoitaReconciliation {
+            file_mods,
+            summary,
+            error,
+        } => {
+            super::noita_reconciliation::render_reconciliation(app, ctx, file_mods, &summary, error)
+        }
+        Modal::DetectedNoitaPresetName {
+            file_mods,
+            value,
+            error,
+        } => super::noita_reconciliation::render_preset_name(app, ctx, file_mods, value, error),
         Modal::SystemInfo => {
             render_system_info(app, ctx);
         }

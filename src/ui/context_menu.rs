@@ -85,8 +85,41 @@ pub fn render_context_menu(app: &mut HallintaApp, ui: &mut egui::Ui, mod_index: 
         ui.close();
     }
 
-    if ui.button("Open mod_config.xml").clicked() {
+    if app.is_noita_sync_live() && ui.button("Open mod_config.xml").clicked() {
         app.open_mod_config_file();
         ui.close();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::test_support::{mod_entry, test_app};
+    use crate::models::NoitaSyncState;
+
+    fn text_from_shape(shape: &egui::epaint::Shape) -> Vec<String> {
+        match shape {
+            egui::epaint::Shape::Text(text) => vec![text.galley.text().to_string()],
+            egui::epaint::Shape::Vec(shapes) => shapes.iter().flat_map(text_from_shape).collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    #[test]
+    fn configuration_only_menu_hides_open_xml_action() {
+        let (_runtime, mut app) = test_app(vec![mod_entry("Alpha", true, "1")]);
+        app.noita_sync_state = NoitaSyncState::ConfigurationOnly;
+        let ctx = egui::Context::default();
+
+        let output = ctx.run_ui(Default::default(), |ui| {
+            render_context_menu(&mut app, ui, 0);
+        });
+        let labels: Vec<String> = output
+            .shapes
+            .iter()
+            .flat_map(|shape| text_from_shape(&shape.shape))
+            .collect();
+
+        assert!(!labels.iter().any(|label| label == "Open mod_config.xml"));
     }
 }

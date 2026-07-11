@@ -2,6 +2,12 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.8.2 (2026-07-11)
+- **Configuration-only mode**: Missing or invalid Noita directory / `mod_config.xml` pauses Noita sync while local preset edit, import, and export keep working.
+- **Recovery choice**: When configuration returns, Hallinta asks whether to apply the selected preset to Noita or save the detected setup as a new preset (no accidental overwrites).
+- **Guards**: Save Monitor, Noita-facing backups/restores, and Open XML stay blocked until configuration is valid; an active monitor stops if configuration disappears.
+- **Reliability**: File-watch recovery no longer rewrites settings every poll; whitespace-only paths are treated as unconfigured; broader regression coverage.
+
 ## 0.8.0 (2026-07-11)
 - **Official egui release**: Hallinta 0.8.0 completes the move from Tauri to a
   native Rust egui/eframe desktop application.

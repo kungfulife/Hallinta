@@ -7,7 +7,22 @@ use std::time::Instant;
 impl HallintaApp {
     // ── Save Monitor ───────────────────────────────────────────────────
 
+    pub(crate) fn can_start_save_monitor(&self) -> bool {
+        self.is_noita_sync_live()
+            && !self.backup_state.in_progress
+            && !self.backup_state.restoring
+            && !self.save_monitor.snapshot_in_flight
+    }
+
     pub fn start_save_monitor(&mut self) {
+        if !self.can_start_save_monitor() {
+            self.active_modal = Some(Modal::Info {
+                title: "Monitor Unavailable".to_string(),
+                message: "Resolve the Noita configuration before starting Save Monitor."
+                    .to_string(),
+            });
+            return;
+        }
         let preset = self.selected_preset.clone();
         let tx = self.task_tx.clone();
         self.async_runtime.spawn(async move {
@@ -30,6 +45,14 @@ impl HallintaApp {
     }
 
     pub fn start_new_monitor_session(&mut self, name: Option<&str>) {
+        if !self.can_start_save_monitor() {
+            self.active_modal = Some(Modal::Info {
+                title: "Monitor Unavailable".to_string(),
+                message: "Resolve the Noita configuration before starting Save Monitor."
+                    .to_string(),
+            });
+            return;
+        }
         let name = name
             .map(str::trim)
             .filter(|n| !n.is_empty())
@@ -82,6 +105,14 @@ impl HallintaApp {
     }
 
     pub fn resume_monitor_session_for(&mut self, preset: &str, session_id: &str) {
+        if !self.can_start_save_monitor() {
+            self.active_modal = Some(Modal::Info {
+                title: "Monitor Unavailable".to_string(),
+                message: "Resolve the Noita configuration before resuming Save Monitor."
+                    .to_string(),
+            });
+            return;
+        }
         let preset = preset.to_string();
         match save_monitor::load_session(&preset, session_id) {
             Ok(mut session) => {

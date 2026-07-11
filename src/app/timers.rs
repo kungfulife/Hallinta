@@ -1,6 +1,6 @@
 use super::HallintaApp;
 use crate::core::{file_watcher, logging, mods, platform};
-use crate::models::{ModEntry, Modal};
+use crate::models::{ModEntry, Modal, NoitaSyncState};
 use eframe::egui;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -86,18 +86,23 @@ impl HallintaApp {
     fn check_external_changes(&mut self) {
         let noita_dir = self.settings.noita_dir.clone();
         if !platform::is_configured_path(&noita_dir) {
-            self.noita_directory_error = Some(super::noita_directory_error_message(&noita_dir, ""));
+            self.enter_configuration_only(super::noita_directory_error_message(&noita_dir, ""));
+            return;
+        }
+        if self.noita_sync_state == NoitaSyncState::ReconciliationPending {
             return;
         }
         let dir = PathBuf::from(&noita_dir);
         let config_path = dir.join("mod_config.xml");
-        let recovering = self.noita_directory_error.is_some();
+        let recovering = self.noita_sync_state == NoitaSyncState::ConfigurationOnly
+            || self.settings.needs_noita_reconciliation;
         let new_mtime = if recovering {
             match mods::get_file_modified_time(&config_path) {
                 Ok(mtime) => mtime,
                 Err(error) => {
-                    self.noita_directory_error =
-                        Some(super::noita_directory_error_message(&noita_dir, &error));
+                    self.enter_configuration_only(super::noita_directory_error_message(
+                        &noita_dir, &error,
+                    ));
                     return;
                 }
             }
@@ -109,25 +114,29 @@ impl HallintaApp {
                 Ok(Some(mtime)) => mtime,
                 Ok(None) => return,
                 Err(error) => {
-                    self.noita_directory_error =
-                        Some(super::noita_directory_error_message(&noita_dir, &error));
+                    self.enter_configuration_only(super::noita_directory_error_message(
+                        &noita_dir, &error,
+                    ));
                     return;
                 }
             }
         };
 
         let file_mods = match mods::load_mod_config(&dir) {
-            Ok(file_mods) => {
-                self.noita_directory_error = None;
-                file_mods
-            }
+            Ok(file_mods) => file_mods,
             Err(error) => {
-                self.noita_directory_error =
-                    Some(super::noita_directory_error_message(&noita_dir, &error));
+                self.enter_configuration_only(super::noita_directory_error_message(
+                    &noita_dir, &error,
+                ));
                 return;
             }
         };
         self.file_watcher.last_modified_time = new_mtime;
+        if recovering {
+            self.show_noita_reconciliation(file_mods);
+            return;
+        }
+        self.noita_directory_error = None;
         self.defer_or_prompt_external_mods(file_mods);
     }
 
@@ -374,6 +383,7 @@ mod tests {
         let (_runtime, mut app) = test_app(Vec::new());
         app.save_monitor.running = true;
         app.backup_state.in_progress = true;
+        app.file_watcher.last_check = Some(Instant::now());
         app.save_monitor.pending_change_since =
             Some(Instant::now() - monitor_backup_delay(3) - Duration::from_secs(1));
         app.save_monitor.last_write_at =
@@ -390,6 +400,7 @@ mod tests {
         let (_runtime, mut app) = test_app(Vec::new());
         app.settings.noita_dir = "C:/Noita/save00".to_string();
         app.save_monitor.running = true;
+        app.file_watcher.last_check = Some(Instant::now());
         app.save_monitor.current_session = Some(crate::models::SessionInfo {
             id: "session-id".to_string(),
             name: "Session".to_string(),
@@ -421,6 +432,7 @@ mod tests {
         let (_runtime, mut app) = test_app(Vec::new());
         app.settings.noita_dir = "C:/Noita/save00".to_string();
         app.save_monitor.running = true;
+        app.file_watcher.last_check = Some(Instant::now());
         app.save_monitor.current_session = Some(crate::models::SessionInfo {
             id: "session-id".to_string(),
             name: "Session".to_string(),
@@ -455,6 +467,7 @@ mod tests {
         let (_runtime, mut app) = test_app(Vec::new());
         app.settings.noita_dir = dir.to_string_lossy().to_string();
         app.noita_directory_error = None;
+        app.save_monitor.running = true;
         std::fs::remove_file(dir.join("mod_config.xml")).unwrap();
 
         app.check_external_changes();
@@ -464,11 +477,14 @@ mod tests {
                 .as_deref()
                 .is_some_and(|error| error.contains("mod_config.xml"))
         );
+        assert_eq!(app.noita_sync_state, NoitaSyncState::ConfigurationOnly);
+        assert!(app.settings.needs_noita_reconciliation);
+        assert!(!app.save_monitor.is_running());
         std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
-    fn file_watch_clears_directory_error_when_mod_config_returns() {
+    fn file_watch_requires_reconciliation_when_mod_config_returns() {
         let dir = std::env::temp_dir().join(format!(
             "hallinta-watch-restored-config-{}",
             std::process::id()
@@ -478,12 +494,21 @@ mod tests {
         let (_runtime, mut app) = test_app(Vec::new());
         app.settings.noita_dir = dir.to_string_lossy().to_string();
         app.noita_directory_error = Some("missing".to_string());
+        app.settings.needs_noita_reconciliation = true;
+        app.noita_sync_state = crate::models::NoitaSyncState::ConfigurationOnly;
         app.file_watcher.last_modified_time =
             mods::get_file_modified_time(&dir.join("mod_config.xml")).unwrap();
 
         app.check_external_changes();
 
-        assert!(app.noita_directory_error.is_none());
+        assert_eq!(
+            app.noita_sync_state,
+            crate::models::NoitaSyncState::ReconciliationPending
+        );
+        assert!(matches!(
+            app.active_modal,
+            Some(Modal::NoitaReconciliation { .. })
+        ));
         std::fs::remove_dir_all(&dir).ok();
     }
 

@@ -537,6 +537,7 @@ fn default_settings() -> AppSettings {
         ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
         last_filter_mode: String::new(),
         last_sort_mode: String::new(),
+        needs_noita_reconciliation: false,
     }
 }
 

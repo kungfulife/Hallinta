@@ -1,6 +1,6 @@
 use super::HallintaApp;
 use crate::models::{
-    AppSettings, BackupState, FileWatcherState, FilterMode, LogSettings, ModEntry,
+    AppSettings, BackupState, FileWatcherState, FilterMode, LogSettings, ModEntry, NoitaSyncState,
     SaveMonitorSettings, SaveMonitorState, SortMode, View,
 };
 use std::collections::BTreeMap;
@@ -29,6 +29,7 @@ fn default_settings() -> AppSettings {
         ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
         last_filter_mode: String::new(),
         last_sort_mode: String::new(),
+        needs_noita_reconciliation: false,
     }
 }
 
@@ -47,6 +48,7 @@ pub(crate) fn test_app(current_mods: Vec<ModEntry>) -> (tokio::runtime::Runtime,
         compact_mode: false,
         dark_mode: false,
         noita_directory_error: None,
+        noita_sync_state: NoitaSyncState::Live,
         #[cfg(debug_assertions)]
         preview_noita_directory_warning: false,
         active_modal: None,

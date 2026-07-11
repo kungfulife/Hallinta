@@ -21,6 +21,7 @@ Fast navigation notes for agents and maintainers.
 - `lifecycle.rs`: `eframe::App` update loop and shutdown cleanup.
 - `modal_actions.rs`: confirm/input/checklist/missing-mod modal action handlers.
 - `monitor.rs`: save monitor session lifecycle and snapshot scheduling.
+- `noita_sync.rs`: configuration-only state, durable recovery flag, and two-choice Noita reconciliation.
 - `sorting.rs`: reusable mod sort helper.
 - `task_results.rs`: UI-thread handling for completed async work.
 - `timers.rs`: mtime-gated file-watch polling, invalid-Noita recovery checks, and save-monitor change-detection scans.
@@ -46,7 +47,8 @@ Fast navigation notes for agents and maintainers.
 - `src/ui/compact.rs`: compact four-action monitor/backup/session layout.
 - `src/ui/settings.rs`: settings view and path/appearance/logging/save-monitor controls.
 - `src/ui/modals.rs`: modal rendering; behavior lives in `src/app/modal_actions.rs`.
-- `src/ui/noita_warning.rs`: persistent invalid-Noita-directory warning and Settings guidance.
+- `src/ui/noita_reconciliation.rs`: required recovery choice between the selected preset and detected Noita setup.
+- `src/ui/noita_warning.rs`: persistent configuration-only warning and Settings guidance.
 - `src/ui/context_menu.rs`: mod row context actions.
 - `src/ui/design.rs`, `src/ui/theme.rs`: spacing, sizing, zoom, colors.
 

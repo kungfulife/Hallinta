@@ -9,4 +9,4 @@ Running `cargo run` enables these development-build changes:
 
 ## Debug-only previews
 
-- **Actions > Preview > Preview Noita Warning** temporarily shows the invalid-Noita banner and workspace tint. **End Warning Preview** clears the simulation. Neither action changes configured paths or the real directory-error state.
+- **Actions > Preview > Preview Noita Warning** temporarily shows the invalid-Noita banner and workspace tint. **End Warning Preview** clears the simulation. This is visual-only: it does not change configured paths, the real directory-error state, or Noita sync behavior.

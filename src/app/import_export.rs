@@ -212,7 +212,7 @@ impl HallintaApp {
             data_dir.join("presets.json"),
             data_dir.join("settings.json"),
         ];
-        if platform::is_configured_path(&self.settings.noita_dir) {
+        if self.is_noita_sync_live() && platform::is_configured_path(&self.settings.noita_dir) {
             persistence_paths.push(PathBuf::from(&self.settings.noita_dir).join("mod_config.xml"));
         }
 
