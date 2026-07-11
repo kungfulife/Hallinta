@@ -80,7 +80,9 @@ jobs:
           } else {
             gh release create "${{ steps.identity.outputs.tag }}" --draft --verify-tag --title "Hallinta ${{ steps.identity.outputs.tag }}" --notes-file "${{ steps.identity.outputs.notes_file }}"
           }
+          if ($LASTEXITCODE -ne 0) { throw "Could not create the draft release" }
           gh release upload "${{ steps.identity.outputs.tag }}" $env:ASSET_NAME
+          if ($LASTEXITCODE -ne 0) { throw "Could not upload $env:ASSET_NAME" }
 
       - name: Verify GitHub asset digest
         shell: pwsh
@@ -88,16 +90,27 @@ jobs:
           $local = (Get-FileHash -Algorithm SHA256 -LiteralPath $env:ASSET_NAME).Hash.ToLowerInvariant()
           $asset = $null
           for ($attempt = 1; $attempt -le 12; $attempt++) {
-            $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/${{ steps.identity.outputs.tag }}" | ConvertFrom-Json
+            # GitHub's release-by-tag endpoint omits drafts, so locate the
+            # authenticated draft through the releases collection.
+            $releases = @(gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" | ConvertFrom-Json)
+            if ($LASTEXITCODE -ne 0) { throw "Could not list GitHub releases" }
+            $matches = @($releases | Where-Object { $_.tag_name -eq "${{ steps.identity.outputs.tag }}" -and $_.draft -eq $true })
+            if ($matches.Count -gt 1) { throw "Found multiple drafts for ${{ steps.identity.outputs.tag }}" }
+            if ($matches.Count -eq 0) {
+              if ($attempt -eq 12) { throw "GitHub did not return the draft release after 60 seconds" }
+              Start-Sleep -Seconds 5
+              continue
+            }
+            $release = $matches[0]
             $assets = @($release.assets | Where-Object { $_.name -eq $env:ASSET_NAME })
-            if ($assets.Count -ne 1) { throw "Expected exactly one $env:ASSET_NAME asset; found $($assets.Count)" }
-            if ($assets[0].digest -and $assets[0].digest.StartsWith("sha256:")) {
+            if ($assets.Count -gt 1) { throw "Found multiple $env:ASSET_NAME assets" }
+            if ($assets.Count -eq 1 -and $assets[0].digest -match '^sha256:[0-9a-fA-F]{64}$') {
               $asset = $assets[0]
               break
             }
             Start-Sleep -Seconds 5
           }
-          if (-not $asset) { throw "GitHub did not provide a SHA-256 digest after 60 seconds" }
+          if (-not $asset) { throw "GitHub did not provide one exact asset with a valid SHA-256 digest after 60 seconds" }
           $remote = $asset.digest.Substring(7).ToLowerInvariant()
           if ($local -ne $remote) { throw "Uploaded asset digest mismatch: local=$local GitHub=$remote" }
 
