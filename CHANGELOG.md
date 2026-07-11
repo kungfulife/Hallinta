@@ -8,6 +8,13 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 - **Guards**: Save Monitor, Noita-facing backups/restores, and Open XML stay blocked until configuration is valid; an active monitor stops if configuration disappears.
 - **Reliability**: File-watch recovery no longer rewrites settings every poll; whitespace-only paths are treated as unconfigured; broader regression coverage.
 
+## 0.8.1 (2026-07-11)
+- **In-app updates**: Official Windows release builds can check GitHub Releases, download with progress/cancel, verify the asset, and replace the portable executable in place with rollback if startup fails.
+- **Update safety**: Active Save Monitor sessions take a final snapshot before update and resume afterward; a snapshot failure aborts the update and keeps Hallinta open.
+- **Save Monitor and backups**: Improved snapshot scheduling, live session refresh, backup workflows, interrupted-session recovery, and invalid save-data handling. Mod editing stays available during monitoring with deferred external-change prompts.
+- **Interface**: Refined normal/compact layouts, aligned action rows, and clearer monitoring controls.
+- **Install note**: 0.8.1 is the first self-updating release — install that portable build manually once; later official releases can update it in place.
+
 ## 0.8.0 (2026-07-11)
 - **Official egui release**: Hallinta 0.8.0 completes the move from Tauri to a
   native Rust egui/eframe desktop application.
