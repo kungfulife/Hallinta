@@ -79,7 +79,7 @@ pub fn load_settings() -> Result<AppSettings, String> {
     let mut dirty = false;
 
     // Auto-detect any missing paths on load (all build modes).
-    if settings.noita_dir.trim().is_empty()
+    if !platform::is_configured_path(&settings.noita_dir)
         && let Ok(p) = platform::get_noita_save_path()
     {
         settings.noita_dir = p.to_string_lossy().to_string();

@@ -35,6 +35,10 @@ pub fn get_app_settings_dir() -> Result<PathBuf, String> {
     get_data_dir()
 }
 
+pub fn is_configured_path(path: &str) -> bool {
+    !path.trim().is_empty()
+}
+
 pub fn get_noita_save_path() -> Result<PathBuf, String> {
     #[cfg(target_os = "windows")]
     {
@@ -340,6 +344,13 @@ mod tests {
     #[test]
     fn normal_test_build_is_not_distribution_build() {
         assert!(!is_dist_build());
+    }
+
+    #[test]
+    fn configured_path_rejects_empty_and_whitespace_only_values() {
+        assert!(!is_configured_path(""));
+        assert!(!is_configured_path("  \t  "));
+        assert!(is_configured_path("C:/Noita/save00"));
     }
 
     #[test]

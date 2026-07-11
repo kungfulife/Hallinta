@@ -13,9 +13,14 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     }
 
     if app.current_mods.is_empty() {
+        let empty_message = if app.visible_noita_directory_error().is_some() {
+            "Mod list unavailable until the Noita directory is fixed."
+        } else {
+            "No mods are listed in this mod_config.xml."
+        };
         ui.centered_and_justified(|ui| {
             ui.label(
-                egui::RichText::new("No mods are listed in this mod_config.xml.")
+                egui::RichText::new(empty_message)
                     .size(d.font_heading)
                     .italics(),
             );
@@ -535,4 +540,59 @@ fn draw_badge(ui: &mut egui::Ui, text: &str, bg: egui::Color32, d: &crate::ui::d
                     .strong(),
             );
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::test_support::test_app;
+
+    fn text_from_shape(shape: &egui::epaint::Shape) -> Vec<String> {
+        match shape {
+            egui::epaint::Shape::Text(text) => vec![text.galley.text().to_string()],
+            egui::epaint::Shape::Vec(shapes) => shapes.iter().flat_map(text_from_shape).collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    fn render_empty_state(error: Option<&str>) -> Vec<String> {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.noita_directory_error = error.map(str::to_string);
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(Default::default(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| render_mod_list(&mut app, ui));
+        });
+        output
+            .shapes
+            .iter()
+            .flat_map(|shape| text_from_shape(&shape.shape))
+            .collect()
+    }
+
+    #[test]
+    fn invalid_directory_empty_state_does_not_claim_the_config_is_empty() {
+        let labels = render_empty_state(Some("mod_config.xml is missing"));
+
+        assert!(
+            labels
+                .iter()
+                .any(|label| label == "Mod list unavailable until the Noita directory is fixed.")
+        );
+        assert!(
+            labels
+                .iter()
+                .all(|label| label != "No mods are listed in this mod_config.xml.")
+        );
+    }
+
+    #[test]
+    fn valid_empty_configuration_reports_that_no_mods_are_listed() {
+        let labels = render_empty_state(None);
+
+        assert!(
+            labels
+                .iter()
+                .any(|label| label == "No mods are listed in this mod_config.xml.")
+        );
+    }
 }

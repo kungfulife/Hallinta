@@ -5,7 +5,7 @@ Fast navigation notes for agents and maintainers.
 ## First Stops
 
 - `src/main.rs`: process bootstrap, panic hook, log session start, single-instance lock, eframe launch.
-- `src/app.rs`: `HallintaApp` state shape and constructor. It wires startup loading, initial UI scale/theme, and async channels.
+- `src/app.rs`: `HallintaApp` state shape and constructor. It wires startup loading, initial UI scale/theme, async channels, and `noita_directory_error` state.
 - `src/tasks.rs`: async result enum sent back to the UI thread.
 - `src/models.rs`: shared data models, settings structs, UI enums, modal/action payloads.
 
@@ -13,7 +13,7 @@ Fast navigation notes for agents and maintainers.
 
 `src/app/` contains split `impl HallintaApp` blocks. Start here when tracing user workflows:
 
-- `actions.rs`: preset switching, mod config writes, settings reactions, filter/sort state, open `mod_config.xml`.
+- `actions.rs`: preset switching, mod config writes/reloads, Noita validity refresh, settings reactions, filter/sort state, open `mod_config.xml`.
 - `async_tasks.rs`: fire-and-forget task dispatchers for backups, monitor session lists, snapshots, workshop checks, and data clearing.
 - `backup_actions.rs`: named backup creation plus centralized backup/session manager and restore entry points.
 - `import_export.rs`: mod list import/export and preset import/export preparation.
@@ -23,11 +23,11 @@ Fast navigation notes for agents and maintainers.
 - `monitor.rs`: save monitor session lifecycle and snapshot scheduling.
 - `sorting.rs`: reusable mod sort helper.
 - `task_results.rs`: UI-thread handling for completed async work.
-- `timers.rs`: file-watch polling and save-monitor change-detection scans.
+- `timers.rs`: mtime-gated file-watch polling, invalid-Noita recovery checks, and save-monitor change-detection scans.
 
 ## Domain Logic
 
-- `src/core/mods.rs`: `mod_config.xml` read/write/parse/serialize.
+- `src/core/mods.rs`: `mod_config.xml` read/write/load/parse/serialize.
 - `src/core/presets.rs`: preset JSON load/save/validation.
 - `src/core/backup.rs`: backup archive creation, restore, delete, content inspection.
 - `src/core/save_monitor.rs`: monitor sessions and snapshot file management.
@@ -41,7 +41,7 @@ Fast navigation notes for agents and maintainers.
 ## UI Modules
 
 - `src/ui/header.rs`: top navigation, search, preset controls, global buttons.
-- `src/ui/sidebar.rs`: dense normal-mode Session & Safety, Mod Files, and Presets action console.
+- `src/ui/sidebar.rs`: dense normal-mode action console plus the debug-only Noita warning preview control.
 - `src/ui/mod_list.rs`: main mod list, filters, sorting controls, monitor edit notice.
 - `src/ui/compact.rs`: compact four-action monitor/backup/session layout.
 - `src/ui/settings.rs`: settings view and path/appearance/logging/save-monitor controls.

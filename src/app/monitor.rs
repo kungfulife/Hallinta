@@ -1,5 +1,5 @@
 use super::HallintaApp;
-use crate::core::{logging, save_monitor};
+use crate::core::{logging, platform, save_monitor};
 use crate::models::{InputAction, Modal, SessionStatus};
 use crate::tasks::TaskResult;
 use std::time::Instant;
@@ -156,7 +156,7 @@ impl HallintaApp {
 
     pub(super) fn check_save_monitor_changes(&mut self) {
         let noita_dir = self.settings.noita_dir.clone();
-        if noita_dir.is_empty() {
+        if !platform::is_configured_path(&noita_dir) {
             return;
         }
         let include_save01 = self.settings.save_monitor_settings.include_save01;
@@ -207,7 +207,7 @@ impl HallintaApp {
         }
 
         let noita_dir = self.settings.noita_dir.clone();
-        if noita_dir.is_empty() {
+        if !platform::is_configured_path(&noita_dir) {
             return Err("No Noita save directory is configured".into());
         }
         let (preset_name, session_id) = match &self.save_monitor.current_session {

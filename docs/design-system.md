@@ -18,6 +18,7 @@ Three concerns, two files:
 
 - **Purple is the accent color.** Row stripes, selection, badges, drag indicators.
 - **Semantic colors stay fixed:** red for missing/danger, green for toggle-on/status-ok. Mode-independent.
+- **Invalid Noita configuration uses amber:** `warning_fill`, `warning_border`, and `warning_text` render the banner; `warning_workspace_fill` adds the matching workspace tint. Each token has dark/light values.
 - **Dark mode uses `override_text_color`** in theme.rs to brighten base text. Light mode does not.
 - **Light mode needs lower alpha.** Same RGB values that look good in dark mode become stained/muddy in light mode. Light mode row colors use roughly half the alpha of dark mode equivalents.
 

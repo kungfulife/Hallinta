@@ -1,5 +1,5 @@
 use super::HallintaApp;
-use crate::core::{file_watcher, logging, mods};
+use crate::core::{file_watcher, logging, mods, platform};
 use crate::models::{ModEntry, Modal};
 use eframe::egui;
 use std::collections::BTreeMap;
@@ -85,11 +85,37 @@ impl HallintaApp {
 
     fn check_external_changes(&mut self) {
         let noita_dir = self.settings.noita_dir.clone();
-        if noita_dir.trim().is_empty() {
+        if !platform::is_configured_path(&noita_dir) {
             self.noita_directory_error = Some(super::noita_directory_error_message(&noita_dir, ""));
             return;
         }
         let dir = PathBuf::from(&noita_dir);
+        let config_path = dir.join("mod_config.xml");
+        let recovering = self.noita_directory_error.is_some();
+        let new_mtime = if recovering {
+            match mods::get_file_modified_time(&config_path) {
+                Ok(mtime) => mtime,
+                Err(error) => {
+                    self.noita_directory_error =
+                        Some(super::noita_directory_error_message(&noita_dir, &error));
+                    return;
+                }
+            }
+        } else {
+            match file_watcher::check_for_external_changes(
+                &dir,
+                self.file_watcher.last_modified_time,
+            ) {
+                Ok(Some(mtime)) => mtime,
+                Ok(None) => return,
+                Err(error) => {
+                    self.noita_directory_error =
+                        Some(super::noita_directory_error_message(&noita_dir, &error));
+                    return;
+                }
+            }
+        };
+
         let file_mods = match mods::load_mod_config(&dir) {
             Ok(file_mods) => {
                 self.noita_directory_error = None;
@@ -101,12 +127,8 @@ impl HallintaApp {
                 return;
             }
         };
-        if let Some(new_mtime) =
-            file_watcher::check_for_external_changes(&dir, self.file_watcher.last_modified_time)
-        {
-            self.file_watcher.last_modified_time = new_mtime;
-            self.defer_or_prompt_external_mods(file_mods);
-        }
+        self.file_watcher.last_modified_time = new_mtime;
+        self.defer_or_prompt_external_mods(file_mods);
     }
 
     pub(super) fn defer_or_prompt_external_mods(&mut self, file_mods: Vec<ModEntry>) {
@@ -456,10 +478,35 @@ mod tests {
         let (_runtime, mut app) = test_app(Vec::new());
         app.settings.noita_dir = dir.to_string_lossy().to_string();
         app.noita_directory_error = Some("missing".to_string());
+        app.file_watcher.last_modified_time =
+            mods::get_file_modified_time(&dir.join("mod_config.xml")).unwrap();
 
         app.check_external_changes();
 
         assert!(app.noita_directory_error.is_none());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn file_watch_does_not_parse_an_unchanged_healthy_configuration() {
+        let dir = std::env::temp_dir().join(format!(
+            "hallinta-watch-unchanged-config-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("mod_config.xml"), "<Mods><Mod name=\"broken\"").unwrap();
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.noita_dir = dir.to_string_lossy().to_string();
+        app.noita_directory_error = None;
+        app.file_watcher.last_modified_time =
+            mods::get_file_modified_time(&dir.join("mod_config.xml")).unwrap();
+
+        app.check_external_changes();
+
+        assert!(
+            app.noita_directory_error.is_none(),
+            "unchanged healthy polling should stop at the mtime check"
+        );
         std::fs::remove_dir_all(&dir).ok();
     }
 }

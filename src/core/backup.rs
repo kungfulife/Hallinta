@@ -1,5 +1,5 @@
-use crate::core::logging;
 use crate::core::settings::get_data_dir;
+use crate::core::{logging, platform};
 use crate::models::{AppSettings, BackupInfo, ModEntry, RestoreOptions};
 use chrono::Utc;
 use std::collections::BTreeMap;
@@ -87,7 +87,7 @@ pub fn add_directory_to_zip(
 }
 
 fn validate_save00_source(noita_dir: &Path) -> Result<(), String> {
-    if noita_dir.as_os_str().is_empty() {
+    if !platform::is_configured_path(&noita_dir.to_string_lossy()) {
         return Err(
             "No Noita save directory configured; set it in Settings before creating backups"
                 .to_string(),
@@ -561,7 +561,7 @@ pub fn create_upgrade_backup(
         .map_err(|e| format!("Failed to write presets to zip: {}", e))?;
 
     let noita_dir = &settings.noita_dir;
-    if !noita_dir.is_empty() {
+    if platform::is_configured_path(noita_dir) {
         let save00_path = PathBuf::from(noita_dir);
         if save00_path.exists() {
             add_directory_to_zip(&mut zip, &save00_path, "save00")?;

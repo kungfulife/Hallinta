@@ -156,7 +156,9 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                         app.settings.noita_dir = path.to_string_lossy().to_string();
                         noita_dir_lost_focus = true;
                     }
-                    if !app.settings.noita_dir.is_empty() && ui.button("Open").clicked() {
+                    if crate::core::platform::is_configured_path(&app.settings.noita_dir)
+                        && ui.button("Open").clicked()
+                    {
                         let _ = crate::core::platform::open_directory(std::path::Path::new(
                             &app.settings.noita_dir,
                         ));

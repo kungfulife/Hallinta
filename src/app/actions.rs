@@ -47,7 +47,7 @@ impl HallintaApp {
             .insert(self.selected_preset.clone(), self.current_mods.clone());
 
         let noita_dir = self.settings.noita_dir.clone();
-        if !noita_dir.is_empty() {
+        if platform::is_configured_path(&noita_dir) {
             let xml = mods::mods_to_xml(&self.current_mods);
             match mods::write_mod_config(&PathBuf::from(&noita_dir), &xml) {
                 Ok(()) => {
@@ -265,7 +265,7 @@ impl HallintaApp {
 
     pub fn reload_mods(&mut self) {
         let noita_dir = self.settings.noita_dir.clone();
-        if noita_dir.trim().is_empty() {
+        if !platform::is_configured_path(&noita_dir) {
             self.noita_directory_error = Some(super::noita_directory_error_message(&noita_dir, ""));
             return;
         }
@@ -390,7 +390,7 @@ impl HallintaApp {
 
     pub fn open_mod_config_file(&self) {
         let noita_dir = self.settings.noita_dir.clone();
-        if noita_dir.is_empty() {
+        if !platform::is_configured_path(&noita_dir) {
             return;
         }
         let config_path = PathBuf::from(&noita_dir).join("mod_config.xml");
@@ -464,6 +464,19 @@ mod tests {
 
         assert!(error.contains("mod_config.xml"));
         assert_eq!(app.settings.selected_preset, "Changed");
+    }
+
+    #[test]
+    fn whitespace_noita_path_is_treated_as_unconfigured_when_saving() {
+        let (_runtime, mut app) = test_app(vec![mod_entry("Alpha", true, "1")]);
+        app.settings.noita_dir = "  \t  ".to_string();
+
+        let result = app.try_save_mod_config_and_preset();
+
+        assert!(
+            result.is_ok(),
+            "preset persistence should not attempt a whitespace filesystem path: {result:?}"
+        );
     }
 
     #[test]

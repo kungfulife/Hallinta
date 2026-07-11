@@ -151,7 +151,7 @@ impl HallintaApp {
             .unwrap_or_default();
 
         let mut noita_directory_error = None;
-        if !noita_dir.trim().is_empty() {
+        if platform::is_configured_path(&noita_dir) {
             let noita_path = PathBuf::from(&noita_dir);
             match mods::load_mod_config(&noita_path) {
                 Ok(file_mods) => {
@@ -219,7 +219,7 @@ impl HallintaApp {
 
         // File watcher: get initial mtime
         let mut file_watcher_state = FileWatcherState::new();
-        if !noita_dir.is_empty() {
+        if platform::is_configured_path(&noita_dir) {
             let config_path = PathBuf::from(&noita_dir).join("mod_config.xml");
             if let Ok(mtime) = mods::get_file_modified_time(&config_path) {
                 file_watcher_state.last_modified_time = mtime;
