@@ -11,6 +11,10 @@ pub fn is_dev_build() -> bool {
     cfg!(debug_assertions)
 }
 
+pub fn is_dist_build() -> bool {
+    !is_dev_build() && env!("HALLINTA_DIST_BUILD").eq_ignore_ascii_case("true")
+}
+
 pub fn get_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
@@ -331,6 +335,11 @@ mod tests {
         let v = get_version();
         assert!(!v.is_empty(), "version string must not be empty");
         assert!(v.contains('.'), "version should contain dots: {}", v);
+    }
+
+    #[test]
+    fn normal_test_build_is_not_distribution_build() {
+        assert!(!is_dist_build());
     }
 
     #[test]

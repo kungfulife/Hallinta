@@ -64,7 +64,7 @@ impl HallintaApp {
                     preset, name
                 ));
                 self.refresh_restore_manager_if_open();
-                self.take_monitor_snapshot();
+                let _ = self.take_monitor_snapshot();
             }
             Err(e) => {
                 let _ = logging::log(
@@ -78,8 +78,16 @@ impl HallintaApp {
 
     pub fn resume_monitor_session(&mut self, session_id: &str) {
         let preset = self.selected_preset.clone();
+        self.resume_monitor_session_for(&preset, session_id);
+    }
+
+    pub fn resume_monitor_session_for(&mut self, preset: &str, session_id: &str) {
+        let preset = preset.to_string();
         match save_monitor::load_session(&preset, session_id) {
             Ok(mut session) => {
+                self.selected_preset = preset.clone();
+                self.settings.selected_preset = preset.clone();
+                self.save_current_settings();
                 session.status = SessionStatus::Monitoring;
                 let _ = save_monitor::save_session(&session);
                 self.save_monitor.running = true;
@@ -136,9 +144,14 @@ impl HallintaApp {
     }
 
     pub(crate) fn can_start_monitor_snapshot(&self) -> bool {
+        self.can_start_monitor_snapshot_inner(false)
+    }
+
+    fn can_start_monitor_snapshot_inner(&self, bypass_update_freeze: bool) -> bool {
         !self.save_monitor.snapshot_in_flight
             && !self.backup_state.in_progress
             && !self.backup_state.restoring
+            && (bypass_update_freeze || !self.update_state.snapshot_freeze)
     }
 
     pub(super) fn check_save_monitor_changes(&mut self) {
@@ -180,20 +193,27 @@ impl HallintaApp {
         }
     }
 
-    pub(super) fn take_monitor_snapshot(&mut self) {
-        if !self.can_start_monitor_snapshot() {
-            return;
+    pub(super) fn take_monitor_snapshot(&mut self) -> Result<u64, String> {
+        self.take_monitor_snapshot_inner(false)
+    }
+
+    pub(super) fn take_update_final_snapshot(&mut self) -> Result<u64, String> {
+        self.take_monitor_snapshot_inner(true)
+    }
+
+    fn take_monitor_snapshot_inner(&mut self, bypass_update_freeze: bool) -> Result<u64, String> {
+        if !self.can_start_monitor_snapshot_inner(bypass_update_freeze) {
+            return Err("A backup, restore, snapshot, or update snapshot freeze is active".into());
         }
 
         let noita_dir = self.settings.noita_dir.clone();
         if noita_dir.is_empty() {
-            return;
+            return Err("No Noita save directory is configured".into());
         }
-        let session_id = match &self.save_monitor.current_session {
-            Some(s) => s.id.clone(),
-            None => return,
+        let (preset_name, session_id) = match &self.save_monitor.current_session {
+            Some(session) => (session.preset_name.clone(), session.id.clone()),
+            None => return Err("No monitor session is active".into()),
         };
-        let preset_name = self.selected_preset.clone();
         let include_save01 = self.settings.save_monitor_settings.include_save01;
         let include_entangled = self.settings.save_monitor_settings.include_entangled;
         let entangled_dir = if include_entangled {
@@ -202,7 +222,11 @@ impl HallintaApp {
             None
         };
         let tx = self.task_tx.clone();
+        self.save_monitor.next_snapshot_request_id =
+            self.save_monitor.next_snapshot_request_id.saturating_add(1);
+        let request_id = self.save_monitor.next_snapshot_request_id;
         self.save_monitor.snapshot_in_flight = true;
+        self.save_monitor.snapshot_request_id = Some(request_id);
 
         self.async_runtime.spawn(async move {
             let result = tokio::task::spawn_blocking(move || {
@@ -217,8 +241,9 @@ impl HallintaApp {
             })
             .await
             .unwrap_or_else(|e| Err(format!("Snapshot task failed: {}", e)));
-            let _ = tx.send(TaskResult::SnapshotComplete(result));
+            let _ = tx.send(TaskResult::SnapshotComplete { request_id, result });
         });
+        Ok(request_id)
     }
 }
 
@@ -250,7 +275,7 @@ mod tests {
         app.save_monitor.current_session = Some(test_session());
         app.backup_state.in_progress = true;
 
-        app.take_monitor_snapshot();
+        let _ = app.take_monitor_snapshot();
 
         assert!(!app.save_monitor.snapshot_in_flight);
     }
@@ -286,6 +311,18 @@ mod tests {
         );
 
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn update_snapshot_freeze_blocks_ordinary_snapshot_start() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+        app.update_state.snapshot_freeze = true;
+
+        let result = app.take_monitor_snapshot();
+
+        assert!(result.is_err());
+        assert!(!app.save_monitor.snapshot_in_flight);
     }
 
     #[test]

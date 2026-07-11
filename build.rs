@@ -60,6 +60,21 @@ const ATTRIBUTED_LIBS: &[(&str, &str, &str)] = &[
         "https://crates.io/crates/walkdir",
     ),
     ("sha2", "SHA-256 checksums", "https://crates.io/crates/sha2"),
+    (
+        "reqwest",
+        "HTTPS update downloads",
+        "https://crates.io/crates/reqwest",
+    ),
+    (
+        "semver",
+        "Update version comparison",
+        "https://crates.io/crates/semver",
+    ),
+    (
+        "windows-sys",
+        "Windows update process and file APIs",
+        "https://crates.io/crates/windows-sys",
+    ),
 ];
 
 fn command_output(cmd: &str, args: &[&str]) -> String {
@@ -112,6 +127,10 @@ fn main() {
     println!("cargo:rustc-env=HALLINTA_CARGO_VERSION={cargo_version}");
     println!("cargo:rustc-env=HALLINTA_TARGET={target}");
     println!("cargo:rustc-env=HALLINTA_PROFILE={profile}");
+    let dist_build =
+        std::env::var("HALLINTA_DIST_BUILD").is_ok_and(|value| value.eq_ignore_ascii_case("true"));
+    println!("cargo:rustc-env=HALLINTA_DIST_BUILD={dist_build}");
+    println!("cargo:rerun-if-env-changed=HALLINTA_DIST_BUILD");
 
     // Generate open-source library list with actual versions from Cargo.lock (BUG-4 fix)
     let lock_versions = parse_cargo_lock_versions();

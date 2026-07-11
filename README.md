@@ -92,6 +92,12 @@ A mod manager for Noita with preset support, backup/restore, and a structured lo
 
 ## Setup
 
+### Windows 11 download
+
+Download `Hallinta-x86_64-pc-windows-msvc.exe` from the [latest GitHub Release](https://github.com/kungfulife/Hallinta/releases/latest) and place it in any writable folder. Hallinta is portable: no installer is required.
+
+Version 0.8.1 must be installed manually once. Official release builds then check GitHub Releases at startup and can update the same executable in place. Downloads are SHA-256 verified; active Save Monitor sessions receive a final snapshot before restart and resume afterward.
+
 ### First Run
 1. Launch Hallinta
 2. Application automatically detects Noita save directory (Windows)

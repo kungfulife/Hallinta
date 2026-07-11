@@ -147,10 +147,13 @@ impl HallintaApp {
                 }
                 self.close_requested = true;
                 self.close_after_snapshot = true;
-                if !self.save_monitor.snapshot_in_flight {
-                    self.take_monitor_snapshot();
-                }
-                if !self.save_monitor.snapshot_in_flight {
+                let request_id = if self.save_monitor.snapshot_in_flight {
+                    self.save_monitor.snapshot_request_id
+                } else {
+                    self.take_monitor_snapshot().ok()
+                };
+                self.pending_close_snapshot_id = request_id;
+                if request_id.is_none() {
                     self.close_requested = false;
                     self.close_after_snapshot = false;
                     self.active_modal = Some(Modal::Info {

@@ -455,6 +455,8 @@ pub struct SaveMonitorState {
     /// Most recent mtime advance in the current cycle; used for short write-stability.
     pub last_write_at: Option<Instant>,
     pub snapshot_in_flight: bool,
+    pub snapshot_request_id: Option<u64>,
+    pub next_snapshot_request_id: u64,
     pub last_scan: Option<Instant>,
     /// Throttle for live Restore Manager refreshes while monitoring.
     pub last_restore_manager_refresh: Option<Instant>,
@@ -470,6 +472,8 @@ impl SaveMonitorState {
             pending_change_since: None,
             last_write_at: None,
             snapshot_in_flight: false,
+            snapshot_request_id: None,
+            next_snapshot_request_id: 0,
             last_scan: None,
             last_restore_manager_refresh: None,
         }
@@ -527,7 +531,7 @@ impl FileWatcherState {
 
 #[cfg(test)]
 mod log_settings_tests {
-    use super::{LogSettings, SaveMonitorSettings};
+    use super::{LogSettings, SaveMonitorSettings, UpdatePhase, UpdateState, UpdateStatus};
 
     #[test]
     fn log_settings_default_has_info_level() {
@@ -537,6 +541,112 @@ mod log_settings_tests {
     #[test]
     fn save_monitor_default_backup_delay_is_three_minutes() {
         assert_eq!(SaveMonitorSettings::default().backup_delay_minutes, 3);
+    }
+
+    #[test]
+    fn update_lock_only_covers_active_work() {
+        let mut state = UpdateState::default();
+        assert!(!state.is_locked());
+
+        state.status = UpdateStatus::Running {
+            phase: UpdatePhase::Downloading,
+            message: "Downloading".to_string(),
+            progress: Some(0.25),
+            can_cancel: true,
+        };
+        assert!(state.is_locked());
+
+        state.status = UpdateStatus::Cancelling;
+        assert!(state.is_locked());
+
+        state.status = UpdateStatus::Failed {
+            message: "offline".to_string(),
+            retryable: true,
+        };
+        assert!(!state.is_locked());
+    }
+}
+
+// ── Update State ───────────────────────────────────────────────────────────
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UpdateInfo {
+    pub version: String,
+    pub notes: String,
+    pub download_url: String,
+    pub asset_size: u64,
+    pub sha256: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UpdatePhase {
+    Downloading,
+    WaitingForSnapshot,
+    Snapshotting,
+    PreparingRestart,
+    WaitingForHelper,
+    Restarting,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum UpdateStatus {
+    Idle,
+    Checking {
+        manual: bool,
+    },
+    Available(UpdateInfo),
+    Running {
+        phase: UpdatePhase,
+        message: String,
+        progress: Option<f32>,
+        can_cancel: bool,
+    },
+    Cancelling,
+    Failed {
+        message: String,
+        retryable: bool,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MonitorResume {
+    pub preset_name: String,
+    pub session_id: String,
+}
+
+#[derive(Debug)]
+pub struct UpdateState {
+    pub status: UpdateStatus,
+    pub generation: u64,
+    pub snapshot_freeze: bool,
+    pub pending_final_snapshot_id: Option<u64>,
+    pub monitor_resume: Option<MonitorResume>,
+    pub update_restart_shutdown: bool,
+    pub cancel_token: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    pub staged_path: Option<std::path::PathBuf>,
+}
+
+impl Default for UpdateState {
+    fn default() -> Self {
+        Self {
+            status: UpdateStatus::Idle,
+            generation: 0,
+            snapshot_freeze: false,
+            pending_final_snapshot_id: None,
+            monitor_resume: None,
+            update_restart_shutdown: false,
+            cancel_token: None,
+            staged_path: None,
+        }
+    }
+}
+
+impl UpdateState {
+    pub fn is_locked(&self) -> bool {
+        matches!(
+            self.status,
+            UpdateStatus::Running { .. } | UpdateStatus::Cancelling
+        )
     }
 }
 

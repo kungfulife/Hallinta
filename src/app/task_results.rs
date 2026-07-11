@@ -9,6 +9,19 @@ impl HallintaApp {
     pub(super) fn poll_task_results(&mut self) {
         while let Ok(result) = self.task_rx.try_recv() {
             match result {
+                TaskResult::UpdateCheckComplete {
+                    generation,
+                    manual,
+                    result,
+                } => self.handle_update_check(generation, manual, result),
+                TaskResult::UpdateDownloadProgress {
+                    generation,
+                    downloaded,
+                    total,
+                } => self.handle_update_progress(generation, downloaded, total),
+                TaskResult::UpdateDownloadComplete { generation, result } => {
+                    self.handle_update_download(generation, result)
+                }
                 TaskResult::BackupComplete(res) => {
                     self.backup_state.in_progress = false;
                     let was_modal_progress =
@@ -103,10 +116,16 @@ impl HallintaApp {
                         }
                     }
                 }
-                TaskResult::SnapshotComplete(res) => {
-                    self.save_monitor.snapshot_in_flight = false;
-                    let close_was_pending = self.close_after_snapshot;
-                    match res {
+                TaskResult::SnapshotComplete { request_id, result } => {
+                    let update_snapshot =
+                        self.update_state.pending_final_snapshot_id == Some(request_id);
+                    let update_error = result.as_ref().err().cloned();
+                    if self.save_monitor.snapshot_request_id == Some(request_id) {
+                        self.save_monitor.snapshot_in_flight = false;
+                        self.save_monitor.snapshot_request_id = None;
+                    }
+                    let close_was_pending = self.pending_close_snapshot_id == Some(request_id);
+                    match result {
                         Ok(filename) => {
                             self.save_monitor.snapshot_count += 1;
                             if let Some(ref mut session) = self.save_monitor.current_session {
@@ -139,6 +158,7 @@ impl HallintaApp {
                                 });
                             }
                             if close_was_pending {
+                                self.pending_close_snapshot_id = None;
                                 self.close_after_snapshot = false;
                                 self.stop_monitor_for_close();
                             }
@@ -152,6 +172,7 @@ impl HallintaApp {
                             if close_was_pending {
                                 self.close_requested = false;
                                 self.close_after_snapshot = false;
+                                self.pending_close_snapshot_id = None;
                                 self.active_modal = Some(Modal::Info {
                                     title: "Snapshot Failed".to_string(),
                                     message: format!(
@@ -160,6 +181,13 @@ impl HallintaApp {
                                 });
                             }
                         }
+                    }
+                    if update_snapshot {
+                        self.finish_update_snapshot(
+                            request_id,
+                            update_error.is_none(),
+                            update_error.as_deref(),
+                        );
                     }
                 }
                 TaskResult::UpgradeBackupComplete(res) => {
@@ -413,11 +441,16 @@ mod tests {
         let (_runtime, mut app) = test_app(Vec::new());
         app.save_monitor.running = true;
         app.save_monitor.snapshot_in_flight = true;
+        app.save_monitor.snapshot_request_id = Some(1);
         app.close_after_snapshot = true;
+        app.pending_close_snapshot_id = Some(1);
         app.close_requested = true;
 
         app.task_tx
-            .send(TaskResult::SnapshotComplete(Ok("snapshot.zip".to_string())))
+            .send(TaskResult::SnapshotComplete {
+                request_id: 1,
+                result: Ok("snapshot.zip".to_string()),
+            })
             .expect("test task result should send");
 
         app.poll_task_results();
@@ -429,15 +462,43 @@ mod tests {
     }
 
     #[test]
+    fn unmatched_snapshot_completion_does_not_finish_pending_close() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.save_monitor.running = true;
+        app.save_monitor.snapshot_in_flight = true;
+        app.save_monitor.snapshot_request_id = Some(8);
+        app.pending_close_snapshot_id = Some(7);
+        app.close_requested = true;
+
+        app.task_tx
+            .send(TaskResult::SnapshotComplete {
+                request_id: 8,
+                result: Ok("ordinary.zip".to_string()),
+            })
+            .expect("test task result should send");
+
+        app.poll_task_results();
+
+        assert!(app.save_monitor.running);
+        assert_eq!(app.pending_close_snapshot_id, Some(7));
+        assert!(app.close_requested);
+    }
+
+    #[test]
     fn snapshot_failure_cancels_pending_close_and_keeps_monitor_running() {
         let (_runtime, mut app) = test_app(Vec::new());
         app.save_monitor.running = true;
         app.save_monitor.snapshot_in_flight = true;
+        app.save_monitor.snapshot_request_id = Some(1);
         app.close_after_snapshot = true;
+        app.pending_close_snapshot_id = Some(1);
         app.close_requested = true;
 
         app.task_tx
-            .send(TaskResult::SnapshotComplete(Err("disk full".to_string())))
+            .send(TaskResult::SnapshotComplete {
+                request_id: 1,
+                result: Err("disk full".to_string()),
+            })
             .expect("test task result should send");
 
         app.poll_task_results();
@@ -573,9 +634,10 @@ mod tests {
         });
 
         app.task_tx
-            .send(TaskResult::SnapshotComplete(Ok(
-                "snapshot_20260101_000000.zip".to_string(),
-            )))
+            .send(TaskResult::SnapshotComplete {
+                request_id: 1,
+                result: Ok("snapshot_20260101_000000.zip".to_string()),
+            })
             .expect("test task result should send");
 
         app.poll_task_results();

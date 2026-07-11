@@ -11,6 +11,32 @@ use named_lock::NamedLock;
 use std::process;
 
 fn main() {
+    let (ready_path, monitor_resume, update_error_path) = match core::updater::startup_mode() {
+        Ok(core::updater::StartupMode::Helper(args)) => {
+            if let Err(error) = core::updater::run_helper(args) {
+                eprintln!("Hallinta update failed: {error}");
+                process::exit(1);
+            }
+            return;
+        }
+        Ok(core::updater::StartupMode::Normal {
+            ready_path,
+            monitor_resume,
+            error_path,
+        }) => (ready_path, monitor_resume, error_path),
+        Err(error) => {
+            eprintln!("Hallinta startup failed: {error}");
+            process::exit(1);
+        }
+    };
+    if ready_path.is_none()
+        && update_error_path.is_none()
+        && let Ok(executable) = std::env::current_exe()
+        && let Err(error) = core::updater::wait_for_active_handoff(&executable)
+    {
+        eprintln!("Hallinta update handoff failed: {error}");
+        process::exit(1);
+    }
     // Step 1: Install panic hook
     core::logging::install_panic_logging_hook();
 
@@ -97,7 +123,15 @@ fn main() {
     let result = eframe::run_native(
         &title,
         options,
-        Box::new(move |cc| Ok(Box::new(app::HallintaApp::new(cc, rt_handle)))),
+        Box::new(move |cc| {
+            Ok(Box::new(app::HallintaApp::new(
+                cc,
+                rt_handle,
+                ready_path,
+                monitor_resume,
+                update_error_path,
+            )))
+        }),
     );
 
     if let Err(e) = result {

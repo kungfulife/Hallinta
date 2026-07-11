@@ -19,6 +19,7 @@ mod task_results;
 #[cfg(test)]
 pub(crate) mod test_support;
 mod timers;
+mod update;
 
 pub use sorting::sort_mods;
 
@@ -44,6 +45,7 @@ pub struct HallintaApp {
     pub save_monitor: SaveMonitorState,
     pub backup_state: BackupState,
     pub file_watcher: FileWatcherState,
+    pub update_state: UpdateState,
 
     // Async coordination
     pub async_runtime: tokio::runtime::Handle,
@@ -67,6 +69,9 @@ pub struct HallintaApp {
     // Track whether close was requested while monitor is running
     close_requested: bool,
     close_after_snapshot: bool,
+    pending_close_snapshot_id: Option<u64>,
+    update_handoff: Option<UpdateHandoff>,
+    startup_ready_path: Option<PathBuf>,
 
     // Keyboard / focus signals
     pub focus_search_requested: bool,
@@ -78,7 +83,13 @@ pub struct HallintaApp {
 }
 
 impl HallintaApp {
-    pub fn new(cc: &eframe::CreationContext<'_>, rt: tokio::runtime::Handle) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        rt: tokio::runtime::Handle,
+        startup_ready_path: Option<PathBuf>,
+        startup_monitor_resume: Option<MonitorResume>,
+        startup_update_error_path: Option<PathBuf>,
+    ) -> Self {
         let (task_tx, task_rx) = mpsc::channel();
 
         // Load settings
@@ -254,6 +265,7 @@ impl HallintaApp {
             save_monitor: save_monitor_state,
             backup_state,
             file_watcher: file_watcher_state,
+            update_state: UpdateState::default(),
             async_runtime: rt,
             task_tx,
             task_rx,
@@ -265,12 +277,17 @@ impl HallintaApp {
             pending_viewport_center: None,
             close_requested: false,
             close_after_snapshot: false,
+            pending_close_snapshot_id: None,
+            update_handoff: None,
+            startup_ready_path,
             focus_search_requested: false,
             was_focused: true,
         };
 
         // Start monitor if configured
-        if app.settings.save_monitor_settings.start_in_monitor_mode {
+        if let Some(resume) = startup_monitor_resume {
+            app.resume_monitor_session_for(&resume.preset_name, &resume.session_id);
+        } else if app.settings.save_monitor_settings.start_in_monitor_mode {
             app.start_save_monitor();
         }
 
@@ -279,6 +296,24 @@ impl HallintaApp {
 
         // Load backup list async
         app.load_backup_list_async();
+
+        // Distribution builds check quietly at startup. Manual checks remain
+        // available in Settings after a network failure.
+        if platform::is_dist_build() {
+            app.check_for_updates(false);
+        }
+
+        if let Some(path) = startup_update_error_path {
+            let message = std::fs::read_to_string(&path).unwrap_or_else(|error| {
+                format!("The update failed, and its detailed error could not be read: {error}")
+            });
+            let _ = std::fs::remove_file(path);
+            app.update_state.generation = app.update_state.generation.wrapping_add(1);
+            app.update_state.status = UpdateStatus::Failed {
+                message,
+                retryable: true,
+            };
+        }
 
         let _ = logging::log("INFO", "Application started", "App");
         let _ = logging::log(
@@ -294,6 +329,17 @@ impl HallintaApp {
         logging::write_session_marker(&format!("APP_INITIALIZED:v{}", platform::get_version()));
         app
     }
+}
+
+struct UpdateHandoff {
+    child: std::process::Child,
+    ack_path: PathBuf,
+    staging_path: PathBuf,
+    helper_path: PathBuf,
+    rollback_path: PathBuf,
+    ready_path: PathBuf,
+    handoff_path: PathBuf,
+    started: std::time::Instant,
 }
 
 #[derive(Clone, Copy)]

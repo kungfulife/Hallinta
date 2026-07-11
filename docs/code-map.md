@@ -34,6 +34,7 @@ Fast navigation notes for agents and maintainers.
 - `src/core/platform.rs`: OS paths, Noita/Steam/Entangled detection, build metadata, and system info.
 - `src/core/settings.rs`: app data directory choice, settings load/save, and version upgrade checks.
 - `src/core/logging.rs`: session logs, markers, panic-flush support.
+- `src/core/updater.rs`: GitHub release discovery, SHA-256 download verification, and Windows executable replacement/rollback helper.
 - `src/core/workshop.rs`: Steam Workshop install checks.
 - `src/core/file_watcher.rs`: `mod_config.xml` mtime checks.
 

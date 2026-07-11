@@ -1,11 +1,29 @@
-use crate::models::{BackupInfo, WorkshopCheckReport};
+use crate::models::{BackupInfo, UpdateInfo, WorkshopCheckReport};
+use std::path::PathBuf;
 
 /// Results from background tasks dispatched to the tokio runtime.
 #[derive(Debug)]
 pub enum TaskResult {
+    UpdateCheckComplete {
+        generation: u64,
+        manual: bool,
+        result: Result<Option<UpdateInfo>, String>,
+    },
+    UpdateDownloadProgress {
+        generation: u64,
+        downloaded: u64,
+        total: u64,
+    },
+    UpdateDownloadComplete {
+        generation: u64,
+        result: Result<PathBuf, String>,
+    },
     BackupComplete(Result<String, String>),
     RestoreComplete(Result<(), String>),
-    SnapshotComplete(Result<String, String>),
+    SnapshotComplete {
+        request_id: u64,
+        result: Result<String, String>,
+    },
     UpgradeBackupComplete(Result<(), String>),
     BackupListLoaded(Result<Vec<BackupInfo>, String>),
     SessionCheckComplete(Result<Vec<crate::models::SessionInfo>, String>),

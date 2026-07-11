@@ -33,6 +33,11 @@ impl HallintaApp {
         }
 
         self.poll_task_results();
+        self.poll_update(ctx);
+        if self.update_state.is_locked() {
+            self.handle_close(ctx);
+            return;
+        }
         self.check_timers(ctx);
         self.handle_close(ctx);
         self.handle_keyboard(ctx);
@@ -58,6 +63,9 @@ impl eframe::App for HallintaApp {
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        if self.update_state.is_locked() {
+            ui.disable();
+        }
 
         crate::ui::header::render_header(self, ui);
 
@@ -79,8 +87,10 @@ impl eframe::App for HallintaApp {
         });
 
         crate::ui::modals::render_modals(self, &ctx);
+        crate::ui::updater::render(self, &ctx);
         // Modal button actions can request app close during rendering.
         self.close_after_monitor_prompt(&ctx);
+        self.signal_startup_ready();
     }
 
     fn on_exit(&mut self) {

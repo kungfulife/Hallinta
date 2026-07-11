@@ -420,6 +420,29 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
             ui.add_space(d.lg);
 
             // ── Action Buttons ───────────────────────��─────────────────────
+            ui.group(|ui| {
+                ui.label(egui::RichText::new("Updates").strong().size(d.font_tab));
+                ui.add_space(d.sm);
+                ui.horizontal(|ui| {
+                    ui.label(format!(
+                        "Current version: v{}",
+                        crate::core::platform::get_version()
+                    ));
+                    if ui.button("Check for Updates").clicked() {
+                        app.check_for_updates(true);
+                    }
+                });
+                if !crate::core::platform::is_dist_build() {
+                    helper_text(
+                        ui,
+                        &d,
+                        "Automatic updates run only in official GitHub release builds.",
+                    );
+                }
+            });
+
+            ui.add_space(d.lg);
+
             ui.horizontal(|ui| {
                 if ui.button("Reset to Defaults").clicked() {
                     let mut defaults = default_settings();

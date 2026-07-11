@@ -103,6 +103,14 @@ impl HallintaApp {
             return;
         }
 
+        if self.update_state.update_restart_shutdown {
+            return;
+        }
+        if self.update_state.is_locked() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            return;
+        }
+
         if self.close_requested || self.close_after_snapshot {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             return;

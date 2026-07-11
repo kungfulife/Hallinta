@@ -7,4 +7,5 @@ pub mod platform;
 pub mod presets;
 pub mod save_monitor;
 pub mod settings;
+pub mod updater;
 pub mod workshop;

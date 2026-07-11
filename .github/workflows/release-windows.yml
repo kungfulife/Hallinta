@@ -1,0 +1,115 @@
+name: Release Windows
+
+on:
+  push:
+    tags:
+      - "v[0-9]*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-verify-release:
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      ASSET_NAME: Hallinta-x86_64-pc-windows-msvc.exe
+      GH_TOKEN: ${{ github.token }}
+      IS_VALIDATION: ${{ github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Select release identity
+        id: identity
+        shell: pwsh
+        run: |
+          if ($env:IS_VALIDATION -eq "true") {
+            "tag=update-validation-${{ github.run_id }}" >> $env:GITHUB_OUTPUT
+            "notes=Automated updater release-path validation. Safe to delete." >> $env:GITHUB_OUTPUT
+          } else {
+            $cargoVersion = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"$').Matches.Groups[1].Value
+            "tag=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+            "notes_file=docs/releases/$cargoVersion.md" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Verify version and tag
+        if: env.IS_VALIDATION != 'true'
+        shell: pwsh
+        run: |
+          $cargoVersion = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"$').Matches.Groups[1].Value
+          if ("v$cargoVersion" -ne "${{ steps.identity.outputs.tag }}") {
+            throw "Cargo.toml version $cargoVersion does not match tag ${{ steps.identity.outputs.tag }}"
+          }
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build official distribution executable
+        shell: pwsh
+        env:
+          HALLINTA_DIST_BUILD: "true"
+        run: |
+          cargo build --release --locked
+          Copy-Item -LiteralPath target/release/hallinta.exe -Destination $env:ASSET_NAME
+
+      - name: Create validation tag
+        if: env.IS_VALIDATION == 'true'
+        shell: pwsh
+        run: |
+          git tag "${{ steps.identity.outputs.tag }}" $env:GITHUB_SHA
+          git push origin "${{ steps.identity.outputs.tag }}"
+
+      - name: Create draft release
+        shell: pwsh
+        run: |
+          if ($env:IS_VALIDATION -eq "true") {
+            gh release create "${{ steps.identity.outputs.tag }}" --draft --verify-tag --title "Updater validation ${{ github.run_id }}" --notes "${{ steps.identity.outputs.notes }}"
+          } else {
+            gh release create "${{ steps.identity.outputs.tag }}" --draft --verify-tag --title "Hallinta ${{ steps.identity.outputs.tag }}" --notes-file "${{ steps.identity.outputs.notes_file }}"
+          }
+          gh release upload "${{ steps.identity.outputs.tag }}" $env:ASSET_NAME
+
+      - name: Verify GitHub asset digest
+        shell: pwsh
+        run: |
+          $local = (Get-FileHash -Algorithm SHA256 -LiteralPath $env:ASSET_NAME).Hash.ToLowerInvariant()
+          $asset = $null
+          for ($attempt = 1; $attempt -le 12; $attempt++) {
+            $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/${{ steps.identity.outputs.tag }}" | ConvertFrom-Json
+            $assets = @($release.assets | Where-Object { $_.name -eq $env:ASSET_NAME })
+            if ($assets.Count -ne 1) { throw "Expected exactly one $env:ASSET_NAME asset; found $($assets.Count)" }
+            if ($assets[0].digest -and $assets[0].digest.StartsWith("sha256:")) {
+              $asset = $assets[0]
+              break
+            }
+            Start-Sleep -Seconds 5
+          }
+          if (-not $asset) { throw "GitHub did not provide a SHA-256 digest after 60 seconds" }
+          $remote = $asset.digest.Substring(7).ToLowerInvariant()
+          if ($local -ne $remote) { throw "Uploaded asset digest mismatch: local=$local GitHub=$remote" }
+
+      - name: Publish release
+        if: env.IS_VALIDATION != 'true'
+        run: gh release edit "${{ steps.identity.outputs.tag }}" --draft=false --latest
+
+      - name: Remove validation release and tag
+        if: always() && env.IS_VALIDATION == 'true'
+        shell: pwsh
+        run: |
+          gh release delete "${{ steps.identity.outputs.tag }}" --yes --cleanup-tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            git push origin ":refs/tags/${{ steps.identity.outputs.tag }}" 2>$null
+          }

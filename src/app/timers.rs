@@ -60,7 +60,7 @@ impl HallintaApp {
                 if delay_elapsed && writes_stable {
                     self.save_monitor.pending_change_since = None;
                     self.save_monitor.last_write_at = None;
-                    self.take_monitor_snapshot();
+                    let _ = self.take_monitor_snapshot();
                 }
             }
         }
