@@ -11,32 +11,24 @@ use named_lock::NamedLock;
 use std::process;
 
 fn main() {
-    let (ready_path, monitor_resume, update_error_path) = match core::updater::startup_mode() {
-        Ok(core::updater::StartupMode::Helper(args)) => {
-            if let Err(error) = core::updater::run_helper(args) {
-                eprintln!("Hallinta update failed: {error}");
-                process::exit(1);
-            }
-            return;
-        }
-        Ok(core::updater::StartupMode::Normal {
-            ready_path,
-            monitor_resume,
-            error_path,
-        }) => (ready_path, monitor_resume, error_path),
+    let startup_args: Vec<_> = std::env::args_os().skip(1).collect();
+    let monitor_resume = match core::relaunch::parse_monitor_resume(&startup_args) {
+        Ok(resume) => resume,
         Err(error) => {
             eprintln!("Hallinta startup failed: {error}");
             process::exit(1);
         }
     };
-    if ready_path.is_none()
-        && update_error_path.is_none()
-        && let Ok(executable) = std::env::current_exe()
-        && let Err(error) = core::updater::wait_for_active_handoff(&executable)
-    {
-        eprintln!("Hallinta update handoff failed: {error}");
-        process::exit(1);
-    }
+    // self-replace renames the running image on Windows. Capture the canonical
+    // install path before any update so restart cannot target the relocated old binary.
+    let installed_executable = std::env::current_exe()
+        .and_then(|path| path.canonicalize())
+        .unwrap_or_else(|error| {
+            eprintln!("Hallinta startup failed: could not locate the executable: {error}");
+            process::exit(1);
+        });
+    let restart_request = core::relaunch::new_request();
+    let app_restart_request = restart_request.clone();
     // Step 1: Install panic hook
     core::logging::install_panic_logging_hook();
 
@@ -127,9 +119,8 @@ fn main() {
             Ok(Box::new(app::HallintaApp::new(
                 cc,
                 rt_handle,
-                ready_path,
                 monitor_resume,
-                update_error_path,
+                app_restart_request,
             )))
         }),
     );
@@ -138,7 +129,18 @@ fn main() {
         let _ = core::logging::log("ERROR", &format!("Application error: {}", e), "Main");
     }
 
-    // Lock guard drops here immediately — no sleep (BUG-3 fix)
+    // Relaunch only after the single-instance lock is released.
+    drop(_guard);
+    let requested_restart = restart_request
+        .lock()
+        .ok()
+        .and_then(|mut request| request.take());
+    if let Some(intent) = requested_restart
+        && let Err(error) =
+            core::relaunch::launch_updated(&installed_executable, intent.monitor_resume.as_ref())
+    {
+        let _ = core::logging::log("ERROR", &error, "Updater");
+    }
 }
 
 fn load_icon() -> egui::IconData {

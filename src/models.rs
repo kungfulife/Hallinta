@@ -564,19 +564,14 @@ mod log_settings_tests {
     }
 
     #[test]
-    fn update_lock_only_covers_active_work() {
+    fn update_lock_only_covers_accepted_update_work() {
         let mut state = UpdateState::default();
         assert!(!state.is_locked());
 
         state.status = UpdateStatus::Running {
-            phase: UpdatePhase::Downloading,
-            message: "Downloading".to_string(),
-            progress: Some(0.25),
-            can_cancel: true,
+            phase: UpdatePhase::Installing,
+            message: "Installing".to_string(),
         };
-        assert!(state.is_locked());
-
-        state.status = UpdateStatus::Cancelling;
         assert!(state.is_locked());
 
         state.status = UpdateStatus::Failed {
@@ -593,39 +588,23 @@ mod log_settings_tests {
 pub struct UpdateInfo {
     pub version: String,
     pub notes: String,
-    pub download_url: String,
-    pub asset_size: u64,
-    pub sha256: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UpdatePhase {
-    Downloading,
-    WaitingForSnapshot,
+    Preparing,
     Snapshotting,
-    PreparingRestart,
-    WaitingForHelper,
+    Installing,
     Restarting,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum UpdateStatus {
     Idle,
-    Checking {
-        manual: bool,
-    },
+    Checking { manual: bool },
     Available(UpdateInfo),
-    Running {
-        phase: UpdatePhase,
-        message: String,
-        progress: Option<f32>,
-        can_cancel: bool,
-    },
-    Cancelling,
-    Failed {
-        message: String,
-        retryable: bool,
-    },
+    Running { phase: UpdatePhase, message: String },
+    Failed { message: String, retryable: bool },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -638,12 +617,10 @@ pub struct MonitorResume {
 pub struct UpdateState {
     pub status: UpdateStatus,
     pub generation: u64,
-    pub snapshot_freeze: bool,
     pub pending_final_snapshot_id: Option<u64>,
     pub monitor_resume: Option<MonitorResume>,
-    pub update_restart_shutdown: bool,
-    pub cancel_token: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
-    pub staged_path: Option<std::path::PathBuf>,
+    pub restart_requested: bool,
+    pub selected_version: Option<String>,
 }
 
 impl Default for UpdateState {
@@ -651,22 +628,17 @@ impl Default for UpdateState {
         Self {
             status: UpdateStatus::Idle,
             generation: 0,
-            snapshot_freeze: false,
             pending_final_snapshot_id: None,
             monitor_resume: None,
-            update_restart_shutdown: false,
-            cancel_token: None,
-            staged_path: None,
+            restart_requested: false,
+            selected_version: None,
         }
     }
 }
 
 impl UpdateState {
     pub fn is_locked(&self) -> bool {
-        matches!(
-            self.status,
-            UpdateStatus::Running { .. } | UpdateStatus::Cancelling
-        )
+        matches!(self.status, UpdateStatus::Running { .. })
     }
 }
 

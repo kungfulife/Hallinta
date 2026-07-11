@@ -5,6 +5,7 @@ pub mod logging;
 pub mod mods;
 pub mod platform;
 pub mod presets;
+pub mod relaunch;
 pub mod save_monitor;
 pub mod settings;
 pub mod updater;

@@ -18,7 +18,8 @@ jobs:
     runs-on: windows-2025
     timeout-minutes: 45
     env:
-      ASSET_NAME: Hallinta-x86_64-pc-windows-msvc.exe
+      PORTABLE_ASSET_NAME: Hallinta-x86_64-pc-windows-msvc.exe
+      UPDATE_ASSET_NAME: Hallinta-x86_64-pc-windows-msvc.zip
       GH_TOKEN: ${{ github.token }}
       IS_VALIDATION: ${{ github.event_name == 'workflow_dispatch' }}
     steps:
@@ -31,6 +32,9 @@ jobs:
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
+
+      - name: Install zipsign
+        run: cargo install zipsign --version 0.1.4 --locked
 
       - name: Select release identity
         id: identity
@@ -57,13 +61,62 @@ jobs:
       - name: Test
         run: cargo test --locked
 
-      - name: Build official distribution executable
+      - name: Build official distribution artifacts
         shell: pwsh
         env:
           HALLINTA_DIST_BUILD: "true"
+          ZIPSIGN_PRIVATE_KEY_B64: ${{ secrets.HALLINTA_ZIPSIGN_PRIVATE_KEY_B64 }}
         run: |
+          if ([string]::IsNullOrWhiteSpace($env:ZIPSIGN_PRIVATE_KEY_B64)) {
+            throw "HALLINTA_ZIPSIGN_PRIVATE_KEY_B64 is not configured"
+          }
           cargo build --release --locked
-          Copy-Item -LiteralPath target/release/hallinta.exe -Destination $env:ASSET_NAME
+          Copy-Item -LiteralPath target/release/hallinta.exe -Destination $env:PORTABLE_ASSET_NAME
+          New-Item -ItemType Directory -Path update-package | Out-Null
+          Copy-Item -LiteralPath target/release/hallinta.exe -Destination update-package/Hallinta.exe
+          Compress-Archive -LiteralPath update-package/Hallinta.exe -DestinationPath $env:UPDATE_ASSET_NAME
+          $keyPath = Join-Path $env:RUNNER_TEMP "hallinta-update-private.key"
+          try {
+            $keyBytes = [Convert]::FromBase64String($env:ZIPSIGN_PRIVATE_KEY_B64)
+            if ($keyBytes.Length -ne 64) { throw "Hallinta update private key must be 64 bytes" }
+            [IO.File]::WriteAllBytes($keyPath, $keyBytes)
+            zipsign sign zip $env:UPDATE_ASSET_NAME $keyPath
+            if ($LASTEXITCODE -ne 0) { throw "Could not sign updater ZIP" }
+            zipsign verify zip $env:UPDATE_ASSET_NAME src/assets/hallinta-update.pub
+            if ($LASTEXITCODE -ne 0) { throw "Could not verify updater ZIP signature" }
+          } finally {
+            Remove-Item -LiteralPath $keyPath -ErrorAction SilentlyContinue
+          }
+
+      - name: Verify Windows executable identity
+        shell: pwsh
+        run: |
+          $cargoVersion = (Select-String -Path Cargo.toml -Pattern '^version = "(.+)"$').Matches.Groups[1].Value
+          $parts = $cargoVersion.Split('.')
+          if ($parts.Count -ne 3) { throw "Hallinta releases require a three-part Cargo version" }
+          $info = [Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path 'target/release/hallinta.exe'))
+          if ($info.FileMajorPart -ne [int]$parts[0] -or $info.FileMinorPart -ne [int]$parts[1] -or $info.FileBuildPart -ne [int]$parts[2] -or $info.FilePrivatePart -ne 0) {
+            throw "File version $($info.FileVersion) does not match Cargo $cargoVersion"
+          }
+          if ($info.ProductMajorPart -ne [int]$parts[0] -or $info.ProductMinorPart -ne [int]$parts[1] -or $info.ProductBuildPart -ne [int]$parts[2] -or $info.ProductPrivatePart -ne 0) {
+            throw "Product version $($info.ProductVersion) does not match Cargo $cargoVersion"
+          }
+          if ($info.ProductName -ne 'Hallinta' -or $info.FileDescription -ne 'Hallinta - Noita Mod Manager' -or $info.OriginalFilename -ne 'Hallinta.exe') {
+            throw "Windows executable identity metadata is incorrect"
+          }
+
+      - name: Verify updater package contents
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path verified-update | Out-Null
+          Expand-Archive -LiteralPath $env:UPDATE_ASSET_NAME -DestinationPath verified-update
+          $built = (Get-FileHash -Algorithm SHA256 -LiteralPath target/release/hallinta.exe).Hash
+          $packed = (Get-FileHash -Algorithm SHA256 -LiteralPath verified-update/Hallinta.exe).Hash
+          if ($built -ne $packed) { throw "Updater ZIP does not contain the built Hallinta.exe" }
+          $entries = @(Get-ChildItem -LiteralPath verified-update -Recurse -File)
+          if ($entries.Count -ne 1 -or $entries[0].Name -ne 'Hallinta.exe') {
+            throw "Updater ZIP must contain exactly Hallinta.exe"
+          }
 
       - name: Create validation tag
         if: env.IS_VALIDATION == 'true'
@@ -81,38 +134,40 @@ jobs:
             gh release create "${{ steps.identity.outputs.tag }}" --draft --verify-tag --title "Hallinta ${{ steps.identity.outputs.tag }}" --notes-file "${{ steps.identity.outputs.notes_file }}"
           }
           if ($LASTEXITCODE -ne 0) { throw "Could not create the draft release" }
-          gh release upload "${{ steps.identity.outputs.tag }}" $env:ASSET_NAME
-          if ($LASTEXITCODE -ne 0) { throw "Could not upload $env:ASSET_NAME" }
+          gh release upload "${{ steps.identity.outputs.tag }}" $env:PORTABLE_ASSET_NAME $env:UPDATE_ASSET_NAME
+          if ($LASTEXITCODE -ne 0) { throw "Could not upload Hallinta release artifacts" }
 
-      - name: Verify GitHub asset digest
+      - name: Verify GitHub asset digests
         shell: pwsh
         run: |
-          $local = (Get-FileHash -Algorithm SHA256 -LiteralPath $env:ASSET_NAME).Hash.ToLowerInvariant()
-          $asset = $null
-          for ($attempt = 1; $attempt -le 12; $attempt++) {
-            # GitHub's release-by-tag endpoint omits drafts, so locate the
-            # authenticated draft through the releases collection.
-            $releases = @(gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" | ConvertFrom-Json)
-            if ($LASTEXITCODE -ne 0) { throw "Could not list GitHub releases" }
-            $matches = @($releases | Where-Object { $_.tag_name -eq "${{ steps.identity.outputs.tag }}" -and $_.draft -eq $true })
-            if ($matches.Count -gt 1) { throw "Found multiple drafts for ${{ steps.identity.outputs.tag }}" }
-            if ($matches.Count -eq 0) {
-              if ($attempt -eq 12) { throw "GitHub did not return the draft release after 60 seconds" }
+          foreach ($assetName in @($env:PORTABLE_ASSET_NAME, $env:UPDATE_ASSET_NAME)) {
+            $local = (Get-FileHash -Algorithm SHA256 -LiteralPath $assetName).Hash.ToLowerInvariant()
+            $asset = $null
+            for ($attempt = 1; $attempt -le 12; $attempt++) {
+              # GitHub's release-by-tag endpoint omits drafts, so locate the
+              # authenticated draft through the releases collection.
+              $releases = @(gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" | ConvertFrom-Json)
+              if ($LASTEXITCODE -ne 0) { throw "Could not list GitHub releases" }
+              $matches = @($releases | Where-Object { $_.tag_name -eq "${{ steps.identity.outputs.tag }}" -and $_.draft -eq $true })
+              if ($matches.Count -gt 1) { throw "Found multiple drafts for ${{ steps.identity.outputs.tag }}" }
+              if ($matches.Count -eq 0) {
+                if ($attempt -eq 12) { throw "GitHub did not return the draft release after 60 seconds" }
+                Start-Sleep -Seconds 5
+                continue
+              }
+              $release = $matches[0]
+              $assets = @($release.assets | Where-Object { $_.name -eq $assetName })
+              if ($assets.Count -gt 1) { throw "Found multiple $assetName assets" }
+              if ($assets.Count -eq 1 -and $assets[0].digest -match '^sha256:[0-9a-fA-F]{64}$') {
+                $asset = $assets[0]
+                break
+              }
               Start-Sleep -Seconds 5
-              continue
             }
-            $release = $matches[0]
-            $assets = @($release.assets | Where-Object { $_.name -eq $env:ASSET_NAME })
-            if ($assets.Count -gt 1) { throw "Found multiple $env:ASSET_NAME assets" }
-            if ($assets.Count -eq 1 -and $assets[0].digest -match '^sha256:[0-9a-fA-F]{64}$') {
-              $asset = $assets[0]
-              break
-            }
-            Start-Sleep -Seconds 5
+            if (-not $asset) { throw "GitHub did not provide one exact $assetName with a valid SHA-256 digest after 60 seconds" }
+            $remote = $asset.digest.Substring(7).ToLowerInvariant()
+            if ($local -ne $remote) { throw "Uploaded $assetName digest mismatch: local=$local GitHub=$remote" }
           }
-          if (-not $asset) { throw "GitHub did not provide one exact asset with a valid SHA-256 digest after 60 seconds" }
-          $remote = $asset.digest.Substring(7).ToLowerInvariant()
-          if ($local -ne $remote) { throw "Uploaded asset digest mismatch: local=$local GitHub=$remote" }
 
       - name: Publish release
         if: env.IS_VALIDATION != 'true'

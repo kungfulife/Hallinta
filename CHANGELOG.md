@@ -2,6 +2,13 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.8.3 (2026-07-11)
+- **Signed updates**: Official builds now install zipsign-authenticated updater archives through the maintained `self_update` / `self-replace` stack; the portable EXE remains available for manual installs.
+- **Simpler updater**: Removed Hallinta's custom download, SHA-256, helper, handoff, readiness, replacement, and automatic rollback engine. Accepted installs use a protected indeterminate state and are not cancellable.
+- **Save Monitor safety**: Hallinta still waits for active work, takes a final monitor snapshot, releases the single-instance lock before relaunch, and resumes the same monitor session.
+- **Windows identity**: File and Product versions now come directly from `Cargo.toml`; release CI verifies executable metadata, signed ZIP contents, and both uploaded asset digests before publishing.
+- **Recovery note**: Free update signing is not Microsoft Authenticode; Windows may still show `Unknown publisher`. If a newly installed executable cannot launch, reinstall a portable release manually.
+
 ## 0.8.2 (2026-07-11)
 - **Configuration-only mode**: Missing or invalid Noita directory / `mod_config.xml` pauses Noita sync while local preset edit, import, and export keep working.
 - **Recovery choice**: When configuration returns, Hallinta asks whether to apply the selected preset to Noita or save the detected setup as a new preset (no accidental overwrites).

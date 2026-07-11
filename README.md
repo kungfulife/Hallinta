@@ -19,7 +19,7 @@ Download the portable `Hallinta-x86_64-pc-windows-msvc.exe` from the [latest rel
 
 On launch, Hallinta detects Noita's save directory and loads `mod_config.xml`. If the path is missing or invalid, the app explains the issue and guides you through recovery.
 
-Official release builds can check for updates and update the executable in place.
+Official release builds install signed updater archives in place. Free update signing verifies that an archive came from Hallinta's release process; it is not Microsoft Authenticode, so Windows may still show `Unknown publisher`. Windows Properties File/Product versions come from `Cargo.toml`.
 
 ## Build
 

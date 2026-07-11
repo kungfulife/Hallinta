@@ -1,5 +1,4 @@
 use crate::models::{BackupInfo, UpdateInfo, WorkshopCheckReport};
-use std::path::PathBuf;
 
 /// Results from background tasks dispatched to the tokio runtime.
 #[derive(Debug)]
@@ -9,14 +8,9 @@ pub enum TaskResult {
         manual: bool,
         result: Result<Option<UpdateInfo>, String>,
     },
-    UpdateDownloadProgress {
+    UpdateInstallComplete {
         generation: u64,
-        downloaded: u64,
-        total: u64,
-    },
-    UpdateDownloadComplete {
-        generation: u64,
-        result: Result<PathBuf, String>,
+        result: Result<(), String>,
     },
     BackupComplete(Result<String, String>),
     RestoreComplete(Result<(), String>),

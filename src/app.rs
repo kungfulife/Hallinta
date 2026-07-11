@@ -75,8 +75,7 @@ pub struct HallintaApp {
     close_requested: bool,
     close_after_snapshot: bool,
     pending_close_snapshot_id: Option<u64>,
-    update_handoff: Option<UpdateHandoff>,
-    startup_ready_path: Option<PathBuf>,
+    restart_request: crate::core::relaunch::RestartRequest,
 
     // Keyboard / focus signals
     pub focus_search_requested: bool,
@@ -91,9 +90,8 @@ impl HallintaApp {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
         rt: tokio::runtime::Handle,
-        startup_ready_path: Option<PathBuf>,
         startup_monitor_resume: Option<MonitorResume>,
-        startup_update_error_path: Option<PathBuf>,
+        restart_request: crate::core::relaunch::RestartRequest,
     ) -> Self {
         let (task_tx, task_rx) = mpsc::channel();
 
@@ -291,8 +289,7 @@ impl HallintaApp {
             close_requested: false,
             close_after_snapshot: false,
             pending_close_snapshot_id: None,
-            update_handoff: None,
-            startup_ready_path,
+            restart_request,
             focus_search_requested: false,
             was_focused: true,
         };
@@ -325,18 +322,6 @@ impl HallintaApp {
             app.check_for_updates(false);
         }
 
-        if let Some(path) = startup_update_error_path {
-            let message = std::fs::read_to_string(&path).unwrap_or_else(|error| {
-                format!("The update failed, and its detailed error could not be read: {error}")
-            });
-            let _ = std::fs::remove_file(path);
-            app.update_state.generation = app.update_state.generation.wrapping_add(1);
-            app.update_state.status = UpdateStatus::Failed {
-                message,
-                retryable: true,
-            };
-        }
-
         let _ = logging::log("INFO", "Application started", "App");
         let _ = logging::log(
             "INFO",
@@ -363,17 +348,6 @@ fn noita_directory_error_message(path: &str, error: &str) -> String {
     } else {
         format!("Could not load mod_config.xml from {path}: {error}")
     }
-}
-
-struct UpdateHandoff {
-    child: std::process::Child,
-    ack_path: PathBuf,
-    staging_path: PathBuf,
-    helper_path: PathBuf,
-    rollback_path: PathBuf,
-    ready_path: PathBuf,
-    handoff_path: PathBuf,
-    started: std::time::Instant,
 }
 
 #[derive(Clone, Copy)]

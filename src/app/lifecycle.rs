@@ -97,7 +97,6 @@ impl eframe::App for HallintaApp {
         crate::ui::updater::render(self, &ctx);
         // Modal button actions can request app close during rendering.
         self.close_after_monitor_prompt(&ctx);
-        self.signal_startup_ready();
     }
 
     fn on_exit(&mut self) {

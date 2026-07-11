@@ -182,7 +182,7 @@ impl HallintaApp {
         !self.save_monitor.snapshot_in_flight
             && !self.backup_state.in_progress
             && !self.backup_state.restoring
-            && (bypass_update_freeze || !self.update_state.snapshot_freeze)
+            && (bypass_update_freeze || !self.update_state.is_locked())
     }
 
     pub(super) fn check_save_monitor_changes(&mut self) {
@@ -348,7 +348,10 @@ mod tests {
     fn update_snapshot_freeze_blocks_ordinary_snapshot_start() {
         let (_runtime, mut app) = test_app(Vec::new());
         app.save_monitor.running = true;
-        app.update_state.snapshot_freeze = true;
+        app.update_state.status = crate::models::UpdateStatus::Running {
+            phase: crate::models::UpdatePhase::Preparing,
+            message: "Preparing".to_string(),
+        };
 
         let result = app.take_monitor_snapshot();
 

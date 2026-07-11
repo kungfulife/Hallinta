@@ -103,7 +103,7 @@ impl HallintaApp {
             return;
         }
 
-        if self.update_state.update_restart_shutdown {
+        if self.update_state.restart_requested {
             return;
         }
         if self.update_state.is_locked() {

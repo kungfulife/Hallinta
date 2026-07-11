@@ -1,25 +1,52 @@
 # Windows Auto-Update
 
-Official Windows release builds check `kungfulife/Hallinta` GitHub Releases at startup. Debug builds and ordinary local release builds do not update. The release workflow sets `HALLINTA_DIST_BUILD=true` when compiling the downloadable executable.
+Official Windows distribution builds check public `kungfulife/Hallinta` GitHub
+Releases at startup. Debug builds and ordinary local release builds do not
+check for or install updates. The release workflow marks official builds with
+`HALLINTA_DIST_BUILD=true`.
 
 ## Release contract
 
-- Stable semantic-version tag, such as `v0.8.1`.
-- Exact asset name: `Hallinta-x86_64-pc-windows-msvc.exe`.
-- GitHub-provided `sha256:` asset digest must be present.
-- The asset URL must belong to this repository's GitHub Releases download path.
-- Drafts, prereleases, equal versions, and downgrades are ignored.
+- Releases use stable semantic-version tags such as `v0.8.3`.
+- The manual portable download remains
+  `Hallinta-x86_64-pc-windows-msvc.exe`.
+- The updater requires the exact signed archive
+  `Hallinta-x86_64-pc-windows-msvc.zip`, containing only `Hallinta.exe`.
+- Hallinta offers only a stable version newer than the running version.
+- `Cargo.toml` is the sole application-version source. Windows File version
+  and Product version are built from the same value.
 
-The release workflow builds on Windows, creates a draft release, uploads the portable executable, compares GitHub's asset digest with the local SHA-256, and publishes only after they match. A manual workflow run exercises the same draft/upload/digest path and deletes its temporary validation release and tag.
+Release CI builds both artifacts, verifies the executable's embedded version
+and identity, signs the updater ZIP with zipsign, verifies that signature and
+archive contents, uploads a draft, verifies both GitHub asset digests, and only
+then publishes the release.
 
-## Client safety sequence
+## Client sequence and ownership
 
-1. Download to a unique sibling file while showing progress. Cancellation is allowed only during this phase.
-2. Freeze ordinary Save Monitor snapshots once the user accepts, then verify size and SHA-256 while downloading.
-3. Wait for any current snapshot or backup operation. If monitoring is active, require one final snapshot; failure leaves Hallinta open.
-4. Copy the running executable as a helper, launch it outside a compatible Windows job, and require a live PID/creation-time acknowledgement.
-5. Close the UI. The helper waits for the original PID and the single-instance lock, re-hashes the staged file under that lock, then calls `ReplaceFileW` with a rollback path.
-6. Launch the new executable and retain the rollback copy until the new UI renders its first frame and signals readiness.
-7. If launch/readiness fails, restore the previous executable and restart it with a visible error. An active monitor session is resumed after either success or failure.
+1. Hallinta selects a newer stable release with the exact updater ZIP and asks
+   for user consent.
+2. Hallinta blocks ordinary actions, waits for backup/restore work, and takes
+   one final snapshot when Save Monitor is active. Snapshot failure leaves the
+   app open and does not start installation.
+3. `self_update` downloads the chosen release, verifies its embedded zipsign
+   signature, extracts `Hallinta.exe`, replaces the running executable through
+   `self-replace`, and cleans its temporary files.
+4. Hallinta closes, releases the `hallinta_noita` single-instance lock, and
+   launches the installed executable. An active monitor session resumes from
+   explicit preset and session arguments.
 
-The interaction-blocking update UI is independent of normal application modals. Window close and application shortcuts are suppressed from accepted download through helper takeover.
+Hallinta contains no download loop, staging convention, replacement API,
+helper protocol, readiness handshake, or automatic rollback engine. An
+accepted install is intentionally non-cancellable and displays indeterminate
+progress while the external updater owns the transaction.
+
+## Signing trust
+
+zipsign provides free Ed25519 update authenticity against a public key embedded
+in Hallinta. It is not Microsoft Authenticode publisher signing, so Windows may
+still show `Unknown publisher` or SmartScreen warnings.
+
+The private signing key exists only in protected operator custody and the
+`HALLINTA_ZIPSIGN_PRIVATE_KEY_B64` GitHub Actions secret. Key rotation requires
+first shipping a Hallinta version that trusts both old and new public keys,
+then signing later releases only with the new key.

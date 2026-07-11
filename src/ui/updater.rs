@@ -20,7 +20,7 @@ pub fn render(app: &mut HallintaApp, ctx: &egui::Context) {
                         });
                     }
                     ui.separator();
-                    ui.label("Hallinta will verify the download, safely finish any active monitor snapshot, replace this executable, and restart.");
+                    ui.label("Hallinta will finish any active Save Monitor snapshot, verify the signed official release, install it, and restart.");
                     ui.horizontal(|ui| {
                         if ui.button("Update & Restart").clicked() {
                             app.begin_update(info.clone());
@@ -58,32 +58,12 @@ pub fn render(app: &mut HallintaApp, ctx: &egui::Context) {
                     });
                 });
         }
-        UpdateStatus::Running {
-            phase,
-            message,
-            progress,
-            can_cancel,
-        } => render_lock(ctx, app, phase, &message, progress, can_cancel),
-        UpdateStatus::Cancelling => render_lock(
-            ctx,
-            app,
-            UpdatePhase::Downloading,
-            "Cancelling safely…",
-            None,
-            false,
-        ),
+        UpdateStatus::Running { phase, message } => render_lock(ctx, phase, &message),
         UpdateStatus::Idle | UpdateStatus::Checking { manual: false } => {}
     }
 }
 
-fn render_lock(
-    ctx: &egui::Context,
-    app: &mut HallintaApp,
-    phase: UpdatePhase,
-    message: &str,
-    progress: Option<f32>,
-    can_cancel: bool,
-) {
+fn render_lock(ctx: &egui::Context, phase: UpdatePhase, message: &str) {
     let rect = ctx.content_rect();
     egui::Area::new(egui::Id::new("update_input_blocker"))
         .order(egui::Order::Foreground)
@@ -107,32 +87,16 @@ fn render_lock(
             ui.set_min_width(410.0);
             ui.heading(phase_label(phase));
             ui.label(message);
-            match progress {
-                Some(value) => {
-                    ui.add(
-                        egui::ProgressBar::new(value.clamp(0.0, 1.0))
-                            .show_percentage()
-                            .animate(true),
-                    );
-                }
-                None => {
-                    ui.spinner();
-                }
-            }
+            ui.spinner();
             ui.label("Controls are temporarily disabled to protect application data.");
-            if can_cancel && ui.button("Cancel Update").clicked() {
-                app.cancel_update();
-            }
         });
 }
 
 fn phase_label(phase: UpdatePhase) -> &'static str {
     match phase {
-        UpdatePhase::Downloading => "Downloading",
-        UpdatePhase::WaitingForSnapshot => "Preparing",
+        UpdatePhase::Preparing => "Preparing",
         UpdatePhase::Snapshotting => "Protecting monitor data",
-        UpdatePhase::PreparingRestart => "Preparing restart",
-        UpdatePhase::WaitingForHelper => "Starting updater",
+        UpdatePhase::Installing => "Installing signed update",
         UpdatePhase::Restarting => "Restarting",
     }
 }

@@ -14,13 +14,8 @@ impl HallintaApp {
                     manual,
                     result,
                 } => self.handle_update_check(generation, manual, result),
-                TaskResult::UpdateDownloadProgress {
-                    generation,
-                    downloaded,
-                    total,
-                } => self.handle_update_progress(generation, downloaded, total),
-                TaskResult::UpdateDownloadComplete { generation, result } => {
-                    self.handle_update_download(generation, result)
+                TaskResult::UpdateInstallComplete { generation, result } => {
+                    self.handle_update_install(generation, result)
                 }
                 TaskResult::BackupComplete(res) => {
                     self.backup_state.in_progress = false;

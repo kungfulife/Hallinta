@@ -1,6 +1,6 @@
 [package]
 name = "hallinta"
-version = "0.8.2"
+version = "0.8.3"
 description = "Hallinta - Noita Mod Manager"
 authors = ["kungfulife"]
 edition = "2024"
@@ -22,16 +22,24 @@ zip = "8.6.0"
 named-lock = "0.4"
 walkdir = "2.5.0"
 sha2 = "0.11.0"
-reqwest = { version = "0.13.4", default-features = false, features = ["blocking", "json", "rustls"] }
 semver = "1.0.28"
+self_update = { version = "=0.44.0", default-features = false, features = [
+    "reqwest",
+    "rustls",
+    "archive-zip",
+    "compression-zip-deflate",
+    "signatures",
+] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56.0"
-windows-sys = { version = "0.61.2", features = [
-    "Win32_Foundation",
-    "Win32_Security",
-    "Win32_Storage_FileSystem",
-    "Win32_System_JobObjects",
-    "Win32_System_Threading",
-    "Win32_UI_WindowsAndMessaging",
-] }
+
+[build-dependencies]
+winresource = "=0.1.31"
+
+[package.metadata.winresource]
+ProductName = "Hallinta"
+FileDescription = "Hallinta - Noita Mod Manager"
+InternalName = "Hallinta"
+OriginalFilename = "Hallinta.exe"
+CompanyName = "kungfulife"

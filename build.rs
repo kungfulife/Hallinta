@@ -61,21 +61,32 @@ const ATTRIBUTED_LIBS: &[(&str, &str, &str)] = &[
     ),
     ("sha2", "SHA-256 checksums", "https://crates.io/crates/sha2"),
     (
-        "reqwest",
-        "HTTPS update downloads",
-        "https://crates.io/crates/reqwest",
-    ),
-    (
         "semver",
-        "Update version comparison",
+        "Release-version policy",
         "https://crates.io/crates/semver",
     ),
     (
-        "windows-sys",
-        "Windows update process and file APIs",
-        "https://crates.io/crates/windows-sys",
+        "self_update",
+        "Signed application updates",
+        "https://crates.io/crates/self_update",
     ),
 ];
+
+fn compile_windows_resources() {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
+        return;
+    }
+
+    let mut resource = winresource::WindowsResource::new();
+    resource
+        .set("ProductName", "Hallinta")
+        .set("FileDescription", "Hallinta - Noita Mod Manager")
+        .set("InternalName", "Hallinta")
+        .set("OriginalFilename", "Hallinta.exe")
+        .set("CompanyName", "kungfulife")
+        .compile()
+        .expect("failed to compile Hallinta Windows version resources");
+}
 
 fn command_output(cmd: &str, args: &[&str]) -> String {
     Command::new(cmd)
@@ -118,6 +129,8 @@ fn parse_cargo_lock_versions() -> HashMap<String, String> {
 }
 
 fn main() {
+    compile_windows_resources();
+
     let rustc_version = command_output("rustc", &["--version"]);
     let cargo_version = command_output("cargo", &["--version"]);
     let target = std::env::var("TARGET").unwrap_or_else(|_| "unknown".to_string());
@@ -175,5 +188,6 @@ fn main() {
     println!("cargo:rerun-if-changed=.git/refs/heads");
 
     println!("cargo:rerun-if-changed=Cargo.lock");
+    println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-changed=build.rs");
 }
