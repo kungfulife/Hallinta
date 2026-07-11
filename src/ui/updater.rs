@@ -25,7 +25,13 @@ pub fn render(app: &mut HallintaApp, ctx: &egui::Context) {
                         if ui.button("Update & Restart").clicked() {
                             app.begin_update(info.clone());
                         }
-                        if ui.button("Later").clicked() {
+                        if ui
+                            .button("Dismiss")
+                            .on_hover_text(
+                                "Stop auto-prompting for this version. A newer release will ask again. You can still check from Settings.",
+                            )
+                            .clicked()
+                        {
                             app.dismiss_update_status();
                         }
                     });

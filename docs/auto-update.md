@@ -24,7 +24,9 @@ then publishes the release.
 ## Client sequence and ownership
 
 1. Hallinta selects a newer stable release with the exact updater ZIP and asks
-   for user consent.
+   for user consent. **Dismiss** stores that version so automatic startup checks
+   stay quiet; a newer version prompts again, and Settings → Check for Updates
+   always re-offers the current candidate.
 2. Hallinta blocks ordinary actions, waits for backup/restore work, and takes
    one final snapshot when Save Monitor is active. Snapshot failure leaves the
    app open and does not start installation.
@@ -34,10 +36,13 @@ then publishes the release.
 4. Hallinta closes, releases the `hallinta_noita` single-instance lock, and
    launches the installed executable. An active monitor session resumes from
    explicit preset and session arguments.
+5. On first launch of the new version, Hallinta writes a version-upgrade backup
+   into the shared `backups/` folder (same surface as Manage Backups). Legacy
+   archives under `upgrade_backups/` remain listable and restorable.
 
 Hallinta contains no download loop, staging convention, replacement API,
-helper protocol, readiness handshake, or automatic rollback engine. An
-accepted install is intentionally non-cancellable and displays indeterminate
+helper protocol, readiness handshake, or automatic executable rollback engine.
+An accepted install is intentionally non-cancellable and displays indeterminate
 progress while the external updater owns the transaction.
 
 ## Signing trust

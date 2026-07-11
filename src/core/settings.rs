@@ -82,6 +82,7 @@ pub fn load_settings() -> Result<AppSettings, String> {
             last_filter_mode: String::new(),
             last_sort_mode: String::new(),
             needs_noita_reconciliation: false,
+            dismissed_update_version: None,
         };
         save_settings(&default_settings)?;
         return Ok(default_settings);
@@ -208,6 +209,7 @@ mod tests {
             last_filter_mode: "all".to_string(),
             last_sort_mode: "default".to_string(),
             needs_noita_reconciliation: true,
+            dismissed_update_version: Some("0.9.0".to_string()),
         };
 
         let json = serde_json::to_string_pretty(&original).unwrap();
@@ -225,6 +227,10 @@ mod tests {
         assert_eq!(
             loaded.needs_noita_reconciliation,
             original.needs_noita_reconciliation
+        );
+        assert_eq!(
+            loaded.dismissed_update_version,
+            original.dismissed_update_version
         );
         assert_eq!(
             loaded.log_settings.log_level,
@@ -300,5 +306,6 @@ mod tests {
         assert_eq!(settings.save_monitor_settings.backup_delay_minutes, 3);
         assert!(!settings.save_monitor_settings.include_entangled);
         assert!(settings.save_monitor_settings.include_save01);
+        assert!(settings.dismissed_update_version.is_none());
     }
 }

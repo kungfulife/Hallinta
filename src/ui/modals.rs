@@ -736,6 +736,14 @@ fn render_backup_manager_contents(
                                     backup.size_bytes as f64 / 1_048_576.0,
                                     &backup.timestamp[..19.min(backup.timestamp.len())]
                                 ));
+                                if crate::core::backup::is_upgrade_backup_filename(&backup.filename)
+                                {
+                                    ui.label(
+                                        egui::RichText::new("Version-upgrade backup")
+                                            .small()
+                                            .color(ui.visuals().weak_text_color()),
+                                    );
+                                }
                                 let mut contents = Vec::new();
                                 if backup.contains_save00 {
                                     contents.push("save00");

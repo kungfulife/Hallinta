@@ -30,6 +30,7 @@ fn default_settings() -> AppSettings {
         last_filter_mode: String::new(),
         last_sort_mode: String::new(),
         needs_noita_reconciliation: false,
+        dismissed_update_version: None,
     }
 }
 

@@ -192,6 +192,8 @@ impl HallintaApp {
                             &format!("Upgrade backup failed: {}", e),
                             "Settings",
                         );
+                    } else {
+                        self.load_backup_list_async();
                     }
                 }
                 TaskResult::BackupListLoaded(res) => {

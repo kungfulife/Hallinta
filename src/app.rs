@@ -112,6 +112,7 @@ impl HallintaApp {
                 last_filter_mode: String::new(),
                 last_sort_mode: String::new(),
                 needs_noita_reconciliation: false,
+                dismissed_update_version: None,
             }
         });
         logging::configure(&app_settings.log_settings);

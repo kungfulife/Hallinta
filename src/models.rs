@@ -40,6 +40,11 @@ pub struct AppSettings {
     /// True after Hallinta operated without a usable Noita configuration.
     #[serde(default)]
     pub needs_noita_reconciliation: bool,
+    /// Exact release version the user dismissed from automatic update prompts.
+    /// Auto-check stays quiet for this version; Settings → Check for Updates still offers it.
+    /// A newer available version prompts again.
+    #[serde(default)]
+    pub dismissed_update_version: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -1,5 +1,5 @@
 use super::HallintaApp;
-use crate::core::{logging, platform, updater};
+use crate::core::{logging, platform, settings, updater};
 use crate::models::{MonitorResume, UpdateInfo, UpdatePhase, UpdateStatus};
 use crate::tasks::TaskResult;
 use eframe::egui;
@@ -43,6 +43,16 @@ impl HallintaApp {
         if self.update_state.is_locked() {
             return;
         }
+        if self.settings.dismissed_update_version.is_some() {
+            self.settings.dismissed_update_version = None;
+            if let Err(error) = settings::save_settings(&self.settings) {
+                let _ = logging::log(
+                    "WARN",
+                    &format!("Could not clear dismissed update version: {error}"),
+                    "Updater",
+                );
+            }
+        }
         self.update_state.generation = self.update_state.generation.wrapping_add(1);
         self.update_state.selected_version = Some(info.version);
         self.update_state.monitor_resume =
@@ -69,7 +79,17 @@ impl HallintaApp {
             return;
         }
         match result {
-            Ok(Some(info)) => self.update_state.status = UpdateStatus::Available(info),
+            Ok(Some(info)) => {
+                // Auto-prompt is quiet for a dismissed version; manual check always offers it.
+                if !manual
+                    && self.settings.dismissed_update_version.as_deref()
+                        == Some(info.version.as_str())
+                {
+                    self.update_state.status = UpdateStatus::Idle;
+                } else {
+                    self.update_state.status = UpdateStatus::Available(info);
+                }
+            }
             Ok(None) => {
                 self.update_state.status = if manual {
                     UpdateStatus::Failed {
@@ -212,9 +232,20 @@ impl HallintaApp {
     }
 
     pub fn dismiss_update_status(&mut self) {
-        if !self.update_state.is_locked() {
-            self.update_state.status = UpdateStatus::Idle;
+        if self.update_state.is_locked() {
+            return;
         }
+        if let UpdateStatus::Available(info) = &self.update_state.status {
+            self.settings.dismissed_update_version = Some(info.version.clone());
+            if let Err(error) = settings::save_settings(&self.settings) {
+                let _ = logging::log(
+                    "ERROR",
+                    &format!("Could not persist dismissed update version: {error}"),
+                    "Updater",
+                );
+            }
+        }
+        self.update_state.status = UpdateStatus::Idle;
     }
 }
 
@@ -296,5 +327,49 @@ mod tests {
             app.update_state.status,
             UpdateStatus::Failed { ref message, .. } if message.contains("disk full")
         ));
+    }
+
+    #[test]
+    fn dismiss_remembers_version_and_quiets_automatic_checks_only() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        let info = UpdateInfo {
+            version: "0.9.0".to_string(),
+            notes: "notes".to_string(),
+        };
+        app.update_state.status = UpdateStatus::Available(info.clone());
+
+        app.dismiss_update_status();
+
+        assert_eq!(app.update_state.status, UpdateStatus::Idle);
+        assert_eq!(
+            app.settings.dismissed_update_version.as_deref(),
+            Some("0.9.0")
+        );
+
+        app.handle_update_check(app.update_state.generation, false, Ok(Some(info.clone())));
+        assert_eq!(app.update_state.status, UpdateStatus::Idle);
+
+        app.handle_update_check(app.update_state.generation, true, Ok(Some(info.clone())));
+        assert_eq!(app.update_state.status, UpdateStatus::Available(info));
+
+        let newer = UpdateInfo {
+            version: "0.9.1".to_string(),
+            notes: String::new(),
+        };
+        app.handle_update_check(app.update_state.generation, false, Ok(Some(newer.clone())));
+        assert_eq!(app.update_state.status, UpdateStatus::Available(newer));
+    }
+
+    #[test]
+    fn accepting_update_clears_dismissed_version() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.dismissed_update_version = Some("0.9.0".to_string());
+
+        app.begin_update(UpdateInfo {
+            version: "0.9.0".to_string(),
+            notes: String::new(),
+        });
+
+        assert!(app.settings.dismissed_update_version.is_none());
     }
 }

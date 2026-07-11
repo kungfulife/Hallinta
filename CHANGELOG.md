@@ -2,6 +2,10 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.8.4 (2026-07-11)
+- **Upgrade backup recovery**: Version-upgrade backups now show in Manage Backups with the same restore and delete controls as manual backups. New upgrade archives land in the shared `backups/` folder; legacy `upgrade_backups/` files remain restorable.
+- **Update dismiss**: Dismiss remembers the exact offered version so automatic prompts stay quiet. A newer release asks again; Settings → Check for Updates always re-offers the current candidate. Accepting an update clears the dismiss.
+
 ## 0.8.3 (2026-07-11)
 - **Signed updates**: Official builds now install zipsign-authenticated updater archives through the maintained `self_update` / `self-replace` stack; the portable EXE remains available for manual installs.
 - **Simpler updater**: Removed Hallinta's custom download, SHA-256, helper, handoff, readiness, replacement, and automatic rollback engine. Accepted installs use a protected indeterminate state and are not cancellable.

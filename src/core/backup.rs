@@ -218,6 +218,55 @@ fn validate_backup_filename(filename: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// True for automatic archives taken when Hallinta's app version changes.
+pub fn is_upgrade_backup_filename(filename: &str) -> bool {
+    filename.starts_with("hallinta_upgrade_") || filename.starts_with("upgrade_backup_")
+}
+
+fn backup_search_dirs(data_dir: &Path) -> [PathBuf; 2] {
+    // `backups/` is the single write target; `upgrade_backups/` is legacy-only.
+    [
+        data_dir.join("backups"),
+        data_dir.join("upgrade_backups"),
+    ]
+}
+
+fn resolve_backup_path(filename: &str) -> Result<PathBuf, String> {
+    validate_backup_filename(filename)?;
+    let data_dir = get_data_dir()?;
+    for dir in backup_search_dirs(&data_dir) {
+        let path = dir.join(filename);
+        if path.exists() && path.starts_with(&dir) {
+            return Ok(path);
+        }
+    }
+    Err("Backup file not found".to_string())
+}
+
+fn backup_info_from_path(path: &Path, filename: String) -> Result<BackupInfo, String> {
+    let metadata =
+        fs::metadata(path).map_err(|e| format!("Failed to read backup metadata: {}", e))?;
+    let size_bytes = metadata.len();
+    let timestamp = metadata
+        .modified()
+        .map(|t| {
+            let datetime: chrono::DateTime<Utc> = t.into();
+            datetime.to_rfc3339()
+        })
+        .unwrap_or_default();
+    let (contains_save00, contains_save01, contains_presets, contains_entangled) =
+        peek_zip_contents(path);
+    Ok(BackupInfo {
+        filename,
+        timestamp,
+        size_bytes,
+        contains_save00,
+        contains_save01,
+        contains_presets,
+        contains_entangled,
+    })
+}
+
 pub(crate) fn normalize_manual_backup_name(name: &str, fallback: &str) -> Result<String, String> {
     let normalized = if name.trim().is_empty() {
         fallback.trim()
@@ -277,46 +326,29 @@ fn manual_backup_filename(name: &str, timestamp: &str, suffix: usize) -> String 
 
 pub fn list_backups() -> Result<Vec<BackupInfo>, String> {
     let data_dir = get_data_dir()?;
-    let backups_dir = data_dir.join("backups");
-    if !backups_dir.exists() {
-        return Ok(Vec::new());
-    }
-
     let mut backups = Vec::new();
-    let entries = fs::read_dir(&backups_dir)
-        .map_err(|e| format!("Failed to read backups directory: {}", e))?;
+    let mut seen = std::collections::HashSet::new();
 
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
-        let path = entry.path();
-        if path.extension().is_some_and(|ext| ext == "zip") {
+    for dir in backup_search_dirs(&data_dir) {
+        if !dir.exists() {
+            continue;
+        }
+        let entries =
+            fs::read_dir(&dir).map_err(|e| format!("Failed to read backups directory: {}", e))?;
+        for entry in entries {
+            let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+            let path = entry.path();
+            if !path.extension().is_some_and(|ext| ext == "zip") {
+                continue;
+            }
             let filename = path
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
-            let metadata = fs::metadata(&path)
-                .map_err(|e| format!("Failed to read backup metadata: {}", e))?;
-            let size_bytes = metadata.len();
-            let modified = metadata
-                .modified()
-                .map(|t| {
-                    let datetime: chrono::DateTime<Utc> = t.into();
-                    datetime.to_rfc3339()
-                })
-                .unwrap_or_default();
-
-            let (contains_save00, contains_save01, contains_presets, contains_entangled) =
-                peek_zip_contents(&path);
-
-            backups.push(BackupInfo {
-                filename,
-                timestamp: modified,
-                size_bytes,
-                contains_save00,
-                contains_save01,
-                contains_presets,
-                contains_entangled,
-            });
+            if filename.is_empty() || !seen.insert(filename.clone()) {
+                continue;
+            }
+            backups.push(backup_info_from_path(&path, filename)?);
         }
     }
 
@@ -361,49 +393,14 @@ fn peek_zip_contents(path: &Path) -> (bool, bool, bool, bool) {
 }
 
 pub fn delete_backup(filename: &str) -> Result<(), String> {
-    validate_backup_filename(filename)?;
-    let data_dir = get_data_dir()?;
-    let backup_path = data_dir.join("backups").join(filename);
-    let backups_dir = data_dir.join("backups");
-    if !backup_path.exists() {
-        return Err("Backup file not found".to_string());
-    }
-    if !backup_path.starts_with(&backups_dir) {
-        return Err("Invalid backup path".to_string());
-    }
+    let backup_path = resolve_backup_path(filename)?;
     fs::remove_file(&backup_path).map_err(|e| format!("Failed to delete backup: {}", e))?;
     Ok(())
 }
 
 pub fn get_backup_contents(filename: &str) -> Result<BackupInfo, String> {
-    validate_backup_filename(filename)?;
-    let data_dir = get_data_dir()?;
-    let backup_path = data_dir.join("backups").join(filename);
-    if !backup_path.exists() {
-        return Err("Backup file not found".to_string());
-    }
-
-    let metadata =
-        fs::metadata(&backup_path).map_err(|e| format!("Failed to read backup metadata: {}", e))?;
-    let modified = metadata
-        .modified()
-        .map(|t| {
-            let datetime: chrono::DateTime<Utc> = t.into();
-            datetime.to_rfc3339()
-        })
-        .unwrap_or_default();
-
-    let (has_save00, has_save01, has_presets, has_entangled) = peek_zip_contents(&backup_path);
-
-    Ok(BackupInfo {
-        filename: filename.to_string(),
-        timestamp: modified,
-        size_bytes: metadata.len(),
-        contains_save00: has_save00,
-        contains_save01: has_save01,
-        contains_presets: has_presets,
-        contains_entangled: has_entangled,
-    })
+    let backup_path = resolve_backup_path(filename)?;
+    backup_info_from_path(&backup_path, filename.to_string())
 }
 
 pub fn restore_backup(
@@ -412,12 +409,8 @@ pub fn restore_backup(
     options: &RestoreOptions,
     entangled_dir: Option<&Path>,
 ) -> Result<(), String> {
-    validate_backup_filename(filename)?;
     let data_dir = get_data_dir()?;
-    let backup_path = data_dir.join("backups").join(filename);
-    if !backup_path.exists() {
-        return Err("Backup file not found".to_string());
-    }
+    let backup_path = resolve_backup_path(filename)?;
 
     let _ = logging::log(
         "INFO",
@@ -527,17 +520,21 @@ pub fn create_upgrade_backup(
     new_version: &str,
 ) -> Result<(), String> {
     let data_dir = get_data_dir()?;
-    let upgrade_backup_dir = data_dir.join("upgrade_backups");
-    if !upgrade_backup_dir.exists() {
-        fs::create_dir_all(&upgrade_backup_dir)
-            .map_err(|e| format!("Failed to create upgrade backup directory: {}", e))?;
+    // Same directory as manual backups so Manage Backups can list/restore/delete them.
+    let backups_dir = data_dir.join("backups");
+    if !backups_dir.exists() {
+        fs::create_dir_all(&backups_dir)
+            .map_err(|e| format!("Failed to create backups directory: {}", e))?;
     }
 
     let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-    let zip_file_path = upgrade_backup_dir.join(format!(
-        "upgrade_backup_from_v{}_to_v{}_{}.zip",
-        old_version, new_version, timestamp
-    ));
+    let filename = format!(
+        "hallinta_upgrade_from_v{}_to_v{}_{}.zip",
+        sanitize_version_for_filename(old_version),
+        sanitize_version_for_filename(new_version),
+        timestamp
+    );
+    let zip_file_path = backups_dir.join(&filename);
 
     let settings_json = serde_json::to_string_pretty(settings)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
@@ -584,8 +581,21 @@ pub fn create_upgrade_backup(
     zip.finish()
         .map_err(|e| format!("Failed to finish zip: {}", e))?;
 
-    cleanup_old_upgrade_backups(&upgrade_backup_dir, 5)?;
+    cleanup_old_upgrade_backups(&data_dir, 5)?;
     Ok(())
+}
+
+fn sanitize_version_for_filename(version: &str) -> String {
+    version
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 /// Restore save data from a snapshot ZIP at an arbitrary path.
@@ -678,16 +688,26 @@ pub fn restore_from_path(
     Ok(())
 }
 
-fn cleanup_old_upgrade_backups(upgrade_backup_dir: &Path, keep_count: usize) -> Result<(), String> {
-    if !upgrade_backup_dir.exists() {
-        return Ok(());
+fn cleanup_old_upgrade_backups(data_dir: &Path, keep_count: usize) -> Result<(), String> {
+    let mut backups = Vec::new();
+    for dir in backup_search_dirs(data_dir) {
+        if !dir.exists() {
+            continue;
+        }
+        let entries = fs::read_dir(&dir)
+            .map_err(|e| format!("Failed to read backups directory: {}", e))?;
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            if path.extension().is_some_and(|ext| ext == "zip") && is_upgrade_backup_filename(&name)
+            {
+                backups.push(entry);
+            }
+        }
     }
-
-    let mut backups: Vec<_> = fs::read_dir(upgrade_backup_dir)
-        .map_err(|e| format!("Failed to read upgrade_backups directory: {}", e))?
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "zip"))
-        .collect();
 
     if backups.len() <= keep_count {
         return Ok(());
@@ -796,5 +816,88 @@ mod tests {
                 "accepted unsafe backup filename: {invalid}"
             );
         }
+    }
+
+    #[test]
+    fn upgrade_backup_filenames_are_recognized() {
+        assert!(super::is_upgrade_backup_filename(
+            "hallinta_upgrade_from_v0.8.2_to_v0.8.3_20260711_120000.zip"
+        ));
+        assert!(super::is_upgrade_backup_filename(
+            "upgrade_backup_from_v0.8.1_to_v0.8.2_20260710_010203.zip"
+        ));
+        assert!(!super::is_upgrade_backup_filename(
+            "hallinta_manual_night_run_20260711_013000.zip"
+        ));
+    }
+
+    #[test]
+    fn list_and_resolve_include_legacy_upgrade_backups_dir() {
+        use std::fs;
+        use std::io::Write;
+        use zip::write::FileOptions;
+        use zip::ZipWriter;
+
+        let data_dir = super::get_data_dir().expect("test data dir");
+        let legacy_dir = data_dir.join("upgrade_backups");
+        fs::create_dir_all(&legacy_dir).expect("legacy dir");
+        let filename = "upgrade_backup_from_v0.8.0_to_v0.8.1_test.zip";
+        let path = legacy_dir.join(filename);
+        {
+            let file = fs::File::create(&path).expect("create zip");
+            let mut zip = ZipWriter::new(file);
+            let options: FileOptions<()> =
+                FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+            zip.start_file("presets.json", options).expect("start");
+            zip.write_all(b"{}").expect("write");
+            zip.finish().expect("finish");
+        }
+
+        let list = super::list_backups().expect("list");
+        assert!(
+            list.iter().any(|b| b.filename == filename && b.contains_presets),
+            "legacy upgrade backup missing from list: {list:?}"
+        );
+        let resolved = super::resolve_backup_path(filename).expect("resolve legacy");
+        assert_eq!(resolved, path);
+        super::delete_backup(filename).expect("delete legacy");
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn create_upgrade_backup_lands_in_shared_backups_dir() {
+        use crate::models::{AppSettings, LogSettings, SaveMonitorSettings};
+        use std::collections::BTreeMap;
+
+        let data_dir = super::get_data_dir().expect("test data dir");
+        let settings = AppSettings {
+            noita_dir: String::new(),
+            entangled_dir: String::new(),
+            dark_mode: false,
+            selected_preset: "Default".to_string(),
+            version: "0.8.2".to_string(),
+            log_settings: LogSettings::default(),
+            save_monitor_settings: SaveMonitorSettings::default(),
+            steam_path: String::new(),
+            compact_mode: false,
+            ui_scale: 1.25,
+            last_filter_mode: String::new(),
+            last_sort_mode: String::new(),
+            needs_noita_reconciliation: false,
+            dismissed_update_version: None,
+        };
+        let presets = BTreeMap::new();
+        super::create_upgrade_backup(&settings, &presets, "0.8.2", "0.8.3")
+            .expect("upgrade backup");
+
+        let list = super::list_backups().expect("list");
+        let upgrade = list
+            .iter()
+            .find(|b| b.filename.starts_with("hallinta_upgrade_from_v0.8.2_to_v0.8.3_"))
+            .expect("upgrade archive should be listed");
+        let path = data_dir.join("backups").join(&upgrade.filename);
+        assert!(path.exists(), "upgrade backup should live under backups/");
+        assert!(upgrade.contains_presets);
+        super::delete_backup(&upgrade.filename).expect("cleanup");
     }
 }
