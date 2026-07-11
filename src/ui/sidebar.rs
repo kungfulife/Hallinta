@@ -12,8 +12,9 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
             ui.add_space(d.md);
             let btn_width = (ui.available_width() - d.md * 2.0).max(1.0);
             let pair_width = ((btn_width - d.xs) / 2.0).max(1.0);
-            let button_size = [btn_width, 0.0];
-            let pair_size = [pair_width, 0.0];
+            let button_height = ui.spacing().interact_size.y;
+            let button_size = [btn_width, button_height];
+            let pair_size = [pair_width, button_height];
             let is_locked = app.save_monitor.is_running();
             let backup_busy = app.backup_state.in_progress || app.backup_state.restoring;
 
@@ -181,6 +182,31 @@ mod tests {
         }
     }
 
+    fn positioned_text_from_shape(shape: &egui::epaint::Shape) -> Vec<(String, f32)> {
+        match shape {
+            egui::epaint::Shape::Text(text) => {
+                vec![(text.galley.text().to_string(), text.pos.y)]
+            }
+            egui::epaint::Shape::Vec(shapes) => {
+                shapes.iter().flat_map(positioned_text_from_shape).collect()
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    fn dense_sidebar_text_positions() -> Vec<(String, f32)> {
+        let (_runtime, mut app) = test_app(Vec::new());
+        let ctx = egui::Context::default();
+        let output = ctx.run_ui(Default::default(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| render_sidebar(&mut app, ui));
+        });
+        output
+            .shapes
+            .iter()
+            .flat_map(|shape| positioned_text_from_shape(&shape.shape))
+            .collect()
+    }
+
     #[test]
     fn normal_sidebar_uses_dense_control_console() {
         let (_runtime, mut app) = test_app(Vec::new());
@@ -223,6 +249,31 @@ mod tests {
                 labels.iter().all(|label| label != removed),
                 "old action still rendered: {removed}"
             );
+        }
+    }
+
+    #[test]
+    fn dense_sidebar_pair_rows_share_vertical_baseline() {
+        let positioned = dense_sidebar_text_positions();
+        let positions = |label: &str| {
+            positioned
+                .iter()
+                .filter_map(|(text, y)| (text == label).then_some(*y))
+                .collect::<Vec<_>>()
+        };
+
+        for (left, right) in [
+            (positions("Backups"), positions("Sessions")),
+            (positions("Import"), positions("Export")),
+            (positions("Open XML"), positions("Reload")),
+        ] {
+            assert_eq!(left.len(), right.len());
+            for (left_y, right_y) in left.into_iter().zip(right) {
+                assert!(
+                    (left_y - right_y).abs() < 0.1,
+                    "pair is vertically misaligned: left={left_y}, right={right_y}; {positioned:?}"
+                );
+            }
         }
     }
 }
