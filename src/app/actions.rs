@@ -265,18 +265,25 @@ impl HallintaApp {
 
     pub fn reload_mods(&mut self) {
         let noita_dir = self.settings.noita_dir.clone();
-        if noita_dir.is_empty() {
+        if noita_dir.trim().is_empty() {
+            self.noita_directory_error = Some(super::noita_directory_error_message(&noita_dir, ""));
             return;
         }
         let dir = PathBuf::from(&noita_dir);
-        if let Ok(xml) = mods::read_mod_config(&dir)
-            && let Ok(file_mods) = mods::parse_mods_from_xml(&xml)
-        {
-            self.current_mods = file_mods;
-            self.file_watcher.pending_external_mods = None;
-            self.presets
-                .insert(self.selected_preset.clone(), self.current_mods.clone());
-            let _ = presets::save_presets(&self.presets);
+        match mods::load_mod_config(&dir) {
+            Ok(file_mods) => {
+                self.noita_directory_error = None;
+                self.current_mods = file_mods;
+                self.file_watcher.pending_external_mods = None;
+                self.presets
+                    .insert(self.selected_preset.clone(), self.current_mods.clone());
+                let _ = presets::save_presets(&self.presets);
+            }
+            Err(error) => {
+                self.noita_directory_error =
+                    Some(super::noita_directory_error_message(&noita_dir, &error));
+                return;
+            }
         }
         let config_path = dir.join("mod_config.xml");
         if let Ok(mtime) = mods::get_file_modified_time(&config_path) {
@@ -296,6 +303,19 @@ impl HallintaApp {
             "ModManager",
         );
         self.check_workshop_mods_async();
+    }
+
+    pub fn visible_noita_directory_error(&self) -> Option<&str> {
+        #[cfg(debug_assertions)]
+        if self.preview_noita_directory_warning {
+            return Some(super::NOITA_WARNING_PREVIEW_MESSAGE);
+        }
+        self.noita_directory_error.as_deref()
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn toggle_noita_warning_preview(&mut self) {
+        self.preview_noita_directory_warning = !self.preview_noita_directory_warning;
     }
 
     /// Abort an in-flight drag and restore the pre-drag mod order.
@@ -444,5 +464,42 @@ mod tests {
 
         assert!(error.contains("mod_config.xml"));
         assert_eq!(app.settings.selected_preset, "Changed");
+    }
+
+    #[test]
+    fn reload_records_an_empty_noita_directory_error() {
+        let (_runtime, mut app) = test_app(vec![mod_entry("Alpha", true, "1")]);
+        app.settings.noita_dir.clear();
+
+        app.reload_mods();
+
+        assert_eq!(
+            app.noita_directory_error.as_deref(),
+            Some("Noita save directory was not found.")
+        );
+    }
+
+    #[test]
+    fn warning_preview_does_not_change_the_real_error_or_saved_path() {
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.noita_dir = "C:/Noita/save00".to_string();
+        app.noita_directory_error = Some("real error".to_string());
+
+        app.toggle_noita_warning_preview();
+
+        assert!(app.preview_noita_directory_warning);
+        assert_eq!(app.settings.noita_dir, "C:/Noita/save00");
+        assert_eq!(app.noita_directory_error.as_deref(), Some("real error"));
+        assert_eq!(
+            app.visible_noita_directory_error(),
+            Some(
+                "Preview: Hallinta could not load mod_config.xml from the detected Noita save directory."
+            )
+        );
+
+        app.toggle_noita_warning_preview();
+
+        assert!(!app.preview_noita_directory_warning);
+        assert_eq!(app.visible_noita_directory_error(), Some("real error"));
     }
 }

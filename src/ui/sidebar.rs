@@ -155,6 +155,28 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     }
                 });
             });
+
+            #[cfg(debug_assertions)]
+            {
+                ui.add_space(d.md);
+                ui.separator();
+                ui.add_space(d.md);
+                section_label(ui, "Preview", &d);
+                let preview_label = if app.preview_noita_directory_warning {
+                    "End Warning Preview"
+                } else {
+                    "Preview Noita Warning"
+                };
+                if ui
+                    .add_sized(button_size, egui::Button::new(preview_label))
+                    .on_hover_text(
+                        "Temporarily simulate an invalid Noita directory without changing Settings",
+                    )
+                    .clicked()
+                {
+                    app.toggle_noita_warning_preview();
+                }
+            }
         });
 }
 
@@ -248,6 +270,7 @@ mod tests {
             "Open XML",
             "Reload",
             "Presets",
+            "Preview Noita Warning",
         ] {
             assert!(
                 labels.iter().any(|label| label == expected),

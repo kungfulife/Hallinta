@@ -85,20 +85,27 @@ impl HallintaApp {
 
     fn check_external_changes(&mut self) {
         let noita_dir = self.settings.noita_dir.clone();
-        if noita_dir.is_empty() {
+        if noita_dir.trim().is_empty() {
+            self.noita_directory_error = Some(super::noita_directory_error_message(&noita_dir, ""));
             return;
         }
         let dir = PathBuf::from(&noita_dir);
+        let file_mods = match mods::load_mod_config(&dir) {
+            Ok(file_mods) => {
+                self.noita_directory_error = None;
+                file_mods
+            }
+            Err(error) => {
+                self.noita_directory_error =
+                    Some(super::noita_directory_error_message(&noita_dir, &error));
+                return;
+            }
+        };
         if let Some(new_mtime) =
             file_watcher::check_for_external_changes(&dir, self.file_watcher.last_modified_time)
         {
             self.file_watcher.last_modified_time = new_mtime;
-
-            if let Ok(xml) = mods::read_mod_config(&dir)
-                && let Ok(file_mods) = mods::parse_mods_from_xml(&xml)
-            {
-                self.defer_or_prompt_external_mods(file_mods);
-            }
+            self.defer_or_prompt_external_mods(file_mods);
         }
     }
 
@@ -413,5 +420,46 @@ mod tests {
         assert!(app.save_monitor.pending_change_since.is_none());
         assert!(app.save_monitor.last_write_at.is_none());
         assert!(app.save_monitor.snapshot_in_flight);
+    }
+
+    #[test]
+    fn file_watch_sets_directory_error_when_mod_config_disappears() {
+        let dir = std::env::temp_dir().join(format!(
+            "hallinta-watch-missing-config-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        mods::write_mod_config(&dir, "<Mods></Mods>").unwrap();
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.noita_dir = dir.to_string_lossy().to_string();
+        app.noita_directory_error = None;
+        std::fs::remove_file(dir.join("mod_config.xml")).unwrap();
+
+        app.check_external_changes();
+
+        assert!(
+            app.noita_directory_error
+                .as_deref()
+                .is_some_and(|error| error.contains("mod_config.xml"))
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn file_watch_clears_directory_error_when_mod_config_returns() {
+        let dir = std::env::temp_dir().join(format!(
+            "hallinta-watch-restored-config-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        mods::write_mod_config(&dir, "<Mods></Mods>").unwrap();
+        let (_runtime, mut app) = test_app(Vec::new());
+        app.settings.noita_dir = dir.to_string_lossy().to_string();
+        app.noita_directory_error = Some("missing".to_string());
+
+        app.check_external_changes();
+
+        assert!(app.noita_directory_error.is_none());
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

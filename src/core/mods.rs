@@ -11,6 +11,16 @@ pub fn read_mod_config(directory: &Path) -> Result<String, String> {
     fs::read_to_string(config_path).map_err(|e| format!("Failed to read mod_config.xml: {}", e))
 }
 
+pub fn load_mod_config(directory: &Path) -> Result<Vec<ModEntry>, String> {
+    let xml = read_mod_config(directory)?;
+    let has_mods_root = xml.contains("<Mods")
+        && (xml.contains("</Mods>") || xml.contains("<Mods/>") || xml.contains("<Mods />"));
+    if !has_mods_root {
+        return Err("Malformed XML: missing <Mods> root".to_string());
+    }
+    parse_mods_from_xml(&xml)
+}
+
 pub fn write_mod_config(directory: &Path, content: &str) -> Result<(), String> {
     let config_path = directory.join("mod_config.xml");
     fs::write(config_path, content).map_err(|e| format!("Failed to write mod_config.xml: {}", e))
@@ -303,6 +313,68 @@ mod tests {
         assert_eq!(parsed[1].name, "beta");
         assert!(!parsed[1].enabled);
 
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn load_mod_config_reads_and_parses_the_directory() {
+        let dir = std::env::temp_dir().join(format!(
+            "hallinta-load-mod-config-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock should follow epoch")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("mod_config.xml"),
+            r#"<Mods><Mod name="Alpha" enabled="1" workshop_item_id="1" /></Mods>"#,
+        )
+        .unwrap();
+
+        let loaded = load_mod_config(&dir).expect("valid mod_config.xml should load");
+
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].name, "Alpha");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn load_mod_config_rejects_a_malformed_configuration() {
+        let dir = std::env::temp_dir().join(format!(
+            "hallinta-malformed-mod-config-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock should follow epoch")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("mod_config.xml"), "<Mods><Mod name=\"broken\"").unwrap();
+
+        let error = load_mod_config(&dir).expect_err("malformed mod_config.xml should fail");
+
+        assert!(error.contains("Malformed XML"), "unexpected error: {error}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn load_mod_config_rejects_a_file_without_the_mods_root() {
+        let dir = std::env::temp_dir().join(format!(
+            "hallinta-empty-mod-config-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock should follow epoch")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("mod_config.xml"), "").unwrap();
+
+        let error = load_mod_config(&dir).expect_err("an empty mod_config.xml should fail");
+
+        assert!(error.contains("<Mods> root"), "unexpected error: {error}");
         std::fs::remove_dir_all(&dir).ok();
     }
 }

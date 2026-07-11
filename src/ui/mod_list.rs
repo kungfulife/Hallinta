@@ -15,7 +15,7 @@ pub fn render_mod_list(app: &mut HallintaApp, ui: &mut egui::Ui) {
     if app.current_mods.is_empty() {
         ui.centered_and_justified(|ui| {
             ui.label(
-                egui::RichText::new("No mods loaded. Check your Noita save directory in Settings.")
+                egui::RichText::new("No mods are listed in this mod_config.xml.")
                     .size(d.font_heading)
                     .italics(),
             );

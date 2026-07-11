@@ -55,6 +55,10 @@ pub struct Design {
     pub settings_focus_border: egui::Color32,
     pub helper_text_bg: egui::Color32,
     pub helper_text_color: egui::Color32,
+    pub warning_fill: egui::Color32,
+    pub warning_border: egui::Color32,
+    pub warning_text: egui::Color32,
+    pub warning_workspace_fill: egui::Color32,
 }
 
 impl Design {
@@ -132,7 +136,7 @@ impl Design {
             } else {
                 egui::Color32::from_rgba_premultiplied(100, 55, 200, 130)
             },
-            // Tabs: "Mod List", "Modpacks" — same lavender family as helper_text
+            // Tabs use the same lavender family as helper text.
             tab_bg: if dark {
                 egui::Color32::from_rgb(50, 40, 75)
             } else {
@@ -183,6 +187,26 @@ impl Design {
                 egui::Color32::from_rgb(185, 178, 200)
             } else {
                 egui::Color32::from_rgb(70, 50, 110)
+            },
+            warning_fill: if dark {
+                egui::Color32::from_rgb(59, 45, 18)
+            } else {
+                egui::Color32::from_rgb(255, 242, 207)
+            },
+            warning_border: if dark {
+                egui::Color32::from_rgb(215, 169, 61)
+            } else {
+                egui::Color32::from_rgb(168, 106, 0)
+            },
+            warning_text: if dark {
+                egui::Color32::from_rgb(244, 216, 137)
+            } else {
+                egui::Color32::from_rgb(112, 70, 0)
+            },
+            warning_workspace_fill: if dark {
+                egui::Color32::from_rgb(35, 30, 23)
+            } else {
+                egui::Color32::from_rgb(255, 249, 236)
             },
         }
     }

@@ -37,6 +37,9 @@ pub struct HallintaApp {
     pub sort_mode: SortMode,
     pub compact_mode: bool,
     pub dark_mode: bool,
+    pub noita_directory_error: Option<String>,
+    #[cfg(debug_assertions)]
+    pub preview_noita_directory_warning: bool,
 
     // Modal state
     pub active_modal: Option<Modal>,
@@ -147,46 +150,38 @@ impl HallintaApp {
             .cloned()
             .unwrap_or_default();
 
-        if !noita_dir.is_empty() {
+        let mut noita_directory_error = None;
+        if !noita_dir.trim().is_empty() {
             let noita_path = PathBuf::from(&noita_dir);
-            match mods::read_mod_config(&noita_path) {
-                Ok(xml) => match mods::parse_mods_from_xml(&xml) {
-                    Ok(file_mods) => {
-                        let _ = logging::log(
-                            "INFO",
-                            &format!(
-                                "Loaded {} mod(s) from {}",
-                                file_mods.len(),
-                                noita_path.display()
-                            ),
-                            "Mods",
-                        );
-                        current_mods = file_mods;
-                    }
-                    Err(e) => {
-                        let _ = logging::log(
-                            "ERROR",
-                            &format!("Failed to parse mod_config.xml: {}", e),
-                            "Mods",
-                        );
-                    }
-                },
+            match mods::load_mod_config(&noita_path) {
+                Ok(file_mods) => {
+                    let _ = logging::log(
+                        "INFO",
+                        &format!(
+                            "Loaded {} mod(s) from {}",
+                            file_mods.len(),
+                            noita_path.display()
+                        ),
+                        "Mods",
+                    );
+                    current_mods = file_mods;
+                }
                 Err(e) => {
+                    noita_directory_error = Some(noita_directory_error_message(&noita_dir, &e));
                     let _ = logging::log(
                         "WARN",
-                        &format!(
-                            "mod_config.xml not found at {} — {}",
-                            noita_path.display(),
-                            e
-                        ),
+                        noita_directory_error.as_deref().unwrap_or(&e),
                         "Mods",
                     );
                 }
             }
         } else {
+            noita_directory_error = Some(noita_directory_error_message(&noita_dir, ""));
             let _ = logging::log(
                 "WARN",
-                "No Noita save directory configured. Set it in Settings.",
+                noita_directory_error
+                    .as_deref()
+                    .unwrap_or("Noita save directory was not found."),
                 "Mods",
             );
         }
@@ -261,6 +256,9 @@ impl HallintaApp {
             sort_mode: initial_sort,
             compact_mode,
             dark_mode,
+            noita_directory_error,
+            #[cfg(debug_assertions)]
+            preview_noita_directory_warning: false,
             active_modal: None,
             save_monitor: save_monitor_state,
             backup_state,
@@ -328,6 +326,18 @@ impl HallintaApp {
         );
         logging::write_session_marker(&format!("APP_INITIALIZED:v{}", platform::get_version()));
         app
+    }
+}
+
+#[cfg(debug_assertions)]
+const NOITA_WARNING_PREVIEW_MESSAGE: &str =
+    "Preview: Hallinta could not load mod_config.xml from the detected Noita save directory.";
+
+fn noita_directory_error_message(path: &str, error: &str) -> String {
+    if path.trim().is_empty() {
+        "Noita save directory was not found.".to_string()
+    } else {
+        format!("Could not load mod_config.xml from {path}: {error}")
     }
 }
 

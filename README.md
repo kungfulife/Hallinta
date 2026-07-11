@@ -1,161 +1,34 @@
-# Hallinta - Noita Mod Manager
+# Hallinta — Noita Mod Manager
 
-A mod manager for Noita with preset support, backup/restore, and a structured logging system. Built with Rust + egui (eframe).
+Hallinta is a Rust + egui desktop app for managing Noita mods, local presets, backups, and save-monitor snapshots.
+
+> **Platform status:** Windows 11 is supported. Linux and macOS are **not supported yet**; implementation and testing after the egui rewrite are still in progress.
 
 ## Features
 
-### Mod Management
-- Load and manage mods from Noita's mod_config.xml
-- Toggle mods on/off with visual indicators
-- Drag-and-drop reordering with live updates
-- Sort modes (A→Z, Z→A, Enabled first, Disabled first) — visual or persisted
-- Search by mod name or workshop ID
-- Bulk Enable All / Disable All
-- Footer status: "N enabled / M total" (and "K shown" when filtered)
-- Workshop and local mod support
-- Real-time file monitoring for external changes
-- Right-click menu: Enable/Disable, Move to position, Delete, Open Workshop
-  page, Copy Workshop ID, Copy Workshop URL, Copy Mod Name
+- Manage, search, filter, sort, and reorder Noita's `mod_config.xml`.
+- Create and switch local presets; import/export mod lists and presets as local files.
+- Check imported Steam Workshop mods and open Workshop actions.
+- Back up and selectively restore saves, presets, and optional Entangled Worlds data.
+- Capture and restore Save Monitor session snapshots.
+- Use dark/light themes, adjustable scaling, compact mode, and session/crash logs.
+- Apply SHA-256-verified updates from official Windows releases.
 
-### Preset System
-- Create, rename, and delete mod presets
-- Quick switching between different mod configurations
-- Import and export presets as JSON files with checksum verification
-- Automatic preset synchronization with mod_config.xml
-- Alphabetical preset sorting (Default always first)
-- Conflict resolution when external changes detected
+## Windows 11
 
-### Modpacks
-- Browse and download presets from a configurable catalog URL
-- Search and tag-based filtering
-- One-click download with JSON validation and checksum verification
-- Import presets directly from Google Drive share links *(in development)*
-- Workshop mod check: detects missing Steam Workshop mods on import *(in development)*
-- Per-mod Steam Subscribe buttons for quick installation
-- In-app guide for self-hosting a preset catalog
+Download the portable `Hallinta-x86_64-pc-windows-msvc.exe` from the [latest release](https://github.com/kungfulife/Hallinta/releases/latest).
 
-### Backup & Restore
-- Named manual backups of Noita save data (save00, save01), presets, and optional Entangled Worlds data
-- Save monitoring with per-preset snapshots for crash recovery
-- Save Monitor keeps the mod list editable and defers external change prompts until monitoring pauses
-- Configurable Save Monitor snapshot delay and per-session snapshot limit
-- Manage Backups workspace with Restore Latest, selective restore, and delete controls
-- Manage Sessions workspace for browsing and restoring monitor snapshots
-- Selective restore with per-component options
-- Upgrade backups created automatically on version change (keeps last 5)
-- Zip Slip protection: malicious archives can't write outside the target directory
+On launch, Hallinta automatically detects Noita's save directory and loads `mod_config.xml`. If no usable directory is found—or a saved location becomes invalid—Hallinta highlights the issue and directs you to Settings. Optional Entangled Worlds and Steam paths are detected when available.
 
-### Entangled Worlds
-- Optional support for [Noita Entangled Worlds](https://github.com/IntQuant/noita_entangled_worlds) multiplayer mod directories
-- Include entangled save data in backups for crash recovery
-- Auto-detection on Windows and Linux
+Version 0.8.1 requires one manual install; supported release builds can update in place afterward.
 
-### Application Logs
-- Always-on session logging for reliable crash diagnostics
-- Panic crash handler writes panic payload, location, thread, and stack trace to session logs
-- Log files accessible via Settings > Open Settings Folder
-- Configurable log level controls recording verbosity
-
-### Smart Directory Detection
-- **Noita Save Directory**: Automatically finds save location on Windows and Linux (Proton/Steam)
-- **Entangled Worlds** (optional): Detects multiplayer mod directories on Windows and Linux
-- Manual directory selection with Browse and Auto-detect buttons
-
-### User Interface
-- Native desktop GUI powered by egui/eframe
-- Dark and light mode (quick toggle in header)
-- Compact Mode: monitoring-focused layout with Create Backup, Manage Backups, and Manage Sessions
-- Dense normal-mode Actions console with grouped save, mod-file, and preset controls
-- Hover tooltips on every action
-- Quick reload button (`⟳`) and theme toggle in the header
-- Context menus for mod operations (toggle, delete, reorder, workshop links, copy ID/URL/name)
-- Search and filter functionality (filter + sort persist across sessions)
-- Responsive layout
-
-### Keyboard Shortcuts
-- `Ctrl+F` — focus the search box
-- `F5` — reload `mod_config.xml` from disk
-- `Ctrl+B` — open the backup dialog
-- `Ctrl+E` / `Ctrl+D` — enable / disable all mods
-- `Ctrl+,` — toggle Settings view
-- `Esc` — close active modal, exit Settings, or cancel an in-flight drag
-
-### Settings & Configuration
-- Persistent settings stored in system data directories
-- User-configurable preset catalog URL
-- Optional startup system diagnostics collection (disabled by default)
-- Save Monitor snapshot timing and per-session retention settings
-- Steam path auto-detection during initial setup
-- Version upgrade detection with automatic backups
-- Settings validation and error recovery
-- System Information and Open Source Libraries credits panels
-
-## Setup
-
-### Windows 11 download
-
-Download `Hallinta-x86_64-pc-windows-msvc.exe` from the [latest GitHub Release](https://github.com/kungfulife/Hallinta/releases/latest) and place it in any writable folder. Hallinta is portable: no installer is required.
-
-Version 0.8.1 must be installed manually once. Official release builds then check GitHub Releases at startup and can update the same executable in place. Downloads are SHA-256 verified; active Save Monitor sessions receive a final snapshot before restart and resume afterward.
-
-### First Run
-1. Launch Hallinta
-2. Application automatically detects Noita save directory (Windows)
-3. If not found, use Auto-detect or Browse in Settings
-4. Entangled Worlds directory detection is optional
-
-### Directory Configuration
-- **Settings > Noita Saved Data Directory**: Required for core functionality
-- **Settings > Entangled Worlds Directory**: Optional multiplayer support
-- Use Auto-detect to auto-locate standard installations
-- Browse for custom installations
-
-## Interface Overview
-
-- **Header**: `Mod List` / `Modpacks` tabs, search bar, preset controls, settings access
-- **Actions**: Dense Session & Safety, Mod Files, and Presets controls
-- **Mod List View**: Main mod list with drag-and-drop reordering
-- **Modpacks**: Browse, search, and download presets from a configured catalog
-- **Settings**: Directory configuration, appearance, backup, logging, catalog URL, Steam path
-
-## Technical Details
-
-- **Language**: Rust
-- **GUI Framework**: eframe/egui 0.35
-- **Data Storage**: JSON files in platform data directories
-- **File Monitoring**: Real-time mod_config.xml watching
-- **Logging**: Structured session logging with file rotation
-
-## Developer Docs
-
-- `docs/code-map.md` - quick map from features to source files
-- `docs/dev-mode.md` - debug build markers and data behavior
-- `docs/logging.md` - log lifecycle and session markers
-- `docs/design-system.md` / `docs/egui.md` - UI conventions and egui notes
-
-## Planned
-
-- macOS directory detection improvements
-- Enhanced Entangled Worlds multiplayer mod support
-- Further Workshop integration and Google Drive link testing
-
-## Prerequisites
-
-Unknown, planning for none aside from compiling within Rust within all platforms (Mac, Linux, Windows)
-
-### Noita on Linux
-Hallinta auto-detects Noita save data under Steam's Proton prefix:
-```
-~/.local/share/Steam/steamapps/compatdata/881100/pfx/drive_c/users/steamuser/AppData/LocalLow/Nolla_Games_Noita/save00
-```
-If your Steam library is in a non-default location, use **Settings > Auto-detect** or **Browse** to set the path manually.
-
-## Building
+## Build
 
 ```bash
-# Development
 cargo run
-
-# Production build
 cargo build --release
 ```
+
+Linux/macOS builds are currently untested and unsupported.
+
+See [`docs/code-map.md`](docs/code-map.md) for the source layout and [`docs/`](docs/) for maintainer documentation.

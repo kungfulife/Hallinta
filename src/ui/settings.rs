@@ -115,7 +115,6 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
     // Track text fields that need validation before saving
     let mut noita_dir_lost_focus = false;
     let mut entangled_dir_lost_focus = false;
-    let mut show_noita_warning = false;
     let mut scale_changed = false;
     let mut logging_open_error = None;
 
@@ -251,11 +250,6 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 {
                     needs_save = true;
                 }
-                helper_text(
-                    ui,
-                    &d,
-                    "Log entries are written when events occur (startup, shutdown, crashes).",
-                );
                 ui.horizontal(|ui| {
                     if ui.button("Open Current Log").clicked() {
                         let result = crate::core::logging::get_current_log_file_path()
@@ -498,25 +492,7 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
 
     // Noita directory changed (via blur, Browse, or Auto-detect)
     if noita_dir_lost_focus {
-        // Validate: check for mod_config.xml
-        if !app.settings.noita_dir.is_empty() {
-            let noita_path = std::path::PathBuf::from(&app.settings.noita_dir);
-            if !noita_path.join("mod_config.xml").exists() {
-                show_noita_warning = true;
-            }
-        }
-        if !show_noita_warning {
-            app.on_noita_dir_changed();
-        }
-    }
-
-    if show_noita_warning {
-        app.active_modal = Some(Modal::Info {
-            title: "Warning".to_string(),
-            message: "The selected Noita directory does not contain mod_config.xml.".to_string(),
-        });
-        // Still save — user might know what they're doing
-        app.save_current_settings();
+        app.on_noita_dir_changed();
     }
 
     // Entangled dir changed

@@ -46,6 +46,7 @@ Fast navigation notes for agents and maintainers.
 - `src/ui/compact.rs`: compact four-action monitor/backup/session layout.
 - `src/ui/settings.rs`: settings view and path/appearance/logging/save-monitor controls.
 - `src/ui/modals.rs`: modal rendering; behavior lives in `src/app/modal_actions.rs`.
+- `src/ui/noita_warning.rs`: persistent invalid-Noita-directory warning and Settings guidance.
 - `src/ui/context_menu.rs`: mod row context actions.
 - `src/ui/design.rs`, `src/ui/theme.rs`: spacing, sizing, zoom, colors.
 
@@ -58,7 +59,7 @@ Fast navigation notes for agents and maintainers.
 
 ## Docs Nearby
 
-- `docs/dev-mode.md`: debug markers and app-data behavior.
+- `docs/dev-mode.md`: development-build-only behavior changes.
 - `docs/logging.md`: log files, session markers, flush lifecycle.
 - `docs/design-system.md`: visual spacing/color conventions.
 - `docs/egui.md`: egui implementation notes and UI pitfalls.

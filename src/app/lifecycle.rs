@@ -68,12 +68,19 @@ impl eframe::App for HallintaApp {
         }
 
         crate::ui::header::render_header(self, ui);
+        crate::ui::noita_warning::render(self, ui);
 
         if !self.compact_mode && self.active_view != View::Settings {
             crate::ui::sidebar::render_sidebar(self, ui);
         }
 
-        egui::CentralPanel::default().show(ui, |ui| match self.active_view {
+        let mut central_panel = egui::CentralPanel::default();
+        if self.visible_noita_directory_error().is_some() {
+            let d = crate::ui::design::Design::new(ui.ctx(), &self.settings);
+            central_panel = central_panel
+                .frame(egui::Frame::central_panel(ui.style()).fill(d.warning_workspace_fill));
+        }
+        central_panel.show(ui, |ui| match self.active_view {
             View::ModList => {
                 if self.compact_mode {
                     crate::ui::compact::render_compact(self, ui);

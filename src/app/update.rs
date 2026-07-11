@@ -487,3 +487,29 @@ impl HallintaApp {
         self.update_state.status = UpdateStatus::Idle;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::test_support::test_app;
+    use crate::core::platform;
+    use crate::models::UpdateStatus;
+
+    #[test]
+    fn development_build_update_checks_never_start_network_work() {
+        assert!(!platform::is_dist_build());
+        let (_runtime, mut app) = test_app(Vec::new());
+
+        app.check_for_updates(false);
+        assert_eq!(app.update_state.status, UpdateStatus::Idle);
+
+        app.check_for_updates(true);
+        assert_eq!(
+            app.update_state.status,
+            UpdateStatus::Failed {
+                message: "Automatic updates are enabled only in official GitHub release builds."
+                    .to_string(),
+                retryable: false,
+            }
+        );
+    }
+}
