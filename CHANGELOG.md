@@ -2,6 +2,11 @@ PASTE NEWEST VERSION ENTRY ABOVE THIS LINE. Keep newest at top and push older en
 
 # Update History
 
+## 0.8.6 (2026-07-12)
+- **Sort controls**: Replaced unsupported arrow glyphs with clear portable labels across every sort option.
+- **Automatic Save Monitor**: Hallinta-launch and Noita-process auto-start now create a generated-name session immediately, without resume selection or naming prompts. Manual starts still offer resume, new-session, and naming choices.
+- **Workshop detection**: Steam and all registered library folders are discovered automatically for Workshop checks. Removed the unnecessary Steam path setting; existing settings files need no migration.
+
 ## 0.8.5 (2026-07-11)
 - **Process auto-monitor**: Optionally start Save Monitor when Noita is running (and optionally the Entangled Worlds proxy), detected by process name only.
 - **One-time setup**: First match asks Always or Not now; afterward Auto-start is Off or Always only. Change anytime in Settings; Reset to Defaults restores the prompt.
