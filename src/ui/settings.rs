@@ -430,47 +430,6 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                 }
             });
 
-            ui.add_space(d.md);
-
-            // ── Workshop Settings ────────────────────────────────────────────
-            ui.group(|ui| {
-                ui.label(egui::RichText::new("Workshop").strong().size(d.font_tab));
-                ui.add_space(d.sm);
-
-                ui.label("Steam Path:");
-                ui.horizontal(|ui| {
-                    let steam_prev = app.settings.steam_path.clone();
-                    let resp = focused_text_edit(
-                        ui,
-                        &d,
-                        &mut app.settings.steam_path,
-                        ui.available_width() - 250.0,
-                    );
-                    if resp.lost_focus() && app.settings.steam_path != steam_prev {
-                        needs_save = true;
-                    }
-                    if ui.button("Browse").clicked()
-                        && let Some(folder) = rfd::FileDialog::new()
-                            .set_title("Select Steam Directory")
-                            .pick_folder()
-                    {
-                        app.settings.steam_path = folder.to_string_lossy().to_string();
-                        needs_save = true;
-                    }
-                    if ui.button("Auto-detect").clicked()
-                        && let Ok(path) = crate::core::workshop::detect_steam_path()
-                    {
-                        app.settings.steam_path = path.to_string_lossy().to_string();
-                        needs_save = true;
-                    }
-                    if !app.settings.steam_path.is_empty() && ui.button("Open").clicked() {
-                        let _ = crate::core::platform::open_directory(std::path::Path::new(
-                            &app.settings.steam_path,
-                        ));
-                    }
-                });
-            });
-
             ui.add_space(d.lg);
 
             // ── Action Buttons ───────────────────────��─────────────────────
@@ -508,9 +467,6 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                         defaults.entangled_dir = path.to_string_lossy().to_string();
                         defaults.save_monitor_settings.include_entangled =
                             crate::core::platform::entangled_dir_usable(&defaults.entangled_dir);
-                    }
-                    if let Ok(path) = crate::core::workshop::detect_steam_path() {
-                        defaults.steam_path = path.to_string_lossy().to_string();
                     }
                     let rebind_noita =
                         should_rebind_noita_after_reset(&prev_noita_dir, &defaults.noita_dir);
@@ -602,7 +558,6 @@ fn default_settings() -> AppSettings {
         version: crate::core::platform::get_version(),
         log_settings: Default::default(),
         save_monitor_settings: Default::default(),
-        steam_path: String::new(),
         compact_mode: false,
         ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
         last_filter_mode: String::new(),

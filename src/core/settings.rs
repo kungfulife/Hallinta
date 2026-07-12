@@ -59,10 +59,6 @@ pub fn load_settings() -> Result<AppSettings, String> {
         let entangled_dir = platform::get_entangled_worlds_save_path()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default();
-        let steam_path = crate::core::workshop::detect_steam_path()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_default();
-
         let save_monitor_settings = SaveMonitorSettings {
             include_entangled: platform::entangled_dir_usable(&entangled_dir),
             ..Default::default()
@@ -76,7 +72,6 @@ pub fn load_settings() -> Result<AppSettings, String> {
             version: platform::get_version(),
             log_settings: LogSettings::default(),
             save_monitor_settings,
-            steam_path,
             compact_mode: false,
             ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
             last_filter_mode: String::new(),
@@ -106,12 +101,6 @@ pub fn load_settings() -> Result<AppSettings, String> {
         && let Ok(p) = platform::get_entangled_worlds_save_path()
     {
         settings.entangled_dir = p.to_string_lossy().to_string();
-        dirty = true;
-    }
-    if settings.steam_path.trim().is_empty()
-        && let Ok(p) = crate::core::workshop::detect_steam_path()
-    {
-        settings.steam_path = p.to_string_lossy().to_string();
         dirty = true;
     }
     if dirty {
@@ -203,7 +192,6 @@ mod tests {
             version: "1.2.3".to_string(),
             log_settings: LogSettings::default(),
             save_monitor_settings: SaveMonitorSettings::default(),
-            steam_path: "/test/steam".to_string(),
             compact_mode: true,
             ui_scale: 1.0,
             last_filter_mode: "all".to_string(),
@@ -219,7 +207,6 @@ mod tests {
         assert_eq!(loaded.dark_mode, original.dark_mode);
         assert_eq!(loaded.selected_preset, original.selected_preset);
         assert_eq!(loaded.compact_mode, original.compact_mode);
-        assert_eq!(loaded.steam_path, original.steam_path);
         assert_eq!(loaded.version, original.version);
         assert_eq!(loaded.ui_scale, original.ui_scale);
         assert_eq!(loaded.last_filter_mode, original.last_filter_mode);
@@ -240,6 +227,24 @@ mod tests {
             loaded.save_monitor_settings.backup_delay_minutes,
             original.save_monitor_settings.backup_delay_minutes
         );
+    }
+
+    #[test]
+    fn settings_serialization_omits_steam_path() {
+        let legacy_json = r#"{
+            "noita_dir": "",
+            "entangled_dir": "",
+            "dark_mode": false,
+            "selected_preset": "Default",
+            "version": "0.8.5",
+            "steam_path": "D:/PortableSteam"
+        }"#;
+        let settings: AppSettings =
+            serde_json::from_str(legacy_json).expect("legacy Steam path should be ignored");
+
+        let serialized = serde_json::to_value(settings).expect("settings should serialize");
+
+        assert!(serialized.get("steam_path").is_none());
     }
 
     #[test]

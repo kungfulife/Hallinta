@@ -461,43 +461,39 @@ impl HallintaApp {
         }
 
         // Check for missing workshop mods across all presets
-        let steam_path = &self.settings.steam_path;
-        if !steam_path.is_empty() {
-            let all_workshop_ids: Vec<String> = import_data
+        let all_workshop_ids: Vec<String> = import_data
+            .presets
+            .values()
+            .flatten()
+            .filter(|m| !m.workshop_id.is_empty() && m.workshop_id != "0")
+            .map(|m| m.workshop_id.clone())
+            .collect();
+
+        if !all_workshop_ids.is_empty()
+            && let Ok(report) = workshop::check_workshop_mods_installed(&all_workshop_ids)
+        {
+            let missing: Vec<(String, String)> = import_data
                 .presets
                 .values()
                 .flatten()
-                .filter(|m| !m.workshop_id.is_empty() && m.workshop_id != "0")
-                .map(|m| m.workshop_id.clone())
+                .filter(|m| {
+                    report.statuses.iter().any(|(id, state)| {
+                        id == &m.workshop_id && *state == WorkshopInstallState::Missing
+                    })
+                })
+                .map(|m| (m.name.clone(), m.workshop_id.clone()))
                 .collect();
 
-            if !all_workshop_ids.is_empty()
-                && let Ok(report) =
-                    workshop::check_workshop_mods_installed(&all_workshop_ids, steam_path)
-            {
-                let missing: Vec<(String, String)> = import_data
-                    .presets
-                    .values()
-                    .flatten()
-                    .filter(|m| {
-                        report.statuses.iter().any(|(id, state)| {
-                            id == &m.workshop_id && *state == WorkshopInstallState::Missing
-                        })
-                    })
-                    .map(|m| (m.name.clone(), m.workshop_id.clone()))
-                    .collect();
-
-                if !missing.is_empty() {
-                    let import = PresetImportData {
-                        presets: import_data.presets,
-                        selected_names: Vec::new(),
-                    };
-                    self.active_modal = Some(Modal::MissingMods {
-                        mods: missing,
-                        action: MissingModsAction::PresetImport(import),
-                    });
-                    return;
-                }
+            if !missing.is_empty() {
+                let import = PresetImportData {
+                    presets: import_data.presets,
+                    selected_names: Vec::new(),
+                };
+                self.active_modal = Some(Modal::MissingMods {
+                    mods: missing,
+                    action: MissingModsAction::PresetImport(import),
+                });
+                return;
             }
         }
 

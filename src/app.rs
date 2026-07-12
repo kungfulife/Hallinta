@@ -106,7 +106,6 @@ impl HallintaApp {
                 version: platform::get_version(),
                 log_settings: LogSettings::default(),
                 save_monitor_settings: SaveMonitorSettings::default(),
-                steam_path: String::new(),
                 compact_mode: false,
                 ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
                 last_filter_mode: String::new(),

@@ -28,8 +28,6 @@ pub struct AppSettings {
     #[serde(default)]
     pub save_monitor_settings: SaveMonitorSettings,
     #[serde(default)]
-    pub steam_path: String,
-    #[serde(default)]
     pub compact_mode: bool,
     #[serde(default = "default_ui_scale")]
     pub ui_scale: f32,

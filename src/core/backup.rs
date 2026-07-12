@@ -878,7 +878,6 @@ mod tests {
             version: "0.8.2".to_string(),
             log_settings: LogSettings::default(),
             save_monitor_settings: SaveMonitorSettings::default(),
-            steam_path: String::new(),
             compact_mode: false,
             ui_scale: 1.25,
             last_filter_mode: String::new(),

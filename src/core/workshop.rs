@@ -1,9 +1,9 @@
 use crate::models::{WorkshopCheckReport, WorkshopInstallState};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub const NOITA_APP_ID: &str = "881100";
 
-pub fn detect_steam_path() -> Result<PathBuf, String> {
+fn detect_steam_path() -> Result<PathBuf, String> {
     #[cfg(target_os = "windows")]
     {
         if let Ok(path) = detect_steam_from_registry_wow64() {
@@ -87,12 +87,18 @@ fn detect_steam_from_registry_hkcu() -> Result<String, String> {
 
 pub fn check_workshop_mods_installed(
     workshop_ids: &[String],
-    steam_path: &str,
 ) -> Result<WorkshopCheckReport, String> {
-    if steam_path.is_empty() {
-        return Err("Steam path not configured".to_string());
-    }
+    let steam_path = detect_steam_path()?;
+    Ok(check_workshop_mods_installed_at(
+        workshop_ids,
+        &steam_path,
+    ))
+}
 
+fn check_workshop_mods_installed_at(
+    workshop_ids: &[String],
+    steam_path: &Path,
+) -> WorkshopCheckReport {
     let library_paths = get_steam_library_paths(steam_path);
     let content_roots: Vec<PathBuf> = library_paths
         .iter()
@@ -137,18 +143,18 @@ pub fn check_workshop_mods_installed(
         })
         .collect();
 
-    Ok(WorkshopCheckReport {
+    WorkshopCheckReport {
         statuses,
         libraries_checked: library_paths,
         content_roots_found,
         diagnostic,
-    })
+    }
 }
 
-fn get_steam_library_paths(steam_path: &str) -> Vec<String> {
-    let mut paths = vec![steam_path.to_string()];
+fn get_steam_library_paths(steam_path: &Path) -> Vec<String> {
+    let mut paths = vec![steam_path.to_string_lossy().to_string()];
 
-    let vdf_path = PathBuf::from(steam_path)
+    let vdf_path = steam_path
         .join("steamapps")
         .join("libraryfolders.vdf");
 
@@ -271,20 +277,14 @@ mod tests {
     }
 
     #[test]
-    fn test_check_workshop_mods_empty_steam_path_is_err() {
-        let ids = vec!["881100".to_string()];
-        let result = check_workshop_mods_installed(&ids, "");
-        assert!(result.is_err(), "empty steam path should return Err");
-    }
-
-    #[test]
     fn test_check_workshop_local_mods_always_installed() {
         // IDs "0" or "" represent local mods and are always reported installed,
         // even with a fake steam path that doesn't exist.
         let ids = vec!["0".to_string(), String::new()];
-        let result = check_workshop_mods_installed(&ids, "/nonexistent/steam/path");
-        assert!(result.is_ok(), "should succeed even with fake path");
-        let report = result.unwrap();
+        let report = check_workshop_mods_installed_at(
+            &ids,
+            std::path::Path::new("/nonexistent/steam/path"),
+        );
         for (id, state) in &report.statuses {
             assert!(
                 matches!(state, WorkshopInstallState::Installed),
@@ -299,8 +299,7 @@ mod tests {
         let ids = vec!["9999999999".to_string()];
         let steam = TempDir::new("workshop_root_absent");
 
-        let report = check_workshop_mods_installed(&ids, &steam.path().to_string_lossy())
-            .expect("scan should return an indeterminate report");
+        let report = check_workshop_mods_installed_at(&ids, steam.path());
 
         assert_eq!(report.content_roots_found, 0);
         assert_eq!(
@@ -329,8 +328,7 @@ mod tests {
         )
         .expect("workshop content root should be created");
 
-        let report = check_workshop_mods_installed(&ids, &steam.path().to_string_lossy())
-            .expect("scan should succeed");
+        let report = check_workshop_mods_installed_at(&ids, steam.path());
 
         assert_eq!(report.content_roots_found, 1);
         assert_eq!(
@@ -356,8 +354,7 @@ mod tests {
         )
         .expect("secondary workshop mod should be created");
 
-        let report = check_workshop_mods_installed(&ids, &steam.path().to_string_lossy())
-            .expect("scan should succeed");
+        let report = check_workshop_mods_installed_at(&ids, steam.path());
 
         assert_eq!(report.content_roots_found, 1);
         assert_eq!(

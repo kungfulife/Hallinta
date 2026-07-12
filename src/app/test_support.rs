@@ -24,7 +24,6 @@ fn default_settings() -> AppSettings {
         version: "test".to_string(),
         log_settings: LogSettings::default(),
         save_monitor_settings: SaveMonitorSettings::default(),
-        steam_path: String::new(),
         compact_mode: false,
         ui_scale: crate::ui::design::SCALE_INTERNAL_DEFAULT,
         last_filter_mode: String::new(),

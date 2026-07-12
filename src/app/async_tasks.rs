@@ -68,11 +68,6 @@ impl HallintaApp {
     }
 
     pub fn check_workshop_mods_async(&mut self) {
-        let steam_path = self.settings.steam_path.clone();
-        if steam_path.is_empty() {
-            self.invalidate_workshop_check(Some("Steam path not configured".to_string()));
-            return;
-        }
         let workshop_ids: Vec<String> = self
             .current_mods
             .iter()
@@ -92,11 +87,12 @@ impl HallintaApp {
         let generation = self.backup_state.workshop_check_generation;
         let tx = self.task_tx.clone();
         self.async_runtime.spawn(async move {
-            let result = tokio::task::spawn_blocking(move || {
-                workshop::check_workshop_mods_installed(&workshop_ids, &steam_path)
-            })
-            .await
-            .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
+            let result =
+                tokio::task::spawn_blocking(move || {
+                    workshop::check_workshop_mods_installed(&workshop_ids)
+                })
+                .await
+                .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
             let _ = tx.send(TaskResult::WorkshopModsChecked { generation, result });
         });
     }
@@ -139,17 +135,17 @@ mod tests {
     use super::super::test_support::{mod_entry, test_app};
 
     #[test]
-    fn empty_steam_path_invalidates_in_flight_workshop_check() {
+    fn workshop_ids_start_async_check() {
         let (_runtime, mut app) = test_app(vec![mod_entry("Alpha", true, "123")]);
         app.backup_state.workshop_check_generation = 7;
-        app.backup_state.workshop_check_in_flight = true;
-        app.settings.steam_path = String::new();
+        app.backup_state.workshop_check_in_flight = false;
 
         app.check_workshop_mods_async();
 
         assert_eq!(app.backup_state.workshop_check_generation, 8);
-        assert!(!app.backup_state.workshop_check_in_flight);
+        assert!(app.backup_state.workshop_check_in_flight);
         assert!(app.backup_state.workshop_status.is_empty());
+        assert!(app.backup_state.workshop_diagnostic.is_none());
     }
 
     #[test]
@@ -157,8 +153,6 @@ mod tests {
         let (_runtime, mut app) = test_app(vec![mod_entry("Local", true, "0")]);
         app.backup_state.workshop_check_generation = 3;
         app.backup_state.workshop_check_in_flight = true;
-        app.settings.steam_path = "C:/Steam".to_string();
-
         app.check_workshop_mods_async();
 
         assert_eq!(app.backup_state.workshop_check_generation, 4);
