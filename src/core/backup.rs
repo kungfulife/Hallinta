@@ -240,9 +240,16 @@ fn resolve_backup_path(filename: &str) -> Result<PathBuf, String> {
     Err("Backup file not found".to_string())
 }
 
-fn backup_info_from_path(path: &Path, filename: String) -> Result<BackupInfo, String> {
-    let metadata =
-        fs::metadata(path).map_err(|e| format!("Failed to read backup metadata: {}", e))?;
+fn backup_info_from_path(path: &Path, filename: String) -> Result<Option<BackupInfo>, String> {
+    // Skip vanished entries: parallel tests (and users) can delete a zip between
+    // readdir and metadata; that must not fail the whole list.
+    let metadata = match fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(format!("Failed to read backup metadata: {}", error));
+        }
+    };
     let size_bytes = metadata.len();
     let timestamp = metadata
         .modified()
@@ -253,7 +260,7 @@ fn backup_info_from_path(path: &Path, filename: String) -> Result<BackupInfo, St
         .unwrap_or_default();
     let (contains_save00, contains_save01, contains_presets, contains_entangled) =
         peek_zip_contents(path);
-    Ok(BackupInfo {
+    Ok(Some(BackupInfo {
         filename,
         timestamp,
         size_bytes,
@@ -261,7 +268,7 @@ fn backup_info_from_path(path: &Path, filename: String) -> Result<BackupInfo, St
         contains_save01,
         contains_presets,
         contains_entangled,
-    })
+    }))
 }
 
 pub(crate) fn normalize_manual_backup_name(name: &str, fallback: &str) -> Result<String, String> {
@@ -345,7 +352,9 @@ pub fn list_backups() -> Result<Vec<BackupInfo>, String> {
             if filename.is_empty() || !seen.insert(filename.clone()) {
                 continue;
             }
-            backups.push(backup_info_from_path(&path, filename)?);
+            if let Some(info) = backup_info_from_path(&path, filename)? {
+                backups.push(info);
+            }
         }
     }
 
@@ -397,7 +406,8 @@ pub fn delete_backup(filename: &str) -> Result<(), String> {
 
 pub fn get_backup_contents(filename: &str) -> Result<BackupInfo, String> {
     let backup_path = resolve_backup_path(filename)?;
-    backup_info_from_path(&backup_path, filename.to_string())
+    backup_info_from_path(&backup_path, filename.to_string())?
+        .ok_or_else(|| "Backup file not found".to_string())
 }
 
 pub fn restore_backup(
