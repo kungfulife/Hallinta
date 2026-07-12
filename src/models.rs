@@ -326,10 +326,10 @@ impl SortMode {
     pub fn label(self) -> &'static str {
         match self {
             Self::Default => "Order",
-            Self::NameAsc => "A → Z",
-            Self::NameDesc => "Z → A",
-            Self::EnabledFirst => "Enabled ↑",
-            Self::DisabledFirst => "Disabled ↑",
+            Self::NameAsc => "A-Z",
+            Self::NameDesc => "Z-A",
+            Self::EnabledFirst => "Enabled first",
+            Self::DisabledFirst => "Disabled first",
         }
     }
     pub fn as_str(self) -> &'static str {
@@ -607,7 +607,25 @@ impl FileWatcherState {
 
 #[cfg(test)]
 mod log_settings_tests {
-    use super::{LogSettings, SaveMonitorSettings, UpdatePhase, UpdateState, UpdateStatus};
+    use super::{
+        LogSettings, SaveMonitorSettings, SortMode, UpdatePhase, UpdateState, UpdateStatus,
+    };
+
+    #[test]
+    fn sort_mode_labels_are_portable() {
+        let expected = [
+            (SortMode::Default, "Order"),
+            (SortMode::NameAsc, "A-Z"),
+            (SortMode::NameDesc, "Z-A"),
+            (SortMode::EnabledFirst, "Enabled first"),
+            (SortMode::DisabledFirst, "Disabled first"),
+        ];
+
+        for (mode, label) in expected {
+            assert_eq!(mode.label(), label);
+            assert!(mode.label().is_ascii());
+        }
+    }
 
     #[test]
     fn log_settings_default_has_info_level() {
