@@ -87,12 +87,11 @@ impl HallintaApp {
         let generation = self.backup_state.workshop_check_generation;
         let tx = self.task_tx.clone();
         self.async_runtime.spawn(async move {
-            let result =
-                tokio::task::spawn_blocking(move || {
-                    workshop::check_workshop_mods_installed(&workshop_ids)
-                })
-                .await
-                .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
+            let result = tokio::task::spawn_blocking(move || {
+                workshop::check_workshop_mods_installed(&workshop_ids)
+            })
+            .await
+            .unwrap_or_else(|e| Err(format!("Task failed: {}", e)));
             let _ = tx.send(TaskResult::WorkshopModsChecked { generation, result });
         });
     }

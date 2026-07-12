@@ -54,7 +54,10 @@ impl HallintaApp {
             return;
         }
 
-        let intro_pending = self.settings.save_monitor_settings.auto_monitor_intro_pending;
+        let intro_pending = self
+            .settings
+            .save_monitor_settings
+            .auto_monitor_intro_pending;
         let mode = self.settings.save_monitor_settings.auto_monitor_mode;
         if !intro_pending && mode != AutoMonitorMode::Always {
             self.save_monitor.auto_monitor_match_active = false;
@@ -110,7 +113,9 @@ impl HallintaApp {
     }
 
     pub fn finish_auto_monitor_intro(&mut self, enable_always: bool) {
-        self.settings.save_monitor_settings.auto_monitor_intro_pending = false;
+        self.settings
+            .save_monitor_settings
+            .auto_monitor_intro_pending = false;
         self.settings.save_monitor_settings.auto_monitor_mode = if enable_always {
             AutoMonitorMode::Always
         } else {
@@ -479,7 +484,9 @@ mod tests {
     fn process_auto_monitor_off_clears_match_latch() {
         let (_runtime, mut app) = test_app(Vec::new());
         app.settings.save_monitor_settings.auto_monitor_mode = AutoMonitorMode::Off;
-        app.settings.save_monitor_settings.auto_monitor_intro_pending = false;
+        app.settings
+            .save_monitor_settings
+            .auto_monitor_intro_pending = false;
         app.save_monitor.auto_monitor_match_active = true;
 
         app.poll_auto_monitor_from_processes(Instant::now());
@@ -491,14 +498,20 @@ mod tests {
     fn auto_monitor_intro_enable_starts_generated_session_without_prompt() {
         let (_runtime, mut app) = test_app(Vec::new());
         app.settings.noita_dir = "C:/Noita/save00".to_string();
-        app.settings.save_monitor_settings.auto_monitor_intro_pending = true;
+        app.settings
+            .save_monitor_settings
+            .auto_monitor_intro_pending = true;
         app.settings.save_monitor_settings.auto_monitor_mode = AutoMonitorMode::Off;
         // The intro is opened only after process polling latches the active match.
         app.save_monitor.auto_monitor_match_active = true;
 
         app.finish_auto_monitor_intro(true);
 
-        assert!(!app.settings.save_monitor_settings.auto_monitor_intro_pending);
+        assert!(
+            !app.settings
+                .save_monitor_settings
+                .auto_monitor_intro_pending
+        );
         assert_eq!(
             app.settings.save_monitor_settings.auto_monitor_mode,
             AutoMonitorMode::Always
@@ -512,12 +525,18 @@ mod tests {
     #[test]
     fn auto_monitor_intro_decline_leaves_off_without_starting() {
         let (_runtime, mut app) = test_app(Vec::new());
-        app.settings.save_monitor_settings.auto_monitor_intro_pending = true;
+        app.settings
+            .save_monitor_settings
+            .auto_monitor_intro_pending = true;
         app.settings.save_monitor_settings.auto_monitor_mode = AutoMonitorMode::Off;
 
         app.finish_auto_monitor_intro(false);
 
-        assert!(!app.settings.save_monitor_settings.auto_monitor_intro_pending);
+        assert!(
+            !app.settings
+                .save_monitor_settings
+                .auto_monitor_intro_pending
+        );
         assert_eq!(
             app.settings.save_monitor_settings.auto_monitor_mode,
             AutoMonitorMode::Off
@@ -547,7 +566,9 @@ mod tests {
     #[test]
     fn running_session_blocks_auto_monitor_intro_and_start() {
         let (_runtime, mut app) = test_app(Vec::new());
-        app.settings.save_monitor_settings.auto_monitor_intro_pending = true;
+        app.settings
+            .save_monitor_settings
+            .auto_monitor_intro_pending = true;
         app.settings.save_monitor_settings.auto_monitor_mode = AutoMonitorMode::Always;
         app.save_monitor.running = true;
         app.save_monitor.current_session = Some(test_session());
@@ -557,7 +578,10 @@ mod tests {
 
         app.poll_auto_monitor_from_processes(Instant::now());
 
-        assert!(app.active_modal.is_none(), "must not re-ask while a session runs");
+        assert!(
+            app.active_modal.is_none(),
+            "must not re-ask while a session runs"
+        );
         assert!(
             app.save_monitor.auto_monitor_match_active,
             "running session should latch match so we do not fire again immediately after stop mid-game"
@@ -565,7 +589,10 @@ mod tests {
         // Still only one logical session — poll must not try to start another.
         assert!(app.save_monitor.is_running());
         assert!(matches!(
-            app.save_monitor.current_session.as_ref().map(|s| s.id.as_str()),
+            app.save_monitor
+                .current_session
+                .as_ref()
+                .map(|s| s.id.as_str()),
             Some("session-id")
         ));
     }
@@ -575,17 +602,26 @@ mod tests {
         let (_runtime, mut app) = test_app(Vec::new());
         app.save_monitor.running = true;
         app.save_monitor.current_session = Some(test_session());
-        app.settings.save_monitor_settings.auto_monitor_intro_pending = true;
+        app.settings
+            .save_monitor_settings
+            .auto_monitor_intro_pending = true;
 
         app.finish_auto_monitor_intro(true);
 
-        assert!(!app.settings.save_monitor_settings.auto_monitor_intro_pending);
+        assert!(
+            !app.settings
+                .save_monitor_settings
+                .auto_monitor_intro_pending
+        );
         assert_eq!(
             app.settings.save_monitor_settings.auto_monitor_mode,
             AutoMonitorMode::Always
         );
         assert_eq!(
-            app.save_monitor.current_session.as_ref().map(|s| s.id.as_str()),
+            app.save_monitor
+                .current_session
+                .as_ref()
+                .map(|s| s.id.as_str()),
             Some("session-id"),
             "must not replace the active session"
         );

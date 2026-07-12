@@ -89,10 +89,7 @@ pub fn check_workshop_mods_installed(
     workshop_ids: &[String],
 ) -> Result<WorkshopCheckReport, String> {
     let steam_path = detect_steam_path()?;
-    Ok(check_workshop_mods_installed_at(
-        workshop_ids,
-        &steam_path,
-    ))
+    Ok(check_workshop_mods_installed_at(workshop_ids, &steam_path))
 }
 
 fn check_workshop_mods_installed_at(
@@ -154,9 +151,7 @@ fn check_workshop_mods_installed_at(
 fn get_steam_library_paths(steam_path: &Path) -> Vec<String> {
     let mut paths = vec![steam_path.to_string_lossy().to_string()];
 
-    let vdf_path = steam_path
-        .join("steamapps")
-        .join("libraryfolders.vdf");
+    let vdf_path = steam_path.join("steamapps").join("libraryfolders.vdf");
 
     if let Ok(content) = std::fs::read_to_string(&vdf_path) {
         for line in content.lines() {
@@ -281,10 +276,8 @@ mod tests {
         // IDs "0" or "" represent local mods and are always reported installed,
         // even with a fake steam path that doesn't exist.
         let ids = vec!["0".to_string(), String::new()];
-        let report = check_workshop_mods_installed_at(
-            &ids,
-            std::path::Path::new("/nonexistent/steam/path"),
-        );
+        let report =
+            check_workshop_mods_installed_at(&ids, std::path::Path::new("/nonexistent/steam/path"));
         for (id, state) in &report.statuses {
             assert!(
                 matches!(state, WorkshopInstallState::Installed),

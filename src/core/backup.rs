@@ -225,10 +225,7 @@ pub fn is_upgrade_backup_filename(filename: &str) -> bool {
 
 fn backup_search_dirs(data_dir: &Path) -> [PathBuf; 2] {
     // `backups/` is the single write target; `upgrade_backups/` is legacy-only.
-    [
-        data_dir.join("backups"),
-        data_dir.join("upgrade_backups"),
-    ]
+    [data_dir.join("backups"), data_dir.join("upgrade_backups")]
 }
 
 fn resolve_backup_path(filename: &str) -> Result<PathBuf, String> {
@@ -338,7 +335,7 @@ pub fn list_backups() -> Result<Vec<BackupInfo>, String> {
         for entry in entries {
             let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
             let path = entry.path();
-            if !path.extension().is_some_and(|ext| ext == "zip") {
+            if path.extension().is_none_or(|ext| ext != "zip") {
                 continue;
             }
             let filename = path
@@ -694,8 +691,8 @@ fn cleanup_old_upgrade_backups(data_dir: &Path, keep_count: usize) -> Result<(),
         if !dir.exists() {
             continue;
         }
-        let entries = fs::read_dir(&dir)
-            .map_err(|e| format!("Failed to read backups directory: {}", e))?;
+        let entries =
+            fs::read_dir(&dir).map_err(|e| format!("Failed to read backups directory: {}", e))?;
         for entry in entries.filter_map(|e| e.ok()) {
             let path = entry.path();
             let name = path
@@ -835,8 +832,8 @@ mod tests {
     fn list_and_resolve_include_legacy_upgrade_backups_dir() {
         use std::fs;
         use std::io::Write;
-        use zip::write::FileOptions;
         use zip::ZipWriter;
+        use zip::write::FileOptions;
 
         let data_dir = super::get_data_dir().expect("test data dir");
         let legacy_dir = data_dir.join("upgrade_backups");
@@ -855,7 +852,8 @@ mod tests {
 
         let list = super::list_backups().expect("list");
         assert!(
-            list.iter().any(|b| b.filename == filename && b.contains_presets),
+            list.iter()
+                .any(|b| b.filename == filename && b.contains_presets),
             "legacy upgrade backup missing from list: {list:?}"
         );
         let resolved = super::resolve_backup_path(filename).expect("resolve legacy");
@@ -892,7 +890,10 @@ mod tests {
         let list = super::list_backups().expect("list");
         let upgrade = list
             .iter()
-            .find(|b| b.filename.starts_with("hallinta_upgrade_from_v0.8.2_to_v0.8.3_"))
+            .find(|b| {
+                b.filename
+                    .starts_with("hallinta_upgrade_from_v0.8.2_to_v0.8.3_")
+            })
             .expect("upgrade archive should be listed");
         let path = data_dir.join("backups").join(&upgrade.filename);
         assert!(path.exists(), "upgrade backup should live under backups/");
