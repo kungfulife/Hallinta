@@ -116,7 +116,7 @@ pub fn render_compact(app: &mut HallintaApp, ui: &mut egui::Ui) {
                             )
                             .clicked()
                         {
-                            app.start_save_monitor();
+                            app.offer_save_monitor_start();
                         }
                     });
                 }

@@ -16,7 +16,8 @@ impl HallintaApp {
             && !self.save_monitor.snapshot_in_flight
     }
 
-    pub fn start_save_monitor(&mut self) {
+    /// Begin the manual flow that offers stopped-session resume before naming a new session.
+    pub fn offer_save_monitor_start(&mut self) {
         if !self.can_start_save_monitor() {
             self.active_modal = Some(Modal::Info {
                 title: "Monitor Unavailable".to_string(),
@@ -104,7 +105,7 @@ impl HallintaApp {
                 "Auto-starting Save Monitor after game process detection",
                 "SaveMonitor",
             );
-            self.start_save_monitor();
+            self.start_new_monitor_session(None);
         }
     }
 
@@ -124,7 +125,7 @@ impl HallintaApp {
         }
         // Never stack a second start on top of an already-running session.
         if enable_always && !self.save_monitor.is_running() {
-            self.start_save_monitor();
+            self.start_new_monitor_session(None);
         }
     }
 
@@ -487,11 +488,13 @@ mod tests {
     }
 
     #[test]
-    fn auto_monitor_intro_enable_sets_always_and_consumes_intro() {
+    fn auto_monitor_intro_enable_starts_generated_session_without_prompt() {
         let (_runtime, mut app) = test_app(Vec::new());
         app.settings.noita_dir = "C:/Noita/save00".to_string();
         app.settings.save_monitor_settings.auto_monitor_intro_pending = true;
         app.settings.save_monitor_settings.auto_monitor_mode = AutoMonitorMode::Off;
+        // The intro is opened only after process polling latches the active match.
+        app.save_monitor.auto_monitor_match_active = true;
 
         app.finish_auto_monitor_intro(true);
 
@@ -501,6 +504,9 @@ mod tests {
             AutoMonitorMode::Always
         );
         assert!(app.save_monitor.auto_monitor_match_active);
+        assert!(app.save_monitor.is_running());
+        assert!(app.save_monitor.current_session.is_some());
+        assert!(app.active_modal.is_none());
     }
 
     #[test]
@@ -520,14 +526,22 @@ mod tests {
     }
 
     #[test]
-    fn manual_start_latches_process_auto_monitor() {
+    fn manual_monitor_offer_queues_session_check() {
         let (_runtime, mut app) = test_app(Vec::new());
         app.settings.noita_dir = "C:/Noita/save00".to_string();
         app.noita_sync_state = crate::models::NoitaSyncState::Live;
-        // Directory need not exist for the async list; we only check latch side-effect.
-        assert!(!app.save_monitor.auto_monitor_match_active);
-        app.start_save_monitor();
+
+        app.offer_save_monitor_start();
+
         assert!(app.save_monitor.auto_monitor_match_active);
+        let result = app
+            .task_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("manual offer should check stopped sessions");
+        assert!(matches!(
+            result,
+            crate::tasks::TaskResult::SessionCheckComplete(_)
+        ));
     }
 
     #[test]

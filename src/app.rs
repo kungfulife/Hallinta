@@ -308,7 +308,7 @@ impl HallintaApp {
         } else if app.settings.save_monitor_settings.start_in_monitor_mode
             && app.is_noita_sync_live()
         {
-            app.start_save_monitor();
+            app.start_new_monitor_session(None);
         }
 
         // Check workshop mods on startup

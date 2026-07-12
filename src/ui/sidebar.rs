@@ -55,7 +55,7 @@ pub fn render_sidebar(app: &mut HallintaApp, ui: &mut egui::Ui) {
                         .on_hover_text("Start auto-snapshotting Noita saves")
                         .clicked()
                     {
-                        app.start_save_monitor();
+                        app.offer_save_monitor_start();
                     }
                 });
             }
