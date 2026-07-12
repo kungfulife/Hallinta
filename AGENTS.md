@@ -2,23 +2,6 @@
 
 - Repo: https://github.com/kungfulife/Hallinta
 
-## CRITICAL — Git ignore / do-not-commit (read first)
-
-These override every other “write docs”, “commit your work”, or “stage everything” habit:
-
-1. **`temp/` is local scratch only. Never put it in git.**
-   - Write design notes, agent plans, WIP drafts, analysis dumps, and local secrets under `temp/`.
-   - **Do not** `git add`, stage, commit, push, or open a PR that includes any path under `temp/`.
-   - **Do not** use `git add -f` / `git add --force` / `git add -A` / `git add .` in a way that pulls `temp/` in.
-   - Creating a file under `temp/` is **not** a reason to commit. Planning-only sessions end with **zero commits** unless the operator asked for a real code/docs change elsewhere.
-   - If `git status` or `git diff --cached` shows `temp/…`, **abort**, unstage it, and continue without it.
-2. **Never commit secrets** (`*.key`, `*.pem`, tokens, credentials, signing material). Prefer outside the repo; if local-only, only under ignored `temp/`.
-3. **Never commit build artifacts** (`target/`, logs, etc. — see `.gitignore`).
-4. **Ship-worthy docs only under `docs/`** (e.g. `docs/releases/`), and only when the operator wants them in the repo. Plans in `temp/` are not release docs.
-5. **Before every commit**, run `git diff --cached --name-only` and confirm the staged set is only intentional product/source/docs paths. No `temp/`, no keys, no force-added ignored files.
-
-`.gitignore` already lists `/temp/`. That is intentional. **Ignored means leave it alone** — do not “fix” ignore by force-adding.
-
 ## Project Structure & Module Organization
 
 - Source code: `src/`
@@ -32,9 +15,9 @@ These override every other “write docs”, “commit your work”, or “stage
 - Tests: unit tests are colocated in `#[cfg(test)]` modules.
 - Docs: `docs/`
   - `docs/code-map.md`: high-signal navigation map for app/core/ui modules.
-  - Durable, ship-worthy docs and release notes go here (e.g. `docs/releases/`) when the operator wants them committed.
-- Scratch / planning only: `temp/` (gitignored — see **CRITICAL** above).
-- Build outputs: `target/` (gitignored, never committed).
+  - Ship-worthy docs/release notes go under `docs/` (e.g. `docs/releases/`) when the operator wants them committed.
+- Scratch / planning: `temp/` — gitignored. Local only; **do not commit** anything under it (no `git add -f`).
+- Build outputs: `target/` — gitignored; do not commit.
 - Runtime data directory:
   - All builds: local app data `Hallinta` directory via `dirs::data_local_dir()`.
 
@@ -85,24 +68,14 @@ These override every other “write docs”, “commit your work”, or “stage
 - Patching dependencies requires explicit approval; do not do this by default.
 - Version location: `Cargo.toml`.
 - Do not update  `Cargo.lock` file, it is automatically generated within Rust.
-
-### Committing (hard rules)
-
-- Obey **CRITICAL** at the top of this file on every commit.
-- **Stage explicitly** with path-scoped `git add <paths…>` for files you intentionally changed under `src/`, `docs/`, etc.
-- **Never** force-add ignored paths. If git says a path is ignored, leave it ignored.
-- **Never** treat “I wrote a plan/design under `temp/`” as commit work. Only commit when the operator asked to commit **product** changes (or ship-worthy `docs/`).
-- After staging: `git diff --cached --name-only` must not list `temp/`, `target/`, `*.key`, or other ignored junk. If it does, unstage and fix before `git commit`.
-
-### Multi-agent safety
-
-- Do **not** create/apply/drop `git stash` entries unless explicitly requested (this includes `git pull --rebase --autostash`). Assume other agents may be working; keep unrelated WIP untouched and avoid cross-cutting state changes.
-- When the user says "push", you may `git pull --rebase` to integrate latest changes (never discard other agents' work). When the user says "commit", scope to your changes only. When the user says "commit all", commit everything in grouped chunks (**still excluding `temp/` and secrets**).
-- Do **not** create/remove/modify `git worktree` checkouts (or edit `.worktrees/*`) unless explicitly requested.
-- Do **not** switch branches / check out a different branch unless explicitly requested.
-- Running multiple agents is OK as long as each agent has its own session.
-- When you see unrecognized files, keep going; focus on your changes and commit only those.
-- Focus reports on your edits; avoid guard-rail disclaimers unless truly blocked; when multiple agents touch the same file, continue if safe; end with a brief "other files present" note only if relevant.
+- When committing: stage intentional paths only; leave `.gitignore`d paths alone (especially `temp/` and `target/`). Planning-only work in `temp/` is not a commit.
+- **Multi-agent safety:** do **not** create/apply/drop `git stash` entries unless explicitly requested (this includes `git pull --rebase --autostash`). Assume other agents may be working; keep unrelated WIP untouched and avoid cross-cutting state changes.
+- **Multi-agent safety:** when the user says "push", you may `git pull --rebase` to integrate latest changes (never discard other agents' work). When the user says "commit", scope to your changes only. When the user says "commit all", commit everything in grouped chunks (still skip ignored paths like `temp/`).
+- **Multi-agent safety:** do **not** create/remove/modify `git worktree` checkouts (or edit `.worktrees/*`) unless explicitly requested.
+- **Multi-agent safety:** do **not** switch branches / check out a different branch unless explicitly requested.
+- **Multi-agent safety:** running multiple agents is OK as long as each agent has its own session.
+- **Multi-agent safety:** when you see unrecognized files, keep going; focus on your changes and commit only those.
+- **Multi-agent safety:** focus reports on your edits; avoid guard-rail disclaimers unless truly blocked; when multiple agents touch the same file, continue if safe; end with a brief "other files present" note only if relevant.
 - Bug investigations: read source code of relevant cargo dependencies and all related local code before concluding; aim for high-confidence root cause.
 - Code style: add brief comments for tricky logic; keep files under ~500 LOC when feasible (split/refactor as needed).
 - Release guardrails: do not change version numbers without operator's explicit consent.
