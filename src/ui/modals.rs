@@ -4,6 +4,10 @@ use eframe::egui;
 
 const BACK_TO_SESSIONS_LABEL: &str = "Back to Sessions";
 
+fn session_snapshot_count_label(actual: u32, maximum: usize) -> String {
+    format!("Snapshots: {actual} / {maximum}")
+}
+
 /// Render the active modal (if any).
 pub fn render_modals(app: &mut HallintaApp, ctx: &egui::Context) {
     let modal = match app.active_modal.take() {
@@ -869,6 +873,7 @@ fn render_restore_manager(
     let scale = app.settings.ui_scale;
     let modal_width = (360.0 * scale).min((viewport.width() * 0.92).max(240.0));
     let scroll_height = (viewport.height() * 0.55).clamp(180.0, 420.0);
+    let max_snapshots = app.settings.save_monitor_settings.max_snapshots_per_session;
 
     egui::Window::new(title)
         .collapsible(false)
@@ -990,9 +995,9 @@ fn render_restore_manager(
                                                 } else {
                                                     session.snapshot_count
                                                 };
-                                                ui.label(format!(
-                                                    "{} snapshot(s)",
-                                                    snapshot_count
+                                                ui.label(session_snapshot_count_label(
+                                                    snapshot_count,
+                                                    max_snapshots,
                                                 ));
                                             });
                                             let mut show_session_actions = |ui: &mut egui::Ui| {
@@ -1319,5 +1324,15 @@ mod tests {
     fn session_back_button_label_is_portable() {
         assert_eq!(BACK_TO_SESSIONS_LABEL, "Back to Sessions");
         assert!(BACK_TO_SESSIONS_LABEL.is_ascii());
+    }
+
+    #[test]
+    fn session_snapshot_label_shows_actual_and_configured_maximum() {
+        assert_eq!(session_snapshot_count_label(7, 15), "Snapshots: 7 / 15");
+    }
+
+    #[test]
+    fn session_snapshot_label_preserves_truthful_over_limit_count() {
+        assert_eq!(session_snapshot_count_label(18, 15), "Snapshots: 18 / 15");
     }
 }
