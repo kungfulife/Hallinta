@@ -444,6 +444,11 @@ pub fn render_settings(app: &mut HallintaApp, ui: &mut egui::Ui) {
                     if ui.button("Check for Updates").clicked() {
                         app.check_for_updates(true);
                     }
+                    if ui.button("GitHub Repository").clicked() {
+                        let _ = crate::core::platform::open_url(
+                            crate::core::updater::REPOSITORY_URL,
+                        );
+                    }
                 });
                 if !crate::core::platform::is_dist_build() {
                     helper_text(

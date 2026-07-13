@@ -5,9 +5,15 @@ use semver::Version;
 
 const REPO_OWNER: &str = "kungfulife";
 const REPO_NAME: &str = "Hallinta";
+pub const REPOSITORY_URL: &str = "https://github.com/kungfulife/Hallinta";
 const TARGET: &str = "x86_64-pc-windows-msvc";
 pub const UPDATE_ASSET_NAME: &str = "Hallinta-x86_64-pc-windows-msvc.zip";
 const VERIFYING_KEY: [u8; 32] = *include_bytes!("../assets/hallinta-update.pub");
+
+pub fn release_url(version: &str) -> String {
+    let version = version.strip_prefix('v').unwrap_or(version);
+    format!("{REPOSITORY_URL}/releases/tag/v{version}")
+}
 
 pub fn check_latest(current: &str) -> Result<Option<UpdateInfo>, String> {
     let releases = ReleaseList::configure()
@@ -115,5 +121,21 @@ mod tests {
             release("nightly", UPDATE_ASSET_NAME),
         ];
         assert!(select_latest(releases, "0.8.2").unwrap().is_none());
+    }
+
+    #[test]
+    fn builds_repository_release_url_from_version() {
+        assert_eq!(
+            release_url("0.9.0"),
+            "https://github.com/kungfulife/Hallinta/releases/tag/v0.9.0"
+        );
+    }
+
+    #[test]
+    fn release_url_does_not_duplicate_existing_v_prefix() {
+        assert_eq!(
+            release_url("v0.9.0"),
+            "https://github.com/kungfulife/Hallinta/releases/tag/v0.9.0"
+        );
     }
 }

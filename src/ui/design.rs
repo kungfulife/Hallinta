@@ -59,6 +59,12 @@ pub struct Design {
     pub warning_border: egui::Color32,
     pub warning_text: egui::Color32,
     pub warning_workspace_fill: egui::Color32,
+    // Colors: available-update release notes
+    pub update_notes_bg: egui::Color32,
+    pub update_notes_border: egui::Color32,
+    pub update_notes_heading: egui::Color32,
+    pub update_notes_bullet: egui::Color32,
+    pub update_link: egui::Color32,
 }
 
 impl Design {
@@ -207,6 +213,31 @@ impl Design {
                 egui::Color32::from_rgb(35, 30, 23)
             } else {
                 egui::Color32::from_rgb(255, 249, 236)
+            },
+            update_notes_bg: if dark {
+                egui::Color32::from_rgb(28, 26, 32)
+            } else {
+                egui::Color32::from_rgb(241, 237, 247)
+            },
+            update_notes_border: if dark {
+                egui::Color32::from_rgb(78, 60, 104)
+            } else {
+                egui::Color32::from_rgb(137, 98, 195)
+            },
+            update_notes_heading: if dark {
+                egui::Color32::from_rgb(213, 198, 243)
+            } else {
+                egui::Color32::from_rgb(81, 52, 127)
+            },
+            update_notes_bullet: if dark {
+                egui::Color32::from_rgb(147, 105, 220)
+            } else {
+                egui::Color32::from_rgb(118, 80, 178)
+            },
+            update_link: if dark {
+                egui::Color32::from_rgb(185, 155, 233)
+            } else {
+                egui::Color32::from_rgb(103, 66, 159)
             },
         }
     }
