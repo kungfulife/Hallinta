@@ -4,8 +4,12 @@ use eframe::egui;
 
 const BACK_TO_SESSIONS_LABEL: &str = "Back to Sessions";
 
-fn session_snapshot_count_label(actual: u32, maximum: usize) -> String {
-    format!("Snapshots: {actual} / {maximum}")
+fn session_snapshot_count_label(retained: usize, maximum: usize) -> String {
+    format!("Snapshots: {retained} / {maximum}")
+}
+
+fn session_generated_total_label(generated: u32) -> String {
+    format!("Generated total: {generated}")
 }
 
 /// Render the active modal (if any).
@@ -988,17 +992,19 @@ fn render_restore_manager(
                                                     &session.started_at
                                                         [..19.min(session.started_at.len())]
                                                 ));
-                                                // Live session uses in-memory count so the list
-                                                // updates immediately while monitoring is open.
-                                                let snapshot_count = if is_live {
-                                                    app.save_monitor.snapshot_count
-                                                } else {
-                                                    session.snapshot_count
-                                                };
                                                 ui.label(session_snapshot_count_label(
-                                                    snapshot_count,
+                                                    session.retained_snapshot_count,
                                                     max_snapshots,
                                                 ));
+                                                ui.label(
+                                                    egui::RichText::new(
+                                                        session_generated_total_label(
+                                                            session.snapshot_count,
+                                                        ),
+                                                    )
+                                                    .small()
+                                                    .weak(),
+                                                );
                                             });
                                             let mut show_session_actions = |ui: &mut egui::Ui| {
                                                     if ui.button("View").clicked() {
@@ -1327,12 +1333,8 @@ mod tests {
     }
 
     #[test]
-    fn session_snapshot_label_shows_actual_and_configured_maximum() {
-        assert_eq!(session_snapshot_count_label(7, 15), "Snapshots: 7 / 15");
-    }
-
-    #[test]
-    fn session_snapshot_label_preserves_truthful_over_limit_count() {
-        assert_eq!(session_snapshot_count_label(18, 15), "Snapshots: 18 / 15");
+    fn session_snapshot_labels_separate_retained_and_generated_counts() {
+        assert_eq!(session_snapshot_count_label(15, 15), "Snapshots: 15 / 15");
+        assert_eq!(session_generated_total_label(42), "Generated total: 42");
     }
 }

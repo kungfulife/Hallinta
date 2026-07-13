@@ -251,6 +251,9 @@ pub struct SessionInfo {
     pub ended_at: Option<String>,
     pub status: SessionStatus,
     pub snapshot_count: u32,
+    /// Snapshot ZIP files currently retained on disk. Recomputed when loaded.
+    #[serde(skip)]
+    pub retained_snapshot_count: usize,
     pub locked_mods: Vec<ModEntry>,
     /// On-disk folder name under the preset directory. Defaults to `id` when empty.
     #[serde(default)]

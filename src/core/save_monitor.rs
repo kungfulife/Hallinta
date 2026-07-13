@@ -41,6 +41,32 @@ fn is_monitor_snapshot_zip(filename: &str) -> bool {
     filename.starts_with("snapshot_") && filename.ends_with(".zip")
 }
 
+fn count_session_snapshot_files(session_dir: &Path) -> usize {
+    fs::read_dir(session_dir)
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .filter(|entry| {
+                    entry.path().is_file()
+                        && entry
+                            .file_name()
+                            .to_str()
+                            .is_some_and(is_monitor_snapshot_zip)
+                })
+                .count()
+        })
+        .unwrap_or(0)
+}
+
+fn load_session_info(session_dir: &Path) -> Result<SessionInfo, String> {
+    let content = fs::read_to_string(session_dir.join("session.json"))
+        .map_err(|e| format!("Failed to read session: {e}"))?;
+    let mut session = serde_json::from_str::<SessionInfo>(&content)
+        .map_err(|e| format!("Failed to parse session: {e}"))?;
+    session.retained_snapshot_count = count_session_snapshot_files(session_dir);
+    Ok(session)
+}
+
 fn session_dir_from_monitor_dir(
     monitor_dir: &Path,
     preset_name: &str,
@@ -109,6 +135,7 @@ pub fn create_session(
         ended_at: None,
         status: SessionStatus::Monitoring,
         snapshot_count: 0,
+        retained_snapshot_count: 0,
         locked_mods: locked_mods.to_vec(),
         folder_name,
     };
@@ -149,10 +176,7 @@ pub fn load_session(preset_name: &str, session_id: &str) -> Result<SessionInfo, 
         if !meta_path.exists() {
             continue;
         }
-        let content =
-            fs::read_to_string(&meta_path).map_err(|e| format!("Failed to read session: {}", e))?;
-        let session: SessionInfo = serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse session: {}", e))?;
+        let session = load_session_info(&entry.path())?;
         if session.id == session_id {
             return Ok(session);
         }
@@ -173,8 +197,7 @@ pub fn list_sessions(preset_name: &str) -> Result<Vec<SessionInfo>, String> {
         if entry.path().is_dir() {
             let meta_path = entry.path().join("session.json");
             if meta_path.exists()
-                && let Ok(content) = fs::read_to_string(&meta_path)
-                && let Ok(session) = serde_json::from_str::<SessionInfo>(&content)
+                && let Ok(session) = load_session_info(&entry.path())
             {
                 sessions.push(session);
             }
@@ -517,6 +540,65 @@ mod tests {
             "hallinta_manual_backup_20260102_030405.zip"
         ));
         assert!(!super::is_monitor_snapshot_zip("notes.zip"));
+    }
+
+    #[test]
+    fn counts_only_retained_snapshot_files() {
+        let session_dir = std::env::temp_dir().join(format!(
+            "hallinta-snapshot-count-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock should follow epoch")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(session_dir.join("snapshot_not-a-file.zip")).unwrap();
+        std::fs::write(session_dir.join("snapshot_20260102_030405.zip"), b"one").unwrap();
+        std::fs::write(session_dir.join("snapshot_20260102_030406.zip"), b"two").unwrap();
+        std::fs::write(session_dir.join("hallinta_manual_backup.zip"), b"manual").unwrap();
+
+        let count = super::count_session_snapshot_files(&session_dir);
+
+        assert_eq!(count, 2);
+        std::fs::remove_dir_all(&session_dir).ok();
+    }
+
+    #[test]
+    fn loads_retained_count_separately_from_generated_total() {
+        let session_dir = std::env::temp_dir().join(format!(
+            "hallinta-session-summary-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock should follow epoch")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&session_dir).unwrap();
+        std::fs::write(
+            session_dir.join("session.json"),
+            r#"{
+                "id": "session-1",
+                "name": "Long run",
+                "preset_name": "Default",
+                "started_at": "2026-01-01T00:00:00Z",
+                "ended_at": null,
+                "status": "Paused",
+                "snapshot_count": 42,
+                "locked_mods": [],
+                "folder_name": "session-1"
+            }"#,
+        )
+        .unwrap();
+        std::fs::write(session_dir.join("snapshot_20260102_030405.zip"), b"one").unwrap();
+        std::fs::write(session_dir.join("snapshot_20260102_030406.zip"), b"two").unwrap();
+
+        let session = super::load_session_info(&session_dir).expect("session should load");
+
+        assert_eq!(session.snapshot_count, 42);
+        assert_eq!(session.retained_snapshot_count, 2);
+        let serialized = serde_json::to_string(&session).unwrap();
+        assert!(!serialized.contains("retained_snapshot_count"));
+        std::fs::remove_dir_all(&session_dir).ok();
     }
 
     #[test]

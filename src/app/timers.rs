@@ -411,6 +411,7 @@ mod tests {
             ended_at: None,
             status: crate::models::SessionStatus::Monitoring,
             snapshot_count: 0,
+            retained_snapshot_count: 0,
             locked_mods: Vec::new(),
             folder_name: "session-id".to_string(),
         });
@@ -443,6 +444,7 @@ mod tests {
             ended_at: None,
             status: crate::models::SessionStatus::Monitoring,
             snapshot_count: 0,
+            retained_snapshot_count: 0,
             locked_mods: Vec::new(),
             folder_name: "session-id".to_string(),
         });

@@ -264,6 +264,7 @@ mod tests {
             ended_at: None,
             status: SessionStatus::Monitoring,
             snapshot_count: 2,
+            retained_snapshot_count: 0,
             locked_mods: Vec::new(),
             folder_name: id.to_string(),
         }

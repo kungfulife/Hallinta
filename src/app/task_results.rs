@@ -125,6 +125,8 @@ impl HallintaApp {
                             self.save_monitor.snapshot_count += 1;
                             if let Some(ref mut session) = self.save_monitor.current_session {
                                 session.snapshot_count = self.save_monitor.snapshot_count;
+                                session.retained_snapshot_count =
+                                    session.retained_snapshot_count.saturating_add(1);
                                 let _ = save_monitor::save_session(session);
                             }
                             let _ = logging::log(
@@ -224,6 +226,12 @@ impl HallintaApp {
                     open_if_missing,
                 } => {
                     if let Ok(sessions) = result {
+                        if let Some(current) = self.save_monitor.current_session.as_mut()
+                            && let Some(refreshed) =
+                                sessions.iter().find(|session| session.id == current.id)
+                        {
+                            current.retained_snapshot_count = refreshed.retained_snapshot_count;
+                        }
                         match self.active_modal.take() {
                             Some(Modal::RestoreManager {
                                 selected_session,
@@ -341,9 +349,9 @@ impl HallintaApp {
                             &format!("Cleaned up {} old snapshot(s)", count),
                             "SaveMonitor",
                         );
-                        // File list may have dropped oldest zips — refresh open view.
-                        self.refresh_restore_manager_if_open();
                     }
+                    // Recount retained files even when cleanup had nothing to delete.
+                    self.refresh_restore_manager_if_open();
                 }
                 TaskResult::BackupDeleted(res) => match res {
                     Ok(filename) => {
@@ -391,6 +399,7 @@ impl HallintaApp {
             }) => {
                 let found = if let Some(entry) = sessions.iter_mut().find(|s| s.id == live.id) {
                     entry.snapshot_count = live.snapshot_count;
+                    entry.retained_snapshot_count = live.retained_snapshot_count;
                     entry.status = live.status.clone();
                     true
                 } else {
@@ -561,6 +570,7 @@ mod tests {
             ended_at: None,
             status: SessionStatus::Monitoring,
             snapshot_count: count,
+            retained_snapshot_count: 0,
             locked_mods: Vec::new(),
             folder_name: id.to_string(),
         }
@@ -569,15 +579,21 @@ mod tests {
     #[test]
     fn session_list_refresh_preserves_selected_session() {
         let (_runtime, mut app) = test_app(Vec::new());
+        let mut live_session = sample_session("a", 3);
+        live_session.retained_snapshot_count = 5;
+        app.save_monitor.current_session = Some(live_session);
         app.active_modal = Some(Modal::RestoreManager {
             sessions: vec![sample_session("a", 1)],
             snapshots: vec![],
             selected_session: Some(("a".to_string(), "Session a".to_string())),
         });
 
+        let mut refreshed_session = sample_session("a", 3);
+        refreshed_session.retained_snapshot_count = 2;
+
         app.task_tx
             .send(TaskResult::SessionListLoaded {
-                result: Ok(vec![sample_session("a", 3), sample_session("b", 0)]),
+                result: Ok(vec![refreshed_session, sample_session("b", 0)]),
                 open_if_missing: false,
             })
             .expect("test task result should send");
@@ -595,6 +611,13 @@ mod tests {
                 assert_eq!(
                     selected_session.as_ref().map(|(id, _)| id.as_str()),
                     Some("a")
+                );
+                assert_eq!(
+                    app.save_monitor
+                        .current_session
+                        .as_ref()
+                        .map(|session| session.retained_snapshot_count),
+                    Some(2)
                 );
             }
             other => panic!("expected RestoreManager, got {other:?}"),
@@ -623,9 +646,11 @@ mod tests {
         let (_runtime, mut app) = test_app(Vec::new());
         app.save_monitor.running = true;
         app.save_monitor.snapshot_count = 2;
-        app.save_monitor.current_session = Some(sample_session("live", 2));
+        let mut live_session = sample_session("live", 2);
+        live_session.retained_snapshot_count = 2;
+        app.save_monitor.current_session = Some(live_session.clone());
         app.active_modal = Some(Modal::RestoreManager {
-            sessions: vec![sample_session("live", 2), sample_session("old", 5)],
+            sessions: vec![live_session, sample_session("old", 5)],
             snapshots: Vec::new(),
             selected_session: None,
         });
@@ -646,6 +671,7 @@ mod tests {
                     .find(|s| s.id == "live")
                     .expect("live session should remain listed");
                 assert_eq!(live.snapshot_count, 3);
+                assert_eq!(live.retained_snapshot_count, 3);
                 assert_eq!(app.save_monitor.snapshot_count, 3);
             }
             other => panic!("expected RestoreManager, got {other:?}"),
