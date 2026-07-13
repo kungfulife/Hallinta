@@ -2,6 +2,8 @@ use crate::app::HallintaApp;
 use crate::models::*;
 use eframe::egui;
 
+const BACK_TO_SESSIONS_LABEL: &str = "Back to Sessions";
+
 /// Render the active modal (if any).
 pub fn render_modals(app: &mut HallintaApp, ctx: &egui::Context) {
     let modal = match app.active_modal.take() {
@@ -881,7 +883,7 @@ fn render_restore_manager(
             if let Some((ref _session_id, ref _session_name)) = selected_session {
                 // ── Snapshot list view ──
                 ui.horizontal(|ui| {
-                    if ui.button("\u{2190} Back to Sessions").clicked() {
+                    if ui.button(BACK_TO_SESSIONS_LABEL).clicked() {
                         back_to_list = true;
                     }
                     if let Some((ref session_id, _)) = selected_session
@@ -1311,5 +1313,11 @@ mod tests {
 
         app.save_monitor.running = true;
         assert!(!can_clear_session_data(&app));
+    }
+
+    #[test]
+    fn session_back_button_label_is_portable() {
+        assert_eq!(BACK_TO_SESSIONS_LABEL, "Back to Sessions");
+        assert!(BACK_TO_SESSIONS_LABEL.is_ascii());
     }
 }
